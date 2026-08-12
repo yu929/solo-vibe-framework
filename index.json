@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "universal-guides",
+      "type": "spec",
+      "name": "Universal Thinking Guides (无轨项目专用)",
+      "description": "轨无关思维清单：复用、跨层、召回与裁决分离。**只给还没有轨规范的项目单独装**——轨模板已自带同一份 guides，一个项目只能装一个模板",
+      "path": "specs/universal",
+      "tags": ["universal", "guides", "review", "convergence"]
+    },
+    {
+      "id": "web-fullstack",
+      "type": "spec",
+      "name": "Web Fullstack (Next.js 16 + Supabase)",
+      "description": "Next.js 16 App Router + React 19 + Tailwind v4 + shadcn/Base UI + Supabase(RLS) + Vitest/Playwright + Docker 的编码规范，**自带轨无关 guides**，一条 init 装齐",
+      "path": "specs/web-fullstack",
+      "tags": ["nextjs", "react", "typescript", "supabase", "tailwind", "shadcn", "docker"]
+    }
+  ]
+}

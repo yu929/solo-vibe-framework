@@ -1,0 +1,33 @@
+# 本仓自己的三条不变量检查。改任何脚本或 spec 之后都会跑。
+#
+# 为什么要 CI 而不是「记得手动跑」：这三个测试守的都是**没有症状的缺陷**——
+# 装两个模板不报错、vendor 被改过 SHA 不变、安装后断链在源码树里查不出来。
+# 靠人记得跑，等于没有守。
+#
+# ⚠️ 未实跑验证：本仓建这个文件时还没有 GitHub remote，一次都没跑过。
+
+name: checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 安装脚本：退役项只删软链、不删真目录；只动能证明是本框架装的链接。
+      # 测试在临时目录里跑（CLAUDE_SKILLS_DIR 覆盖），不碰 runner 的 ~/.claude。
+      - name: install-skills 回归
+        run: scripts/test-install-skills.sh
+
+      # vendor 漂移：本地内容必须等于固定 SHA 的上游内容。纯离线，靠校验和清单。
+      - name: vendor 漂移回归
+        run: scripts/test-sync-vendor.sh
+
+      # spec 模板：按**安装树**校验链接 + 各轨 guides 与权威源一致 + 已登记 index.json。
+      - name: spec 模板回归
+        run: scripts/test-spec-templates.sh

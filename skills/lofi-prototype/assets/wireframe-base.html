@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>低保真原型 · {产品名} · {方案名}</title>
+
+<!--
+================================================================================
+  怎么用这个骨架
+================================================================================
+  1. 复制到 docs/discovery/wireframe/<task-slug>/方案A/index.html（每个方案一份，共用本 token）。
+     目录名用 task slug——每一片一个目录，后面的片要靠 */final/ 沿用结构。
+  2. 按**当前切片** prd.md 的屏清单，逐屏加 <section class="screen" data-screen="xxx">。
+     本片的支撑屏和异常态也要加全——它们最常被漏，也最贵。
+     只画这一片：后面几片的需求还没收敛过，现在画等于替它们猜。
+  3. 在 devbar 的 <select id="screenSel"> 里同步登记每一屏，否则走查的人找不到它。
+  4. 状态用 data-when 标注，devbar 切状态时由 applyState() 打 .hide 控制显隐：
+       通用态：data-when="normal" / "empty" / "loading" / "error" / "denied"
+       业务态：本片 prd.md「必须表达的状态」里的每一个都要有，值自己起（如 "partial" "all-fail"），
+              同时在 devbar 的 <select> 里加一个 <option>——**不用改 CSS**。
+     一个元素可属于多个状态，空格分隔：data-when="normal partial"。
+     不带 data-when 的元素在所有状态下都显示（常驻内容）。
+     保真度契约要求「每个声明状态都能切过去看」：本片声明了 6 个状态就要有 6 个可选项，
+     漏一个就是契约没满足——参见下面「执行结果详情」屏对三个业务态的示范。
+  6. 操作要真能走，否则流程验不出来——骨架最常见的失职就是一堆点不动的按钮：
+       跨屏导航   → <a class="btn btn-primary" href="#下一屏">
+       屏内换状态 → <button onclick="applyState('loading')">（如"重跑""重新执行"）
+       叶子动作   → 可以不接（下载/导出/打开日志），但要用 title 标明是刻意不接
+     **异常恢复路径必须能点出来**（失败 → 重试 → 执行中 → 新结果），保真度契约的硬要求；
+     原型不模拟真实异步，用状态切换表达"点下去会怎样"就够了。
+  5. 假设与空白要在界面上可见，用 <span class="mark">[假设] …</span> / [待确认] / [设计决策]。
+     只写在注释里等于没写——走查的人看不见。
+
+  红线（完整版见 ../references/fidelity-contract.md）
+  - 零外部依赖：CSS/JS 全内联，不引 CDN、字体、图标库、图片。要能断网双击打开。
+  - 只灰阶 + 一个强调色，强调色只用来标该屏的主操作。
+  - 状态用文字标签 + 边框表达，不用红绿黄色彩语义（那是闸3 的事）。
+  - 假数据要像样（3–5 行真实感文案），全是 xxx 的原型走查不出东西。
+  - 每屏必须有一个明确的主操作。
+  - 不定字体/配色/间距，不生成生产级代码，不写进 src/。
+
+  下面的示例屏用「数据同步任务」演示 list / wizard / detail / modal 和五种状态，
+  照着替换成自己的屏；示例数据删掉，结构留着。
+================================================================================
+-->
+
+<style>
+/* ── 灰阶 token：唯一色彩来源，不要在下面的规则里写死其他颜色 ─────────── */
+:root{
+  --g0:#fff; --g50:#fafafa; --g100:#f2f2f2; --g200:#e6e6e6; --g300:#d0d0d0;
+  --g400:#a8a8a8; --g500:#808080; --g600:#5c5c5c; --g700:#3d3d3d; --g900:#1a1a1a;
+  --accent:#2b2b2b;              /* 中性强调色：只用于主操作 */
+  --r:3px;
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;   /* 不挑字体 */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.5 var(--font);color:var(--g900);background:var(--g100);padding-top:44px}
+
+/* ── devbar：走查工具条。切屏 + 切状态，让状态真的能被点着看 ──────────── */
+.devbar{position:fixed;top:0;left:0;right:0;height:44px;z-index:99;display:flex;
+  align-items:center;gap:12px;padding:0 12px;background:var(--g700);color:var(--g0);
+  font-size:12px;border-bottom:1px solid var(--g900)}
+.devbar strong{font-weight:600;letter-spacing:.03em}
+.devbar select{font:12px var(--font);padding:3px 6px;border:1px solid var(--g500);
+  border-radius:var(--r);background:var(--g0);color:var(--g900)}
+.devbar .hint{margin-left:auto;color:var(--g300)}
+
+/* ── 状态驱动：唯一的隐藏开关，由 JS 的 applyState() 打上 ─────────────────
+   用 !important 是刻意的：.bar .right{display:flex} 这类带 display 的类规则
+   特异度比属性选择器高，用 [data-when]{display:none} 会被静默盖过、状态切换失效。
+   只「隐藏」不「强制显示」——元素保留自己的自然 display，table-row / flex 不会被压成 block。
+   加新状态只需在 devbar 的 <select> 里加一个 <option>，不用改这里。 */
+.hide{display:none!important}
+
+/* ── 屏 ───────────────────────────────────────────────────────────────── */
+.screen{display:none;max-width:1080px;margin:0 auto;padding:20px 16px 60px}
+.screen.on{display:block}
+.crumb{color:var(--g500);font-size:12px;margin-bottom:6px}
+.head{display:flex;align-items:baseline;gap:12px;margin-bottom:4px}
+h1{font-size:19px;font-weight:600}
+.sub{color:var(--g500);font-size:13px;margin-bottom:16px}
+
+/* ── 面板 / 区域 ─────────────────────────────────────────────────────── */
+.panel{background:var(--g0);border:1px solid var(--g300);border-radius:var(--r);
+  padding:16px;margin-bottom:14px}
+.panel > h2{font-size:13px;font-weight:600;color:var(--g600);margin-bottom:12px;
+  text-transform:uppercase;letter-spacing:.05em}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row > *{flex:1;min-width:200px}
+
+/* ── 操作 ────────────────────────────────────────────────────────────── */
+.bar{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+.bar .right{margin-left:auto;display:flex;gap:8px}
+button,.btn{font:13px var(--font);padding:6px 14px;border:1px solid var(--g400);
+  border-radius:var(--r);background:var(--g0);color:var(--g700);cursor:pointer;
+  text-decoration:none;display:inline-block}
+button:hover,.btn:hover{background:var(--g100)}
+/* 主操作：每屏只有一个 */
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--g0)}
+.btn-primary:hover{background:var(--g900)}
+.btn-link{border:0;background:0;color:var(--g600);text-decoration:underline;padding:6px 4px}
+
+/* ── 表单 ────────────────────────────────────────────────────────────── */
+label{display:block;font-size:12px;color:var(--g600);margin-bottom:4px}
+label .req{color:var(--g900);font-weight:700}
+input,select.f,textarea{width:100%;font:13px var(--font);padding:6px 8px;
+  border:1px solid var(--g400);border-radius:var(--r);background:var(--g0)}
+.field{margin-bottom:14px}
+.note{font-size:12px;color:var(--g500);margin-top:4px}
+
+/* ── 表格 ────────────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--g200)}
+th{background:var(--g50);font-size:12px;font-weight:600;color:var(--g600)}
+tbody tr:hover{background:var(--g50)}
+td .btn-link{font-size:12px}
+
+/* ── 状态标签：文字 + 边框，不用色彩语义 ─────────────────────────────── */
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;
+  border:1px solid var(--g400);color:var(--g600);background:var(--g0);white-space:nowrap}
+.tag-strong{border-color:var(--g700);color:var(--g900);font-weight:600}
+.tag-mute{border-style:dashed;color:var(--g500)}
+
+/* ── 空 / 加载 / 错误 / 无权限 ───────────────────────────────────────── */
+.state{text-align:center;padding:52px 20px;color:var(--g500);
+  border:1px dashed var(--g300);border-radius:var(--r);background:var(--g50)}
+.state h3{font-size:15px;color:var(--g700);margin-bottom:6px;font-weight:600}
+.state p{margin-bottom:14px;font-size:13px}
+.skel{height:12px;background:var(--g200);border-radius:2px;margin:10px 0}
+.banner{border:1px solid var(--g500);border-left-width:4px;background:var(--g50);
+  padding:10px 12px;border-radius:var(--r);margin-bottom:14px;font-size:13px}
+.banner b{display:block;margin-bottom:2px}
+.banner ul{margin:6px 0 0 18px}
+
+/* ── 向导步骤条 ──────────────────────────────────────────────────────── */
+.steps{display:flex;gap:0;margin-bottom:18px;font-size:12px}
+.steps div{flex:1;padding:7px 10px;border:1px solid var(--g300);border-right:0;
+  background:var(--g50);color:var(--g500);text-align:center}
+.steps div:last-child{border-right:1px solid var(--g300)}
+.steps div.now{background:var(--g700);border-color:var(--g700);color:var(--g0);font-weight:600}
+.steps div.done{background:var(--g0);color:var(--g700)}
+
+/* ── 弹窗 ────────────────────────────────────────────────────────────── */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.35);
+  display:none;align-items:center;justify-content:center;padding:20px}
+.modal.on{display:flex}
+.modal .box{background:var(--g0);border-radius:var(--r);max-width:440px;width:100%;
+  border:1px solid var(--g400)}
+.modal .box h2{font-size:15px;padding:14px 16px;border-bottom:1px solid var(--g200)}
+.modal .box .body{padding:16px;font-size:13px;color:var(--g700)}
+.modal .box .foot{padding:12px 16px;border-top:1px solid var(--g200);
+  display:flex;gap:8px;justify-content:flex-end}
+
+/* ── 占位（图表/图片一律占位，不画真图） ─────────────────────────────── */
+.ph{border:1px dashed var(--g400);background:var(--g50);color:var(--g500);
+  display:flex;align-items:center;justify-content:center;font-size:12px;
+  min-height:120px;border-radius:var(--r)}
+
+/* ── 标记：假设 / 待确认 / 设计决策，必须在界面上可见 ────────────────── */
+.mark{display:inline-block;font-size:11px;padding:1px 6px;border:1px solid var(--g700);
+  background:var(--g0);color:var(--g900);border-radius:2px;margin-left:6px}
+</style>
+</head>
+<body data-state="normal">
+
+<!-- ══ devbar：每加一屏都要在这里登记 ══════════════════════════════════ -->
+<div class="devbar">
+  <strong>低保真原型 · {方案名}</strong>
+  <label style="color:inherit;margin:0">屏
+    <select id="screenSel">
+      <option value="list">1 同步任务列表（主流程）</option>
+      <option value="wizard2">3 新建 · 连接配置（主流程）</option>
+      <option value="result">6 执行结果详情（主流程）</option>
+      <!-- 按本片 prd.md 屏清单补全其余：支撑屏、异常态 -->
+    </select>
+  </label>
+  <label style="color:inherit;margin:0">状态
+    <select id="stateSel">
+      <optgroup label="通用">
+        <option value="normal">正常</option>
+        <option value="empty">空</option>
+        <option value="loading">加载中</option>
+        <option value="error">错误</option>
+        <option value="denied">无权限</option>
+      </optgroup>
+      <!-- 本片 prd.md「必须表达的状态」里的业务态直接加在这里（值随便起，和 data-when 对上就行）。
+           状态是**按屏**的：选业务态时，不相关的屏只剩常驻内容，这是正常的。
+           保真度契约要求「每个声明状态都能切过去看」——漏一个就是契约没满足。 -->
+      <optgroup label="业务态 · 执行结果详情">
+        <option value="all-ok">全部成功</option>
+        <option value="partial">部分成功</option>
+        <option value="all-fail">全部失败</option>
+      </optgroup>
+    </select>
+  </label>
+  <span class="hint">低保真骨架 · 只验结构与流程 · 视觉归闸3</span>
+</div>
+
+
+<!-- ══ 屏 1：列表 ═══════════════════════════════════════════════════════
+     演示 normal / empty / loading / denied 四态共存于一屏。
+     每态一个块，用 data-when 标注。
+-->
+<section class="screen" data-screen="list">
+  <div class="crumb">集成管理 / 同步任务</div>
+  <div class="head"><h1>同步任务</h1></div>
+  <p class="sub">从外部系统按周期拉取账号数据。共 3 个任务，2 个已启用。</p>
+
+  <!-- 无权限：审计员看到的是只读视图，不是报错页 -->
+  <div data-when="denied">
+    <div class="banner"><b>只读访问</b>当前角色（安全审计员）可查看任务与执行记录，不能新建、编辑、删除或手动触发。</div>
+  </div>
+
+  <div class="bar">
+    <input style="max-width:240px" placeholder="搜索任务名">
+    <select class="f" style="max-width:140px"><option>全部状态</option><option>已启用</option><option>未启用</option></select>
+    <div class="right" data-when="normal empty loading error">
+      <!-- 主操作必须真能走：走查的人要能从入口一路点到成功结果，光有按钮没导航验不出流程 -->
+      <a class="btn btn-primary" href="#wizard2">新建同步任务</a><!-- 该屏唯一主操作 -->
+    </div>
+  </div>
+
+  <!-- normal -->
+  <div class="panel" data-when="normal" style="padding:0">
+    <table>
+      <thead><tr><th>任务名</th><th>数据源</th><th>周期</th><th>状态</th><th>上次执行</th><th>操作</th></tr></thead>
+      <tbody>
+        <tr><td>研发部 LDAP 同步</td><td>LDAP</td><td>每天 02:00</td>
+            <td><span class="tag tag-strong">已启用</span></td>
+            <td>03-14 02:00 · <span class="tag">成功 1,204</span></td>
+            <td><a class="btn-link" href="#result">结果</a><a class="btn-link" href="#">编辑</a><a class="btn-link" href="#" onclick="mo('del');return false">删除</a></td></tr>
+        <tr><td>HR 系统人员同步</td><td>REST</td><td>每天 03:00</td>
+            <td><span class="tag tag-strong">已启用</span></td>
+            <td>03-14 03:00 · <span class="tag">部分成功 1,180/1,204</span></td>
+            <td><a class="btn-link" href="#result">结果</a><a class="btn-link" href="#">编辑</a><a class="btn-link" href="#" onclick="mo('del');return false">删除</a></td></tr>
+        <tr><td>外包人员账号同步</td><td>CSV</td><td>手动</td>
+            <td><span class="tag tag-mute">未启用</span></td>
+            <td>—</td>
+            <td><a class="btn-link" href="#">触发</a><a class="btn-link" href="#">编辑</a><a class="btn-link" href="#" onclick="mo('del');return false">删除</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- empty：空态要给出下一步，不是只说"暂无数据" -->
+  <div class="state" data-when="empty">
+    <h3>还没有同步任务</h3>
+    <p>创建第一个任务，把外部系统的账号数据定期拉进平台。</p>
+    <a class="btn btn-primary" href="#wizard2">新建同步任务</a>
+  </div>
+
+  <!-- loading -->
+  <div class="panel" data-when="loading">
+    <div class="skel" style="width:40%"></div><div class="skel"></div>
+    <div class="skel"></div><div class="skel" style="width:70%"></div>
+  </div>
+
+  <!-- error：失败要区分原因并各给下一步 -->
+  <div data-when="error">
+    <div class="banner"><b>无法加载任务列表</b>请求超时（10s）。<button class="btn-link" style="padding:0">重试</button></div>
+  </div>
+</section>
+
+
+<!-- ══ 屏 2：向导步骤 + 该步的错误态 ═════════════════════════════════ -->
+<section class="screen" data-screen="wizard2">
+  <div class="crumb">集成管理 / 同步任务 / 新建</div>
+  <div class="head"><h1>新建同步任务</h1></div>
+
+  <div class="steps">
+    <div class="done">1 基本信息</div><div class="now">2 连接配置</div>
+    <div>3 字段映射</div><div>4 数据预览</div>
+  </div>
+
+  <!-- error：连接测试失败要区分三类，各给不同下一步 -->
+  <div data-when="error">
+    <div class="banner">
+      <b>连接测试失败：认证被拒绝</b>
+      服务账号或密码不正确，地址本身可达。
+      <ul><li>确认服务账号未过期</li><li>确认密码未轮换</li></ul>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>连接信息</h2>
+    <div class="row">
+      <div class="field"><label>服务地址 <span class="req">*</span></label>
+        <input value="ldaps://directory.internal:636"></div>
+      <div class="field"><label>服务账号 <span class="req">*</span></label>
+        <input value="svc-sync"></div>
+    </div>
+    <div class="field" style="max-width:50%"><label>密码 <span class="req">*</span></label>
+      <input type="password" value="••••••••••">
+      <p class="note">加密存储，保存后仅显示掩码，不出现在日志与响应中。</p></div>
+    <div class="bar" style="margin:0">
+      <button>测试连接</button>
+      <span class="tag tag-mute" data-when="normal">未测试</span>
+      <span class="tag" data-when="loading">测试中…（最长 10 秒）</span>
+      <span class="tag tag-strong" data-when="error">失败 · 认证被拒绝</span>
+    </div>
+    <p class="note">超时上限 10 秒<span class="mark">[设计决策] 超时后保留已填内容并允许重试，不清空表单</span></p>
+  </div>
+
+  <div class="bar">
+    <a class="btn" href="#list">上一步</a>
+    <div class="right">
+      <a class="btn btn-link" href="#list">取消</a>
+      <!-- 本骨架只放了向导第 2 步做示范；真实原型要把简报屏清单里的步骤 1/3/4 都补上。
+           这里直接跳到执行结果，是为了让走查的人能完整走一遍 入口 → 关键操作 → 成功结果。 -->
+      <a class="btn btn-primary" href="#result">下一步：字段映射 <span class="mark">骨架略过步骤 3/4</span></a>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══ 屏 3：详情 + 部分成功 ════════════════════════════════════════ -->
+<section class="screen" data-screen="result">
+  <div class="crumb">集成管理 / 同步任务 / HR 系统人员同步 / 执行结果</div>
+
+  <!-- 三个业务态各一套：本片声明了「全部成功/部分成功/全部失败」，就都要能切过去看。
+       常驻内容不带 data-when；业务态块带 data-when，多态共用时空格分隔。
+       注意 normal 也列进去，这样通用「正常」态下有个默认展示。 -->
+  <div class="head">
+    <h1>执行结果</h1>
+    <span class="tag tag-strong" data-when="normal partial">部分成功</span>
+    <span class="tag tag-strong" data-when="all-ok">全部成功</span>
+    <span class="tag tag-strong" data-when="all-fail">全部失败</span>
+  </div>
+  <p class="sub">2026-03-14 03:00 开始 · 耗时 42 秒 · 共 1,204 条</p>
+
+  <!-- 部分成功 -->
+  <div data-when="normal partial">
+    <div class="row" style="margin-bottom:14px">
+      <div class="panel"><h2>成功</h2><div style="font-size:24px;font-weight:600">1,180</div></div>
+      <div class="panel"><h2>失败</h2><div style="font-size:24px;font-weight:600">24</div></div>
+      <div class="panel"><h2>新建 / 更新</h2><div style="font-size:24px;font-weight:600">31 / 1,149</div></div>
+    </div>
+    <div class="panel" style="padding:0">
+      <table>
+        <thead><tr><th>行</th><th>外部标识</th><th>失败原因</th></tr></thead>
+        <tbody>
+          <tr><td>37</td><td>emp-10037</td><td>必填字段「部门」为空</td></tr>
+          <tr><td>92</td><td>emp-10092</td><td>邮箱格式不合法：<code>zhang@</code></td></tr>
+          <tr><td>118</td><td>emp-10118</td><td>平台已存在同名账号且来源为手工创建<span class="mark">[待确认] Q1 冲突以哪边为准</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="bar">
+      <!-- 纯副作用的叶子动作（下载/导出）可以不接行为，但要写清是刻意的，不是忘了接 -->
+      <button class="btn-link" title="叶子动作：下载，原型不接">导出失败明细</button>
+      <!-- 异常恢复路径必须能走查：点了之后去哪、看到什么，都要能点出来 -->
+      <div class="right"><button class="btn-primary" onclick="applyState('loading')">只重跑失败的 24 条</button></div>
+    </div>
+  </div>
+
+  <!-- 执行中：重跑/重新执行点下去之后的样子。
+       原型不模拟真实异步——用状态切换表达"点下去会怎样"就够了，
+       走查的人看完这屏再自己切到 全部成功 / 部分成功 看结果。 -->
+  <div data-when="loading">
+    <div class="banner"><b>重跑执行中</b>正在重新处理 24 条失败记录，预计 10 秒。完成后本页显示新的执行结果。</div>
+    <div class="panel">
+      <div class="skel" style="width:35%"></div><div class="skel"></div><div class="skel" style="width:60%"></div>
+    </div>
+    <div class="bar">
+      <span class="tag tag-mute">执行中不可取消（外部接口不支持中途回滚）<span class="mark">[假设] 与 §8.1 技术限制一致</span></span>
+    </div>
+  </div>
+
+  <!-- 全部成功：这是主流程的终点，走查时要能从入口一路点到这里 -->
+  <div data-when="all-ok">
+    <div class="row" style="margin-bottom:14px">
+      <div class="panel"><h2>成功</h2><div style="font-size:24px;font-weight:600">1,204</div></div>
+      <div class="panel"><h2>失败</h2><div style="font-size:24px;font-weight:600">0</div></div>
+      <div class="panel"><h2>新建 / 更新</h2><div style="font-size:24px;font-weight:600">31 / 1,173</div></div>
+    </div>
+    <div class="state">
+      <h3>同步完成，没有失败记录</h3>
+      <p>任务已按每天 03:00 的周期继续运行，下次执行 03-15 03:00。</p>
+      <a class="btn btn-primary" href="#list">回到任务列表</a>
+    </div>
+  </div>
+
+  <!-- 全部失败：不能只说"失败了"，要给出原因和下一步 -->
+  <div data-when="all-fail">
+    <div class="banner">
+      <b>同步失败：一条也没写入</b>
+      连接在执行中断开（第 12 秒），外部系统返回 503。已回滚本次全部写入。
+      <ul><li>确认外部系统是否在维护窗口</li><li>可稍后手动重试，或等下一个周期自动执行</li></ul>
+    </div>
+    <div class="row" style="margin-bottom:14px">
+      <div class="panel"><h2>成功</h2><div style="font-size:24px;font-weight:600">0</div></div>
+      <div class="panel"><h2>失败</h2><div style="font-size:24px;font-weight:600">1,204</div></div>
+      <div class="panel"><h2>已回滚</h2><div style="font-size:24px;font-weight:600">是</div></div>
+    </div>
+    <div class="bar">
+      <button class="btn-link" title="叶子动作：打开日志，原型不接">查看完整错误日志</button>
+      <div class="right"><button class="btn-primary" onclick="applyState('loading')">重新执行</button></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══ 弹窗：二次确认 ═══════════════════════════════════════════════ -->
+<div class="modal" id="m-del">
+  <div class="box">
+    <h2>删除同步任务</h2>
+    <div class="body">
+      <p>删除「研发部 LDAP 同步」后，任务配置和定时计划一并移除。</p>
+      <p style="margin-top:8px">历史执行记录与审计日志<b>保留</b>，可在审计日志中查询。<span class="mark">[假设] 保留历史记录；如需一并删除请确认</span></p>
+    </div>
+    <div class="foot">
+      <button onclick="mo(0)">取消</button>
+      <button class="btn-primary" onclick="mo(0)">确认删除</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* ── hash 路由：每屏一个可分享地址 ─────────────────────────────────── */
+function go(){
+  var id = location.hash.slice(1) || document.getElementById('screenSel').value;
+  var found = false;
+  document.querySelectorAll('.screen').forEach(function(s){
+    var on = s.dataset.screen === id;
+    s.classList.toggle('on', on);
+    if (on) found = true;
+  });
+  if (!found) {                                  // hash 指向不存在的屏 → 回第一屏
+    var first = document.querySelector('.screen');
+    if (first) { first.classList.add('on'); id = first.dataset.screen; }
+  }
+  document.getElementById('screenSel').value = id;
+  window.scrollTo(0, 0);
+}
+document.getElementById('screenSel').addEventListener('change', function(e){
+  location.hash = e.target.value;
+});
+window.addEventListener('hashchange', go);
+
+/* ── 状态切换：给不匹配当前状态的 data-when 元素打 .hide ─────────────
+   放在 JS 而不是 CSS 里，是为了「加一个业务态只要加一个 <option>」——
+   CSS 做不到属性值比较，enumerate 一遍状态会让契约和示范必然漂移。 */
+function applyState(st){
+  document.body.dataset.state = st;
+  var sel = document.getElementById('stateSel');
+  if (sel && sel.value !== st) sel.value = st;   // 屏内按钮切状态时，devbar 要跟着动
+  document.querySelectorAll('[data-when]').forEach(function(el){
+    var tokens = el.dataset.when.split(/\s+/).filter(Boolean);
+    el.classList.toggle('hide', tokens.indexOf(st) === -1);
+  });
+}
+document.getElementById('stateSel').addEventListener('change', function(e){
+  applyState(e.target.value);
+});
+
+/* ── 弹窗 ─────────────────────────────────────────────────────────── */
+function mo(name){
+  document.querySelectorAll('.modal').forEach(function(m){ m.classList.remove('on'); });
+  if (name) {
+    var el = document.getElementById('m-' + name);
+    if (el) el.classList.add('on');
+  }
+}
+document.querySelectorAll('.modal').forEach(function(m){
+  m.addEventListener('click', function(e){ if (e.target === m) mo(0); });
+});
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') mo(0); });
+
+go();
+applyState(document.getElementById('stateSel').value);   // 初始化：状态由 JS 驱动，必须先跑一次
+</script>
+</body>
+</html>

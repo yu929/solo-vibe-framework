@@ -1,0 +1,100 @@
+# 每晚 diff 上游 mattpocock/skills，**只在内容真变了时开 PR**，绝不自动 merge。
+#
+# 为什么是 PR 不是自动提交：vendor/ 里是别人的代码，跟着流程走。自动跟随上游等于
+# 让别人的改动在你不知情时改变你的工作流——本仓 AGENTS.md 与 scripts/sync-vendor.sh
+# 都明写反对这件事。PR 保留「读完 diff 再决定」这个动作，只是把 diff 送到你面前。
+#
+# ⚠️ 未实跑验证：本仓建这个文件时还没有 GitHub remote，这份 workflow 一次都没跑过。
+#    第一次推上去之后用 workflow_dispatch 手动触发一次，对不上的地方当场改这个文件。
+
+name: sync-vendor
+
+on:
+  schedule:
+    # GitHub cron 用 UTC。19:00 UTC = 次日 03:00 Asia/Shanghai。
+    # 注意两件事：① 定时任务在整点高峰会被延迟，别把它当准点闹钟；
+    #            ② 仓库连续 60 天无提交活动，GitHub 会自动停用 schedule，
+    #               到时要么手动 workflow_dispatch，要么去 Actions 页面重新启用。
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: sync-vendor
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 先离线校验仓库里的 vendor 是否等于固定版本。
+      # 放在 --pull 前面是有意的：漂移和「上游前进了」是两回事，混在一个 diff 里
+      # 读不出谁是谁。漂移是「现在就该修」，所以直接让这个 job 红，而不是悄悄开个
+      # 把别人改动revert 掉的 PR。
+      - name: 校验 vendor 未漂移（离线）
+        run: scripts/sync-vendor.sh --verify
+
+      # gh CLI 在 ubuntu-latest 上预装；脚本用它读上游 tree 和 blob。
+      - name: 拉取上游并写入 vendor/
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/sync-vendor.sh --pull
+
+      # 只有 skill 内容（或 LICENSE）变了才值得开 PR。
+      # 上游在别处提交时 --pull 只会 bump .upstream-sha，那种 PR 是纯噪音——
+      # 所以把 .upstream-sha 排除在判据之外，然后整棵 vendor/ 一起回滚。
+      # 代价：sha 会停在旧值、每晚重新拉一次。这是有意的取舍，换的是零噪音 PR。
+      - name: 判断内容是否真的变了
+        id: diff
+        run: |
+          if git diff --quiet -- vendor/mattpocock-skills ':!vendor/mattpocock-skills/.upstream-sha'; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "内容无变化（上游动的是别处）。回滚 sha bump，不开 PR。"
+            git checkout -- vendor/mattpocock-skills
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "内容有变化，将开 PR。"
+          fi
+
+      # MIT 要求副本保留许可证。脚本自己也断言，这里再卡一道：
+      # 万一将来有人改坏了脚本，也不能让一个没有 LICENSE 的 vendor 进 PR。
+      - name: 断言 LICENSE 仍在
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          test -s vendor/mattpocock-skills/LICENSE \
+            || { echo "::error::vendor/mattpocock-skills/LICENSE 缺失或为空，不满足 MIT 再分发条件"; exit 1; }
+
+      - name: 生成 diff 摘要
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          {
+            echo "上游 mattpocock/skills 有改动。**读完 diff 再 merge —— 这是别人改了你的工作流。**"
+            echo
+            echo "固定 sha 将更新为 \`$(cut -c1-7 vendor/mattpocock-skills/.upstream-sha)\`。"
+            echo
+            echo "特别注意 \`LICENSE\` 的改动：许可条款变了可能意味着不能再 vendor，"
+            echo "那不是普通内容变更，要单独判读。"
+            echo
+            echo '```diff'
+            git diff -- vendor/mattpocock-skills
+            echo '```'
+          } > /tmp/pr-body.md
+          cat /tmp/pr-body.md
+
+      - name: 开 / 更新 PR
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          # 固定分支名：每晚复用同一个 PR，不堆一串。
+          branch: chore/sync-vendor
+          base: main
+          title: "chore(vendor): 跟随上游 mattpocock/skills"
+          body-path: /tmp/pr-body.md
+          commit-message: "chore(vendor): sync mattpocock/skills"
+          add-paths: vendor/mattpocock-skills
+          delete-branch: true
