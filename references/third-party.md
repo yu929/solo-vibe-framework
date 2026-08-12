@@ -92,7 +92,7 @@ if (resolved.type !== "spec") {
 
 同文件 `:18` 的 `INSTALL_PATHS` 里确实有 `skill: ".agents/skills"`，但类型闸在前面，那行是死代码。即便上游将来打开，落点也是**项目内**的 `.agents/skills`，不是 `~/.claude/skills/`——跨项目的 skill 还是得软链。`dist/configurators/claude.js:96` 写的是项目内 `.claude/skills/`，但只装 Trellis 自己的 bundled skill。
 
-**所以 `index.json` 只登记 `type: spec`**（现在两条：`universal-guides` 与 `web-fullstack`）。上游支持非 spec 类型之后，才可以把 skill 加进去。
+**所以 `index.json` 只登记 `type: spec`**（现在三条：`universal-guides`、`web-fullstack` 与 `java-stack`）。上游支持非 spec 类型之后，才可以把 skill 加进去。
 
 ### 三套提问纪律会打架
 

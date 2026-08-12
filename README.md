@@ -25,6 +25,7 @@
 specs/
   universal/guides/          轨无关思维清单 —— **权威源**，也是无轨项目的独立模板
   web-fullstack/             Next.js 16 + Supabase 规范 + guides/（生成副本）→ .trellis/spec/
+  java-stack/                Spring Boot 4 + Postgres + React 规范 + guides/（生成副本）→ .trellis/spec/
 skills/                      lofi-prototype · design-review（自有）
 vendor/mattpocock-skills/    grilling · grill-me（第三方 MIT，只读，含 LICENSE 与校验清单）
 playbook/                    给人读的操作手册（五个场景 + 简报模板）
@@ -90,8 +91,10 @@ Trellis: Plan（brainstorm + 本片原型 → ★ planning summary）→ Execute
 
 ```bash
 scripts/install-skills.sh                         # 软链 skill 到 ~/.claude/skills/（幂等）
-trellis init --claude --registry <本仓> --template web-fullstack
+trellis init --claude --registry <本仓> --template web-fullstack   # 或 --template java-stack
 ```
+
+现有的轨：`web-fullstack`（Next.js + Supabase）、`java-stack`（Spring Boot + Postgres + React）。都还没有的技术栈，装 `universal-guides`。
 
 **一个项目只装一个 spec 模板。** Trellis 的 `registry.spec.template` 是单数的，装第二个会把第一个顶掉，此后 `trellis update` 只刷新后装的那个——而且不报错。所以轨模板**自带** guides（`specs/<track>/guides/` 是 `specs/universal/guides/` 的生成副本，`scripts/sync-spec-guides.sh` 同步）。
 

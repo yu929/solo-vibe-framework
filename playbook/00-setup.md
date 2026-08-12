@@ -93,7 +93,14 @@ trellis init --claude --registry https://github.com/<you>/solo-vibe-framework \
              --template web-fullstack
 ```
 
-**非 web-fullstack 的项目**：换成对应的轨 id。本仓还没有那条轨的规范时，装 `universal-guides`——它只有轨无关 guides，是给这种情况准备的。
+**换轨就换 `--template` 的值**，现有的两条：
+
+| 轨 id | 技术栈 | starter |
+|---|---|---|
+| `web-fullstack` | Next.js 16 + Supabase（RLS 兜底隔离） | `starters/web-fullstack` |
+| `java-stack` | Spring Boot 4 + Postgres + React（**无 RLS**，靠归属收口 + 负向测试） | `starters/java-stack` |
+
+两条都不是你的技术栈时，装 `universal-guides`——它只有轨无关 guides，是给这种情况准备的。
 
 **怎么确认这步成了**：
 
