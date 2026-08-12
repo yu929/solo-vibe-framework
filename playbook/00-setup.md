@@ -113,8 +113,6 @@ ls .trellis/spec/guides/     # 应有 index.md code-reuse.md cross-layer.md revi
 
 > ### ⚠️ 千万别装两个模板
 >
-> **旧版这份手册教人跑两次 init、第二次带 `--append` 追加 guides。那是错的，已改。**
->
 > Trellis 的 `.trellis/config.yaml` 里 `registry.spec.template` 是**单数**的，第二次 init 会把它整行替换掉。此后 `trellis update` 只刷新第二个模板，**你的轨规范（含那些安全规则）再也收不到修复**。
 >
 > 最坏的地方是它不报错：update 照常成功、照常打绿字，只是少刷了一半。**没有任何症状**，直到某天你发现本地规范和框架仓的对不上。
@@ -192,7 +190,7 @@ scripts/install-skills.sh --check
 
 **别再补一次 init 去追加**：装第二个模板会把 `registry.spec.template` 顶掉，`trellis update` 从此只刷新后装的那个。
 
-### 「我以前按旧手册装了两个模板，现在怎么办」
+### 「已经装了两个模板，现在怎么办」
 
 打开项目的 `.trellis/config.yaml` 看 `registry.spec.template` 那一行：
 
@@ -209,7 +207,7 @@ scripts/install-skills.sh --check
 
 脚本会报告并**中止不动它**——那可能是你自己装的第三方。确认后自己移走，再跑一次。
 
-**退役名也一样。** 如果你有个自己写的 `system-design` 真目录，脚本不会删它，只会报错让你处理。（这条曾经是反的：早先版本对退役名无差别 `rm -rf`，会把你的目录连内容一起删掉。已修，并由 `scripts/test-install-skills.sh` 用例 1 卡住。）
+**退役名也一样。** 如果你有个自己写的 `system-design` 真目录，脚本不会删它，只会报错让你处理。
 
 ### 「同一个 skill 出现了两份」
 

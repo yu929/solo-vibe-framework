@@ -171,7 +171,7 @@ skills/<name>/
 | 问题记录 | 只 4 字段（现象 / 判定 / 动作 / 落点），判定 ∈ {改 prd, 改原型, 挪到后面的切片, 待确认} |
 | 单片规模警报 | 一片的屏或交互序列 > 6 时提醒「是不是切大了」，结论留痕，**不阻塞** |
 
-**提问轮次不再由本仓管**。Trellis 的 `trellis-brainstorm` 强制「每条消息只问一个问题」，且它在 planning 阶段是必经的；本仓再规定一套 ≤2 轮批量提问只会跟它对着来。三套纪律（Trellis 一次一问 / `grilling` 一轮问完 frontier / 旧版 ≤2 轮）取 Trellis 的。
+**提问轮次不由本仓管**。Trellis 的 `trellis-brainstorm` 强制「每条消息只问一个问题」，且它在 planning 阶段是必经的；本仓再规定一套 ≤2 轮批量提问只会跟它对着来。两套纪律（Trellis 一次一问 / `grilling` 一轮问完 frontier）取 Trellis 的。
 
 两条理由，关系到别把两套机制搞混：
 

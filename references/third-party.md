@@ -42,7 +42,7 @@ fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/co
 | `trellis-brainstorm` 已做需求收敛，且有硬门禁：没显式批准 planning summary 就不许 `task.py start` | `.agents/skills/trellis-brainstorm/SKILL.md` | **不自造门禁**，把原型接在它前面 |
 | 它的前置是「task-creation consent 已给出」，先 `task.py create` 再问 | 同上 · Preconditions | task 之前是真空——简报的位置 |
 | *"Do not invent a project-specific product/spec hierarchy. If the repository already has product docs, use them."* | 同上 | Trellis **主动**把产品层留给你 |
-| 强制**一次一问**（"Ask only one question per message"） | 同上 · Question Rules | 见下「三套提问纪律」 |
+| 强制**一次一问**（"Ask only one question per message"） | 同上 · Question Rules | 见下「两套提问纪律」 |
 | `.trellis/spec/` = *"Maintain coding standards"*，目录只有 frontend/backend/unit-test/guides | `trellis-meta/references/core/specs.md` | **纯编码规范，零产品内容**；也没有 `architecture/` |
 | `finish-work` 四步：`get_context.py --mode record` → `git status` → `task.py archive` → `add_session.py` | `.agents/skills/trellis-finish-work/SKILL.md` | 归档 + journal，**零产品问题**，且 task-scoped |
 | workflow-state hook 是 **parser-only**（*"reads whatever you put in the block"*） | `trellis-meta/references/customize-local/change-workflow.md` | 任何「门禁」都只是提示语 |
@@ -63,9 +63,9 @@ fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/co
 
 **registry 模板的路径会被抹平**：`specs/<id>/` 的**内容**复制进 `.trellis/spec/`，`<id>/` 那一层不保留。所以 `specs/web-fullstack/frontend/index.md` 落成 `.trellis/spec/frontend/index.md`（正好是 Trellis 自己的目录约定），而**不是** `.trellis/spec/web-fullstack/frontend/index.md`。
 
-#### 一个项目只能装一个 spec 模板（曾经写错，已改正）
+#### 一个项目只能装一个 spec 模板
 
-**旧版本的这份文档教人跑两次 init、第二次带 `--append` 装 guides。那是错的**，会让轨规范静默失去更新来源。源码证据：
+**跑第二次 init 追加模板，会让先装的那个静默失去更新来源。** 源码证据：
 
 | 事实 | 出处 |
 |---|---|
@@ -74,9 +74,9 @@ fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/co
 | 每次带 `--template` 的 init 都会写这份配置 | `dist/commands/init.js:1384, 1512` |
 | `trellis update` 只读 `config.template` 那**一个** id 去刷新 | `dist/commands/update.js:469, 505, 510` |
 
-所以第二条命令把配置改成 `universal-guides` 之后，`trellis update` 从此只刷新 guides，**含安全规则的轨规范再也收不到修复**。而 update 命令仍然成功、仍然打印绿色——这就是它能藏住的原因。
+所以先装轨规范、再装 `universal-guides` 之后，`trellis update` 从此只刷新 guides，**含安全规则的轨规范再也收不到修复**。而 update 命令仍然成功、仍然打印绿色——这就是它能藏住的原因。
 
-**现在的做法：轨模板自带 guides，只跑一次 init。** `specs/<track>/guides/` 是 `specs/universal/guides/` 的生成副本，由 `scripts/sync-spec-guides.sh` 同步、`scripts/test-spec-templates.sh` 卡住漂移。`universal-guides` 模板仍然保留，但它的用途窄了一条：**只给还没有轨规范的项目单独装**，永远不和轨模板一起装。
+**做法：轨模板自带 guides，只跑一次 init。** `specs/<track>/guides/` 是 `specs/universal/guides/` 的生成副本，由 `scripts/sync-spec-guides.sh` 同步、`scripts/test-spec-templates.sh` 卡住漂移。`universal-guides` 模板仍然保留，但它的用途窄了一条：**只给还没有轨规范的项目单独装**，永远不和轨模板一起装。
 
 顺带解决了一个只在安装态才暴露的断链：`<id>/` 被抹平之后，`../../universal/guides/x.md` 会解析到 `.trellis/universal/guides/x.md`（不存在）。guides 与轨规范同级之后，`../guides/x.md` **在源码树和安装树里指的是同一个东西**。这类缺陷在仓库里跑任何常规链接检查都是绿的，所以必须按安装树查——`test-spec-templates.sh` 用例 1 做的就是这件事。
 
@@ -94,15 +94,14 @@ if (resolved.type !== "spec") {
 
 **所以 `index.json` 只登记 `type: spec`**（现在三条：`universal-guides`、`web-fullstack` 与 `java-stack`）。上游支持非 spec 类型之后，才可以把 skill 加进去。
 
-### 三套提问纪律会打架
+### 两套提问纪律会打架
 
 | 来源 | 节奏 | 停止规则 |
 |---|---|---|
 | Trellis `trellis-brainstorm` | **一次一问** | 用户显式批准 planning summary |
 | mattpocock `grilling` | 一轮问完 frontier | frontier 空（无界） |
-| 本仓旧版 `product-brief`（已退役） | 一轮批量问 | ≤2 轮（有界） |
 
-**本版取 Trellis 的**，理由是它在 planning 阶段是强制的，另外两套只会跟它对着来。`grilling` 仍然有用——用在**写简报**那一步（还没建 task，brainstorm 没上场），frontier 让一轮问得更饱满。
+**本仓取 Trellis 的**，理由是它在 planning 阶段是强制的，另一套只会跟它对着来。`grilling` 仍然有用——用在**写简报**那一步（还没建 task，brainstorm 没上场），frontier 让一轮问得更饱满。
 
 赌注是：**brainstorm 问的每个问题都是简报里缺的一条，补进简报之后下一片会明显变短**（它的 Evidence Rule 要求「能从仓库文档查到的就别问用户」）。**这是推测，实跑后回来修正。**
 
@@ -123,7 +122,7 @@ if (resolved.type !== "spec") {
 | `grilling` | design tree + frontier 分轮批量提问：一轮问完整个 frontier、编号 + **每题附推荐答案**、依赖未决的排到下一轮、「Finding facts is your job, never the user's」（环境事实派子 agent 查，不问用户） | 无 |
 | `grill-me` | 用户可调用薄壳（147 字节：`disable-model-invocation: true` + 一句 `Run a /grilling session`） | 依赖 `grilling` |
 
-**它的停止条件是「frontier 空」，无界。** 本仓**不再**给提问加轮次上限（旧版那条 ≤2 轮已随 `product-brief` 一起退役，见下节），所以别再写「用自有的 ≤2 轮给它兜底」——那条纪律不存在了，写了就是指向一个不存在的规则。
+**它的停止条件是「frontier 空」，无界。** 本仓不给提问加轮次上限。
 
 **那它在简报阶段靠什么收敛？** 靠它自己的两条：frontier 空即停，以及 *"Finding facts is your job, never the user's"*（环境事实派子 agent 查，不问用户）。这一步在 task 之外，Trellis 的 brainstorm 还没上场，所以确实没有外部闸——**这是有意接受的**：简报阶段问题问不够，代价会在后面每一片重复付。真正需要有界的是走查轮次和选案次数，那两条纪律落在 `lofi-prototype` 里。
 
@@ -185,7 +184,7 @@ scripts/sync-vendor.sh --pull     # 读完 diff、确认要跟随，才更新（
 # npx skills@latest add mattpocock/skills    ← 拷进项目仓库，per-repo
 ```
 
-**还需不需要 `grilling`——待实跑验证。** 本仓已决定提问纪律取 Trellis 的（见下节），而 Trellis 的 brainstorm 已经有了 grilling 的两条核心（Evidence Rule、每题附推荐答案），差别只剩 frontier 批量 vs 一次一问。所以 grilling 的净增量只剩「**写简报那一步、brainstorm 还没上场时的批量提问**」——真实但很窄。
+**还需不需要 `grilling`——待实跑验证。** 本仓已决定提问纪律取 Trellis 的（见上「两套提问纪律会打架」），而 Trellis 的 brainstorm 已经有了 grilling 的两条核心（Evidence Rule、每题附推荐答案），差别只剩 frontier 批量 vs 一次一问。所以 grilling 的净增量只剩「**写简报那一步、brainstorm 还没上场时的批量提问**」——真实但很窄。
 
 实跑一次简报之后再定去留。不需要了就删掉 `vendor/mattpocock-skills/<name>/`、从 `scripts/install-skills.sh` 的 `VENDORED` 数组移除、**并加进 `RETIRED` 数组**（否则已存在的软链会留着继续被触发），同时从 `scripts/sync-vendor.sh` 的 `SKILLS` 数组移除。
 
