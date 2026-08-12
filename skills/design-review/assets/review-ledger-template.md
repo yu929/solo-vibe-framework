@@ -2,7 +2,7 @@
 
 > **跨 session 记忆。每轮评审先读本文件。** `REJECTED_*` / `DEFERRED` / `ACCEPTED_RISK` 条目**不得重提**，除非满足其 `reopen_condition`。
 > 严重度 P0–P3。`status ∈ {ACCEPTED_BLOCKING, ACCEPTED_NON_BLOCKING, DEFERRED, ACCEPTED_RISK, DUPLICATE, REJECTED_OUT_OF_SCOPE, REJECTED_UNSUPPORTED, CLOSED}`（CLOSED = 修复落地或 reopen 条件已兑现）。
-> 本台账是评审期工作文件：版本发布时把仍开放条目迁入 `迭代待办与已知问题.md` 后删除本文件（历史在 git），见 design-review SKILL「台账生命周期」。
+> 本台账是评审期工作文件：版本发布时把仍开放条目迁入**目标仓库的已知问题文件**（路径按那个仓库自己的文档约定）后删除本文件（历史在 git），见 design-review SKILL「台账生命周期」。
 
 ## 冻结输入（每轮评审更新）
 

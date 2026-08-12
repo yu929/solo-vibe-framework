@@ -21,7 +21,7 @@
 ## 十条纪律
 
 1. **冻结输入包**。每轮评审前固定：需求版本、设计版本、工程基线版本、评审范围、非范围、台账路径。**不冻结就不进入评审**——范围会飘的评审必然发散。
-2. **问题台账**。每条记录 `id / category / evidence / trigger / impact / affected_requirement / severity / blocking_reason / status / reopen_condition`；`status ∈ {ACCEPTED_BLOCKING, ACCEPTED_NON_BLOCKING, DEFERRED, DUPLICATE, REJECTED_OUT_OF_SCOPE, REJECTED_UNSUPPORTED, ACCEPTED_RISK, CLOSED}`。台账是**跨 session 记忆**，没有它每个新 session 都从零开始。
+2. **问题台账**。每条记录**十个字段**：`id / category / evidence / trigger / impact / affected_requirement / severity / blocking_reason / status / reopen_condition`；`status ∈ {ACCEPTED_BLOCKING, ACCEPTED_NON_BLOCKING, DEFERRED, DUPLICATE, REJECTED_OUT_OF_SCOPE, REJECTED_UNSUPPORTED, ACCEPTED_RISK, CLOSED}`。台账是**跨 session 记忆**，没有它每个新 session 都从零开始。
 3. **先读再审**。每轮先读完整台账。`REJECTED_*`、`DEFERRED`、`ACCEPTED_RISK` 未满足 `reopen_condition` **不得重提**；只有台账 diff 能证明一个条目是"新"的。
 4. **证据门槛**。没有可定位设计依据、触发条件、后果和受影响需求的发现，**不得作为阻塞项**，至多 P3。"可能有扩展性问题"不是发现。
 5. **严重度闸门**。设计侧 P0–P3：P0 编码前清零，P1 必有明确处置（未必全改），P2 进 backlog，P3 不阻塞。代码侧只有明确标为 blocking 的问题阻断合并。
@@ -42,7 +42,7 @@
 
 ## 证据格式
 
-每条发现至少包含：
+每条发现至少包含**八个字段**：
 
 ```yaml
 id: FINDING-012
@@ -57,15 +57,17 @@ blocking_reason: "破坏核心数据正确性"                     # 不阻塞�
 
 缺 `evidence` + `trigger` + `impact` 任一项的，**不得作为阻塞项**。
 
+> **两个字段集，别数混**：这里的**证据格式八字段**是一条发现最少要说清的东西；纪律 2 的**台账十字段**是它加上 `status` 与 `reopen_condition`（裁决之后才填得出来）。全框架对比"轻量 4 字段"时说的都是**八字段**——因为轻的那两个场合根本走不到裁决那一步。
+
 ## 这套不适用的两个场合
 
-**编码和调试期间**的发现（「这个约定其实不对」「这里有坑 spec 没写」）走 4 字段 finding，**不套九字段**。
+**编码和调试期间**的发现（「这个约定其实不对」「这里有坑 spec 没写」）走 4 字段 finding，**不套八字段**。
 
 **需求探索期**（写简报、原型走查）走轻量收敛：**走查** ≤2 轮、方案一次拍板、问题记录只 4 字段。
 
 > **提问轮次不由本框架管**，别在这里加一条。Trellis 的 `trellis-brainstorm` 在 planning 阶段强制「每条消息只问一个问题」，本框架再规定一套 ≤2 轮批量提问只会跟它对着来。有界的是**走查轮次**和**选案次数**，不是提问。
 
-两者的规则正文在 `specs/universal/guides/review-adjudication.md`，由 Trellis 注入每个 session。共同的理由是**海拔**：九字段要求可定位设计依据、触发条件和受影响需求；而那两个场合的发现形态是「跑的时候发现 X」「这步太绕」。套九字段等于要求为每条实战观察或直觉反馈写举证材料——人会干脆不记，或者让 AI 编证据来凑格式。两个结果都比没有格式更糟。
+两者的规则正文在 `specs/universal/guides/review-adjudication.md`，由 Trellis 注入每个 session。共同的理由是**海拔**：八字段要求可定位设计依据、触发条件和受影响需求；而那两个场合的发现形态是「跑的时候发现 X」「这步太绕」。套八字段等于要求为每条实战观察或直觉反馈写举证材料——人会干脆不记，或者让 AI 编证据来凑格式。两个结果都比没有格式更糟。
 
 ## 常见误用
 
@@ -76,4 +78,4 @@ blocking_reason: "破坏核心数据正确性"                     # 不阻塞�
 | 每次换个新 session 重审一遍 | 不读台账 = 没有跨 session 记忆 = 无限审计的标准起手式 |
 | 把实现细节报成 P0 | 锁/重试/算法归编码期。真 P0 是承重决策缺失 |
 | 因为"还能找出问题"就不开工 | 永远能找出问题。判据是「有没有**新的、证据充分的**阻塞问题」 |
-| 需求阶段或编码期套九字段台账 | 见上一节 |
+| 需求阶段或编码期套八字段证据格式 | 见上一节 |

@@ -67,7 +67,7 @@ Trellis 的 `.trellis/config.yaml` 里 `registry.spec.template` 是**单数**字
 
 本仓**最容易做歪的一处**。
 
-playbook 的读者是**还不熟这套流程的人**，产物是「照着做的清单」——参照 `web-fullstack/VIBE-CODING-PLAYBOOK.md` 的写法。**不要把它改造成 command 或 agent 指令文件。**
+playbook 的读者是**还不熟这套流程的人**，产物是「照着做的清单」。**不要把它改造成 command 或 agent 指令文件。**
 
 理由不是风格偏好，是顺序：command 的读者是 AI，手册的读者是正在学流程的人；二者不是同一东西的两种形态，而是**先后两步**——手册先记录「我实际怎么做」，被实跑验证后，其中稳定的部分才值得固化成 command。跳过手册直接写 command，等于把没验证过的流程写死。
 
@@ -116,7 +116,7 @@ skills/<name>/
 - 版本固定在 `vendor/mattpocock-skills/.upstream-sha`。
 - **必须保留上游 `LICENSE`**。MIT 要求副本保留版权与许可声明，而 `vendor/` 就是一份副本——这是再分发条件，不是礼节。`scripts/sync-vendor.sh` 启动时硬断言它存在，`.github/workflows/sync-vendor.yml` 再卡一道。
 - 同步跑 `scripts/sync-vendor.sh`（只报告差异），确认要跟随再 `--pull`。**不自动跟随上游**——那等于让别人的改动在你不知情时改变你的工作流。每晚的 workflow 守同一条：它**只开 PR，不 merge**。
-- **删一个 vendor skill 要动三处**：删目录、从 `install-skills.sh` 的 `VENDORED` 移除、**并加进 `RETIRED`**。漏最后一步会留下一条活软链，skill 继续被触发——`domain-modeling` 退役时就差点漏掉。同时从 `sync-vendor.sh` 的 `SKILLS` 数组移除。
+- **删一个 vendor skill 要动四处**：① 删目录 ② 从 `install-skills.sh` 的 `VENDORED` 移除 ③ **加进同文件的 `RETIRED`** ④ 从 `sync-vendor.sh` 的 `SKILLS` 数组移除。漏第 ③ 步会留下一条活软链，skill 继续被触发——`domain-modeling` 退役时就差点漏掉。
 
 **退役项只删软链，不删真目录。** 退役名（`system-design`、`product-brief` 这类）很通用，用户可能有同名自有 skill；对真文件/目录一律报错退出。这条由 `scripts/test-install-skills.sh` 用例 1 卡住，**改 `install-skills.sh` 的删除逻辑前先读那个测试**。
 
@@ -154,9 +154,9 @@ skills/<name>/
 | 在哪 | 管什么 | 谁读 |
 |---|---|---|
 | [`specs/universal/guides/review-adjudication.md`](specs/universal/guides/review-adjudication.md) | 编码期 finding 4 字段、需求探索期轻量收敛 | 每个 session，经 Trellis 注入 |
-| `skills/design-review/references/review-adjudication.md` | 完整评审协议：十条纪律、P0–P3、九字段证据格式、停止规则 | 只在触发评审时加载 |
+| `skills/design-review/references/review-adjudication.md` | 完整评审协议：十条纪律、P0–P3、八字段证据格式、停止规则 | 只在触发评审时加载 |
 
-**协议正文必须住在 skill 里。** skill 会被软链或拷贝到 `~/.claude/skills/`，那里读不到本仓的 `specs/`——跨目录引用的 skill 到了那里就是个缺核心规则的空壳，评审结果会退化成模型自行补全。**skill 内不得出现 `](../../` 形式的引用**，这条要在验证里卡。
+**协议正文必须住在 skill 里。** skill 会被软链或拷贝到 `~/.claude/skills/`，那里读不到本仓的 `specs/`——跨目录引用的 skill 到了那里就是个缺核心规则的空壳，评审结果会退化成模型自行补全。**skill 内不得出现 `](../../` 形式的引用**——这条**目前还没有机器在卡**（`test-spec-templates.sh` 用例 3 只扫 `specs/`），它列在下面「稳定后要建的两条检查」里，在建起来之前靠人守。
 
 改纪律先判断改的是哪一层，只改那一份，然后检查 `design-review/SKILL.md` 的摘要是否还成立。
 
@@ -175,7 +175,7 @@ skills/<name>/
 
 两条理由，关系到别把两套机制搞混：
 
-1. **完整台账的九字段是过重海拔**。它要求可定位设计依据、触发条件和受影响需求；走查阶段的发现形态是「这步太绕」「失败了不知道该干什么」。套九字段等于要求用户为每条直觉反馈写举证材料。
+1. **设计准入那套八字段证据格式是过重海拔**（台账在它之上再加 `status` 与 `reopen_condition`，共十字段）。它要求可定位设计依据、触发条件和受影响需求；走查阶段的发现形态是「这步太绕」「失败了不知道该干什么」。套八字段等于要求用户为每条直觉反馈写举证材料。
 2. **收敛压力放在轮次与拍板上，不放在覆盖面上**。低保真原型必须覆盖**当前切片**声明的全量（它是本片实现的结构依据，覆盖面小于实现就等于把缺口留给 AI 自由发挥）；真会失控的是在方案之间反复摇摆，所以纪律落在选案上。
 
 ## 防漂移

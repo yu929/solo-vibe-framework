@@ -114,7 +114,7 @@ Dockerfile  docker-compose*.yml # 容器化部署（含 selfhost 内网版）
 |---|---|
 | [`guides/index.md`](guides/index.md) | guides 总入口 |
 | [`guides/code-reuse.md`](guides/code-reuse.md) | 写新代码前先找既有实现的顺序 |
-| [`guides/cross-layer.md`](guides/cross-layer.md) | 跨层职责判据（含「校验散落各层」，上面 §5 引的就是它） |
+| [`guides/cross-layer.md`](guides/cross-layer.md) | 跨层职责判据（含「校验散落各层」，[`backend/index.md`](backend/index.md) §5 与 [`frontend/index.md`](frontend/index.md) §3 引的就是它） |
 | [`guides/review-adjudication.md`](guides/review-adjudication.md) | 编码期 finding 的 4 字段、召回与裁决分离 |
 
 > `guides/` 在框架仓里是**生成副本**，权威源是 `specs/universal/guides/`，由 `scripts/sync-spec-guides.sh` 同步。**改 guides 要去改权威源**——直接改这里下次同步就被覆盖（框架仓的 CI 会先报出来）。

@@ -27,7 +27,9 @@ Trellis 官方只认四种 fork 理由：给它提 PR、改 npm 包发布内容�
 
 fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/core` + 两个 submodule + husky + pyright），fork 后要维护 TS/Python 混合构建，且**不能再 `npm install -g` 拿上游更新**。
 
-**本仓不发 `type: workflow` 模板。** 实测它是整份替换 `.trellis/workflow.md`（官方 marketplace 的条目就是 `path: workflows/native/workflow.md`），等于接管整个 Plan/Execute/Finish 正文。理由不是代价不可接受——`trellis workflow create <id>` 是**从 native 派生**的，`--create-new` / `--save <id>` 还能写 `.trellis/workflows/<id>.md` 而不动活跃 workflow，再合并没那么痛——理由是**这套流程一次都没实跑过**，现在写等于把猜测固化。实跑一遍知道该卡在哪，再决定。
+**本仓不发 `type: workflow` 模板。** 实测它是整份替换 `.trellis/workflow.md`（官方 marketplace 的条目就是 `path: workflows/native/workflow.md`），等于接管整个 Plan/Execute/Finish 正文。理由不是代价不可接受——`trellis workflow create <id>` 是**从 native 派生**的（`dist/cli/index.js:224-227`，写进 `.trellis/workflows/<id>.md`），`trellis workflow -s <id>` 也能把一个模板存进那个库而不动活跃 workflow，再合并没那么痛——理由是**这套流程一次都没实跑过**，现在写等于把猜测固化。
+
+> 别把 `-s/--save <id>` 和 `-n/--create-new` 搞混：前者写 `.trellis/workflows/<id>.md`（每 task 可选的模板库），后者写 `.trellis/workflow.md.new`（活跃 workflow 的待合并副本）。实跑一遍知道该卡在哪，再决定。
 
 在那之前，需要的那一段提示语靠手工粘进 `[workflow-state:no_task]`，见 [`../playbook/00-setup.md`](../playbook/00-setup.md) 步骤 5。
 
