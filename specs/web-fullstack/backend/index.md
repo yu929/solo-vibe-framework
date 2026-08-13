@@ -26,7 +26,7 @@ Supabase Auth（邮箱 + 密码）。
 
 - 会话刷新**只在** `src/proxy.ts → updateSession`
 - 受保护路由由 proxy 统一拦截，未登录跳 `/login`
-- 公共前缀：`/login`、`/signup`、`/auth`
+- **默认全部路由需登录，公开是一次显式决定。** 骨架里的公共前缀只有 `/login`、`/signup`、`/auth`，因为它只有那一条链路——**那是骨架的形状，不是本轨的上限**。落地页、公开只读页、分享链接、健康检查、webhook 回调都是正当的公开路由：往 proxy 的公共前缀表里显式加一条，并在同一处写下**匿名能读到什么**。判据是「这些东西登不登录都无所谓吗」；答不上来就还不该公开。公开路由读的数据仍然走 RLS（[`../database/index.md`](../database/index.md) §1）
 - `requireUser()` 在 `src/lib/auth/require-user.ts`（server-only + react cache）；有 `profiles` 后在此扩 `requireAdmin`
 
 ## 3. auth cookie 名必须显式指定
@@ -66,6 +66,10 @@ enable_signup = true           # → EXTERNAL_EMAIL_ENABLED，保留 email 登�
 
 ## 6. 异构子服务（如 Python 执行器）
 
+> **先判断本节适不适用：项目有 `services/` 目录吗？** 骨架里没有，多数项目也不会有。**没有的时候，本节连同所有指向它的交叉引用一律不适用**——[`../README.md`](../README.md) 禁止清单里那条「已登记的受控例外」、[`../database/index.md`](../database/index.md) §1 的「唯一受控例外」、[`../testing/index.md`](../testing/index.md)「怎么验证」第 3 条，全部作废，规则回到最简单的那一句：**不绕过 RLS，没有例外**。
+>
+> 保留这一节是因为那条信任边界的推理很贵，真要拆子服务时不该重新踩一遍；但在你有 `services/` 之前，它对你是零。
+
 **什么时候需要**：产品有「重执行」的一侧（SSH 部署、调目标系统内部 API、重计算），不适合塞进 Next 进程——独立成子服务，Next 只经 HTTP(Bearer) 下发任务。
 
 **什么时候不需要**：能在 server action 里同步做完的，就别拆。拆子服务的代价是多一套部署、多一条信任边界、多一份版本对齐。
@@ -102,7 +106,7 @@ enable_signup = true           # → EXTERNAL_EMAIL_ENABLED，保留 email 登�
 
 **⑤ 验收是负向的。** 写了归属校验 ≠ 生效，判据只有一个：拿 A 租户的 job 去够 B 租户的资源主键，**必须被拒**。见 [`../testing/index.md`](../testing/index.md)「怎么验证」第 3 条。这与本轨对 RLS 的态度一致——策略写了要用第二个账号真的试。
 
-> 同理，「每个内网工具都要」的身份地基（管理员建号 / 禁自助注册 / 防暴破 / TOTP / LDAP）**不进 starter**——按项目实际需要在对应切片里实现。starter 只保留最小可跑的骨架，不预置你不一定要的东西。
+> 同理，「每个内网工具都要」的身份地基（管理员建号 / 禁自助注册 / 防暴破 / TOTP / LDAP）**不预置**——按项目实际需要在对应切片里实现。骨架只保留最小可跑的那一份，不替你决定你不一定要的东西。
 
 ---
 
@@ -113,7 +117,7 @@ enable_signup = true           # → EXTERNAL_EMAIL_ENABLED，保留 email 登�
 - [ ] 新加的 Supabase 接入点带 `cookieOptions: { name: SUPABASE_AUTH_COOKIE_NAME }` 了吗？
 - [ ] 这个操作的**授权**在服务端做了吗？（客户端隐藏入口不算）
 - [ ] 用到 `service_role` 了吗？**默认不允许**——确需破例要显式记载受控例外
-- [ ] 新增路由需要登录吗？公共前缀只有 `/login` `/signup` `/auth`
+- [ ] 新增的路由要公开吗？**默认需登录**——要公开就往 proxy 的公共前缀表里显式加一条，并写下匿名能读到什么（§2）；它读的数据仍然走 RLS
 - [ ] 要拆异构子服务吗？先问能不能在 server action 里同步做完（见 §6）
 - [ ] 子服务这次读的**每一张**用户表，归属校验在哪个数据库函数里？说不出函数名就是没做（§6.1）
 - [ ] 有没有哪个入参是「外部传进来的用户数据主键」？有就是走错路了——worker 的入参只该有 job id

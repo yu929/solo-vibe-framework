@@ -34,7 +34,7 @@
 
 > 真实项目确需破例时（如 service-role 用于 Auth Admin API、secret 不能作 server action 入参而需一个转发壳 Route），必须**显式记载受控例外**（范围 + 理由 + 落点），不许默默绕过；例外本身也要能被评审核对。
 >
-> **已登记的受控例外只有一条**：异构子服务的 worker 持 service-role，范围写在 [`backend/index.md`](backend/index.md) §6.1。它带一条不许简写的不变量——worker 的入参只有 job id，不按外部传入的主键取用户数据——和一条负向验收（拿 A 租户的 job 够 B 租户的资源必须被拒）。**「有一条例外」不等于「service-role 可以自由用」**：不在那张表里的用法一律按禁止处理。
+> **已登记的受控例外只有一条，而且多数项目用不上它**：异构子服务的 worker 持 service-role，范围写在 [`backend/index.md`](backend/index.md) §6.1。**项目里没有 `services/` 目录时这条例外不存在**，规则就是「不绕过 RLS」六个字。它带一条不许简写的不变量——worker 的入参只有 job id，不按外部传入的主键取用户数据——和一条负向验收（拿 A 租户的 job 够 B 租户的资源必须被拒）。**「有一条例外」不等于「service-role 可以自由用」**：不在那张表里的用法一律按禁止处理。
 
 **安全（破了会出真事故）**：
 
@@ -61,7 +61,7 @@ src/
   app/
     layout.tsx                  # 根布局，挂 <Toaster/>
     fonts/*.woff2               # vendored 字体（next/font/local），构建零外网依赖
-    page.tsx                    # 受保护首页（需登录）
+    page.tsx                    # 首页（骨架里是受保护的；要公开见 backend/index.md §2）
     login/page.tsx  signup/page.tsx
     auth/actions.ts             # 鉴权 server actions: login/signup/signOut
     <功能>/actions.ts           # 每个业务模块一组写操作
@@ -121,8 +121,7 @@ Dockerfile  docker-compose*.yml # 容器化部署（含 selfhost 内网版）
 
 ## 与 starter AGENTS.md 的关系
 
-**同一套规则目前存在两处**：本目录，与 starter 仓 `web-fullstack/AGENTS.md`。这是已知的临时状态，不是设计意图。
-
 - **本目录是权威源**，跟着框架仓维护、经 Trellis 按需注入。
-- starter 的 `AGENTS.md` 应当逐步瘦身成「项目信息 + 指向本规范」，但**最致命的几条必须留正文**：`service_role` 不进前端、不绕 RLS、不手改生成文件。理由：不走 Trellis 的 session 读不到按需注入的 spec，那几条破了会出真事故，不能只存在于注入路径里。
-- 瘦身之前，改规则**先改本目录**，再同步回 starter。反向改会漂移。
+- starter 的 `AGENTS.md` 只保留「项目信息 + 指向本规范 + 最致命的那几条红线」，且它们必须是本页禁止清单的**严格子集**，分组也与本页一致（安全 / 结构）。**下放的判据**：不走 Trellis 的 session 读不到按需注入的 spec，而这条破了会出真事故。不满足这条判据的规则留在本页，不下放。
+- **不要把这份子集写成固定枚举。** 两边的清单都会长，枚举一旦落后，读的人会按枚举判定 starter「超范围」，而它其实只是又下放了一条同样致命的规则。核对方式是**逐条回本页禁止清单找对应项**——找不到对应项才是违规。
+- 改规则**先改本目录**，再同步回 starter。反向改会漂移。

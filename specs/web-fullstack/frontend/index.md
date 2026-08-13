@@ -70,7 +70,7 @@
 - **色值单源在 `src/app/globals.css` 的 `@theme`**；令牌之外不新造色值、阴影、任意字号
 - 徽章只给**真实状态**（词表在 `src/lib/status.ts`）
 - 把 `Link` 当按钮时用 `buttonVariants({...})` 作 className（Base UI 无 `asChild`）
-- **暗色**：`next-themes` 目前仅被 `sonner` 用于同步 toast 明暗，starter 未接切换。要暗色再加 provider + toggle。**别因「看着多余」删 `next-themes`**——`sonner.tsx` 是生成文件且 import 了它，删了编译失败。
+- **暗色**：`next-themes` 只被 `sonner` 用来同步 toast 明暗，骨架没接切换器。要暗色就加 provider + toggle。**别因「看着多余」删 `next-themes`**——`sonner.tsx` 是生成文件且 import 了它，删了编译失败。
 
 ## 9. 可访问性
 

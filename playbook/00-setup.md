@@ -11,7 +11,7 @@
 
 ## 开始之前
 
-- [ ] Node ≥ 18、Python ≥ 3.9
+- [ ] Node ≥ 18、Python ≥ 3.9（这是 **Trellis 自己**的要求；各轨的技术栈另有更高要求，装完看 `.trellis/spec/README.md` 的栈锁定表）
 - [ ] `gh` CLI（只有同步 vendor 时才需要）
 
 ## 最要紧的一件事：这里有四套机制，不是一套

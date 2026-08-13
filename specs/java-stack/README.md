@@ -36,6 +36,7 @@ Supabase 轨的每用户数据隔离由数据库兜底：策略写在表上，�
 | 数据库 | **Postgres 17** + **Flyway**（纯 SQL 迁移） |
 | ORM | **Spring Data JPA / Hibernate 7** |
 | 鉴权 | **Spring Security** + **Spring Session JDBC**（会话存 Postgres），**不用 JWT** |
+| 认证限流 | **bucket4j**（`bucket4j_jdk17-core`）令牌桶，进程内；按客户端地址 + 按账号两份额度 |
 | API 文档 | **springdoc-openapi 3.x** → `/v3/api-docs` → 前端类型 |
 | 前端 | **Vite 8 + React 19 + TypeScript 6 + Tailwind v4 + shadcn/ui（Base UI 内核，`base-nova`，neutral）** |
 | 前端路由 / 状态 | **React Router 8**（declarative）+ **TanStack Query 5** |
@@ -66,10 +67,13 @@ Boot 4 大改了坐标和包名。这些**编译期就报错**的还算好，最
 
 **数据隔离（本轨第一红线）**：
 
-- **owner-scoped 的 repository 不得 extend `JpaRepository` / `CrudRepository`**——一律 extend 裸 `Repository<T, ID>`，只声明带 `ownerId` 的方法。继承来的 `findById` / `findAll` / `deleteById` 不带归属谓词，误用即静默泄漏。
+- **repository 唯一允许的父接口是裸 `Repository<T, ID>`**——这是白名单，不是「除了 `JpaRepository`/`CrudRepository` 都行」的黑名单。黑名单必漏：`PagingAndSortingRepository` 自 Spring Data 3.0 起直接继承裸 `Repository`，照样白送 `findAll(Sort)` / `findAll(Pageable)`；`JpaSpecificationExecutor` / `QueryByExampleExecutor` 压根不是 `Repository` 子类型，混进来整张表都能捞。
+- **手写的方法和继承的方法泄露程度相同**。挂在裸 `Repository` 上的 `findById(UUID)` 一样不带归属谓词。所以每个声明的方法要么在派生查询名里真的按 `ownerId` **过滤**，要么标 `@CrossUserQuery("理由")`（[`backend/index.md`](backend/index.md) §2）。
+- **上面两条对每一个 repository 都成立，不只是每用户实体的那些。** 不带归属的表（字典、参考数据、配置）标 `@OwnerlessTable("理由")` 在**接口**上，别拿 `@CrossUserQuery` 逐个方法凑——那会把「真的跨用户读」这个信号淹掉。它只豁免方法级归属检查，**不豁免父接口白名单**，而且实体真带 `ownerId` 时会被拒（[`backend/index.md`](backend/index.md) §2.4）。
 - 每张每用户表必须 `owner_id uuid not null references app_user(id)` + `owner_id` 索引 + **一条双账号负向测试**。
 - 「不是你的」和「不存在」都回 **404**，不回 403——403 等于确认了那条记录存在。
-- 跨用户读写走**显式登记的受控例外**（[`backend/index.md`](backend/index.md) §2.4），不许靠给 repository 加方法实现。
+- 跨用户读写走**显式登记的受控例外**（[`backend/index.md`](backend/index.md) §2.4）：标注在**方法**上，不许靠加方法或换更宽的父接口实现。
+- **守卫本身要有反向测试**。失效的守卫和无事可抓的守卫都是绿的，看不出区别（[`testing/index.md`](testing/index.md)）。
 
 **安全**：
 
@@ -79,6 +83,9 @@ Boot 4 大改了坐标和包名。这些**编译期就报错**的还算好，最
 - **session principal 里不许带凭据**——会话被序列化进 Postgres，带着密码哈希就是把它复制进第二张表（[`backend/index.md`](backend/index.md) §4.1）。
 - 不提交 `.env`，不把密码/密钥写进 `application.yml` 或源码。**数据库口令不许有任何默认值**（连"看起来像开发值"的也不行）——漏配变量的启动路径会用那个公开已知的口令静默成功。注意「没有默认值」不等于「会失败」：占位符解析失败**不会**中止 Spring 启动，必须在 `main()` 里显式挡一道（[`database/index.md`](database/index.md) §5.2）。
 - **开发用的容器端口只绑 `127.0.0.1`**，不要 `"5432:5432"`（那是 0.0.0.0）。
+- **不许摘掉登录/注册的限流**（[`backend/index.md`](backend/index.md) §4.5）。BCrypt 是故意慢的，且注册在唯一索引裁决**之前**就已经哈希过了——没有限流，一台机器反复提交同一个已注册邮箱就能打满 CPU，而数据库全程空闲。
+- **客户端地址只取 `getRemoteAddr()`，绝不信 `X-Forwarded-For`**——那是客户端自己写的，等于送攻击者无限身份。挂反代时改配 `server.forward-headers-strategy=native`，让 Tomcat 的 valve 去改写 `getRemoteAddr()`。
+- **API 接受的输入必须是底下存储真能存的**（[`backend/index.md`](backend/index.md) §4.6）。校验不到位的失败点在写入之后：一半的记录已经落库，用户拿到 500。
 - 授权一律在服务端；前端路由守卫只管渲染，不构成授权。
 - 上了 TLS 就 `APP_COOKIE_SECURE=true`；生产 `APP_API_DOCS_ENABLED=false`。
 
@@ -96,21 +103,12 @@ Boot 4 大改了坐标和包名。这些**编译期就报错**的还算好，最
 
 **工具与脚本**：
 
-- **改工作树的脚本必须先做完整 preflight**：所有校验通过之前不许写任何一个字节。半途失败留下的仓库既不是模板也不是新项目，比直接拒绝难收拾得多。
-  - 注意「先写再判断有没有命中」等于没有 preflight——那是**边写边校验**。校验必须**在改写之前**跑完，包括「每个文件都在」「每条模式都命中（或已是目标态）」「每个要写的文件可写」。
-  - 校验用的正则和改写用的正则**必须语义一致**。`perl -0ne`（整文件）与 `perl -pi`（逐行）对 `^`/`$` 的理解不同，不加 `/m` 就会把好好的仓库判成漂移。
-  - **要创建的路径，每一级祖先都要校验**，不只是最终目标。只查 `a/b/c` 存不存在，而 `a/b` 是个普通文件时，`mkdir` 会在 apply 阶段才失败——那时前面的改写已经落盘了。
-  - **权限要查父目录的 `write + execute`，不是文件本身的 `-w`**。`perl -pi` 是在同目录写临时文件再改名，`mv` 是把条目从父目录里摘掉——两者真正需要的都是**父目录**可写可进入。文件可写而父目录只读时，检查通过、执行失败。要查三处：每个待改写文件的父目录、包移动的**源**父目录、目标路径最深的现有父目录。
-  - **每一处改写都必须进那张统一表**。留在 apply 阶段"顺手跑一下"的固定正则不会经过模式 preflight：给 `group = "com.example"` 加个行尾注释，脚本照样 exit 0、包目录已移动，而 group 没改。
-  - **脚本要能在 bash 3.2 上跑**（macOS 的 `/bin/bash`）。`declare -A`、`mapfile`、`${var^^}` 都是 bash 4+ 的，写了在 Linux 上测不出来，到 Mac 上直接语法错误。
-- **不要用 `find ... 2>/dev/null` 生成待处理清单。** 它把权限失败连同错误信息一起吞掉，返回一份**短清单加一个成功状态**——preflight 看着通过，读不到的文件从此不在计划内。要检 `find` 的退出码，并让它的 stderr 可见（`Permission denied: <path>` 就是诊断本身）。
-  - 退出码也**不便携**：不同 find 实现对「缺 `+x` 的目录」反应不同（这台机器上的 `bfs` 直接走了进去还 exit 0）。所以再逐个目录检查 `-r` / `-x` 权限位——`perl -pi` 在缺 `+x` 的目录里一定失败，跟 find 怎么想无关。
-  - **apply 阶段复用 preflight 验证过的那份清单**，不要再 `find` 一次（process substitution 里的失败传不出来）。顺序上把「不依赖路径的改写」（如包声明）放在 `mv` **之前**，清单里的路径就一直有效，省掉旧路径到新路径的重映射。
-- **`trap ... EXIT` 里最后一条命令的返回值会成为脚本的退出码。** `cleanup() { [[ -n "$f" ]] && rm -f "$f"; }` 在变量为空时返回 1，于是一次干净的「无事可做」变成了失败退出。trap 函数末尾显式 `return 0`。
-- **幂等的改名要以「当前值」为基准，不能硬编码原始值**。从权威处（如 `settings.gradle.kts` 的 `rootProject.name`）读出当前名再替换。硬编码模板名看起来等价，直到新名**包含**旧名：把项目改名成 `java-stack-demo` 再跑一次，`java-stack` 仍然匹配到已改名值内部，于是变成 `java-stack-demo-demo`。以当前值为基准顺带还能支持「改完再改成第三个名字」。
-- **同一条策略不要在两层各写一份守卫**。曾经 Gradle 的 `bootRun` 和应用的 `main()` 各判一次数据库口令，规则却不一样——应用接受 `SPRING_DATASOURCE_PASSWORD`，Gradle 不接受，于是用那个变量跑 `bootRun` 会在 JVM 启动前被拒。两份规则必然漂移；**留在离事实最近的那一层**（这里是应用），另一层只负责把环境准备好。
+- **改工作树的脚本（改名、批量重写、数据迁移）必须先做完整 preflight**：所有校验通过之前不许写任何一个字节。半途失败留下的仓库既不是原样也不是目标态，比直接拒绝难收拾得多。注意「先写再判断有没有命中」等于没有 preflight——那是**边写边校验**。
 - 脚本**永远不要 `rm -rf` 目标路径**来"腾地方"。目标已存在就是拒绝的理由，不是删除的理由——那可能是别人的代码。
+- **同一条策略不要在两层各写一份守卫**。曾经 Gradle 的 `bootRun` 和应用的 `main()` 各判一次数据库口令，规则却不一样——应用接受 `SPRING_DATASOURCE_PASSWORD`，Gradle 不接受，于是用那个变量跑 `bootRun` 会在 JVM 启动前被拒。两份规则必然漂移；**留在离事实最近的那一层**（这里是应用），另一层只负责把环境准备好。
 - **注释声称的行为要和实际行为一致**。`node { download = false }` 只跳过 Node 下载，`pnpmSetup` 照样会 `npm install` 一个不受版本控制的 pnpm；写着"只用 PATH 上那个"而实际装了第二个，比没写注释更糟。改完用 `--info` 看一眼真实执行了什么。
+
+> **怎么写好这类脚本不在本规范里。** preflight 的清单与范围、`perl -0ne` 与 `perl -pi` 对 `^`/`$` 的分歧、`trap ... EXIT` 会改写退出码、`find ... 2>/dev/null` 把权限失败连同错误一起吞掉、bash 3.2 的限制、要查**父目录**的 `write + execute` 而不是文件的 `-w`、幂等改名必须以**当前值**为基准——这些是 `scripts/init-project.sh` 这个**可执行工件**的教训，跟着工件走，写在 starter 仓的 `scripts/README.md` 里。本页只留上面那几条换个脚本也成立的。
 
 ## 目录结构（新增代码按此归位）
 
@@ -121,6 +119,7 @@ backend/src/main/java/<pkg>/
                CurrentUserService（≈ requireUser()）· AuthController · AuthProperties
   <功能>/      实体 · Repository（归属收口）· Service · Controller · Dtos（record）
   common/      ApiExceptionHandler（RFC 9457 ProblemDetail）· NotFoundException · ConflictException
+               CrossUserQuery（方法级例外）· OwnerlessTable（接口级：这张表没有归属）
 backend/src/main/resources/
   application.yml
   db/migration/V*.sql          # 唯一写 SQL 的地方
@@ -144,12 +143,19 @@ docs/
   discovery/wireframe/<片>/     # 逐切片低保真骨架，final/ 冻结
   releases/vX.Y.Z.md           # 逐版本发布说明 + 验收清单
 scripts/
+  README.md                    # 改工作树的脚本怎么写（preflight、bash 3.2、权限位…），本规范不复述
   init-project.sh              # 新项目第一步：改名（否则共享数据卷，见 database §5）
   test-init-project.sh         # 上面那个脚本的拒绝路径与零写入验收
 gradle/libs.versions.toml      # 后端版本唯一钉版处（哪些故意不钉见「栈锁定」）
-Dockerfile  docker-compose{,.dev,.external-db}.yml
+Dockerfile
+docker-compose.dev.yml         # 本地开发库（只绑 127.0.0.1）
+docker-compose.yml             # 只有应用，没有数据库
+docker-compose.override.yml    # 自带库；不写 -f 时 compose 自动加载
+docker-compose.external-db.yml # 外部库；显式 -f 会连带抑制上面那个 override
 .github/workflows/{ci,release}.yml
 ```
+
+> **数据库为什么不写在 `docker-compose.yml` 里**：compose **先逐文件插值、再合并**。自带库的 `${POSTGRES_PASSWORD:?…}` 只要写在基础文件里，外部库那条路径也会去解析它——为一个自己根本不启动的数据库要口令，整个 deploy 失败。把它挪进 override 之后，两种模式各自只解析自己用到的变量。注意 `deploy: replicas: 0` **不解决这个问题**：插值发生在任何 override 生效之前。
 
 > **实现规格不进 `docs/`**——它随 task 住在 `.trellis/tasks/<task>/prd.md`。集中预先穷举的那份必然先于代码腐化。
 
@@ -158,6 +164,14 @@ Dockerfile  docker-compose{,.dev,.external-db}.yml
 **锁死，改动先问**：栈、目录、归属收口方式、鉴权与 CSRF、迁移方式、部署形态。
 
 **放手，直接改**：单个页面的布局、文案、组件选用、业务字段。
+
+## 已知取舍（本轨默认不做，真实项目要自己判断）
+
+写在这里是因为**沉默会被当成背书**：默认实现里没有的东西，下一个人会默认「这条轨不需要它」。
+
+- **写路径默认是无条件 last-write-wins**，没有版本列、`@Version`、ETag 或条件更新。实体单人所有时，冲突只可能出现在同一用户的两个标签页之间，默认不为它付这份复杂度。**但凡你的实体会被多人同时编辑，就必须上乐观锁**：加版本列 + `@Version`，请求带上版本（或 `If-Match`），不匹配返回 409/412，并配并发事务与陈旧表单测试。**沿用默认**等于把「后提交者静默覆盖」带进一个它不再安全的场景。
+- **限流是进程内的**，两个实例就是两份额度（[`backend/index.md`](backend/index.md) §4.5）。单实例部署下这是诚实的取舍——不用多跑一个 Redis——但横向扩容后要换成共享存储的桶。
+- **没有二次验证 / 人机挑战**。所以按账号的限流有一份残余风险，写在 §4.5 里，不许假装它不存在。
 
 ## 本轨规范索引
 

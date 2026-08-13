@@ -41,7 +41,9 @@ create index <name>_owner_id_idx on <name> (owner_id);                          
 
 **④ 加一条双账号负向测试**（[`../testing/index.md`](../testing/index.md)）。前三条是「写了」，第四条才是「生效」。
 
-> **不是每用户的表**（字典、参考数据）当然没有 `owner_id`。这是正常的例外，但要在迁移里**写一行注释说明**它为什么不需要归属——否则下一个人无法区分「有意的」和「忘了」。
+> **不是每用户的表**（字典、参考数据、静态配置）当然没有 `owner_id`。这是正常的例外，但要在两处都说出来，否则下一个人无法区分「有意的」和「忘了」：迁移里**写一行注释**，repository 接口上标 **`@OwnerlessTable("理由")`**（[`../backend/index.md`](../backend/index.md) §2.4）。
+>
+> **别拿 `@CrossUserQuery` 逐个方法凑**——那个注解是给「真的跨用户读」用的，混进一堆无害的字典查询之后，那份例外清单就没人会去审了。反过来也要小心：`app_user` 那种「行本身就是人」的表**不算**无归属，它继续走 `@CrossUserQuery`。
 
 ## 3. Spring Session 的表是抄来的，不是写的
 
@@ -55,6 +57,25 @@ unzip -p ~/.gradle/caches/**/spring-session-jdbc-<版本>.jar \
 配合 `spring.session.jdbc.initialize-schema: never`——建表的事只许 Flyway 做一份。
 
 升级 Spring Session 时：把新 jar 里的 schema 与仓库里那份 diff 一下，有差异就**加一个新迁移**，不要去改老的那个。
+
+### 3.1 抄来的 schema 未必装得下你的数据
+
+「不改抄来的迁移」不等于「抄来的尺寸都合适」。vendor schema 是按它自己的通用假设写的，而你往里塞的是**你的**数据。
+
+实战踩过的那条：`SPRING_SESSION.PRINCIPAL_NAME` 在 vendor schema 里是 `VARCHAR(100)`，而本轨的 principal name 就是邮箱，`app_user.email` 是无界 `text`。于是一个 100 字符以上的地址——
+
+1. 用户行**插入成功并提交**；
+2. 请求末尾写会话时，才撞上列宽炸掉。
+
+结果是一个**存在、但永远登不进去**的账号，之后每次登录都是同一个 500。它看起来像故障，其实是输入长度问题，而且已经把坏数据留在库里了。
+
+**处理方式**：
+
+- 加**一个新迁移**去 `alter column ... type`，不要动 V1。加宽而不是把输入截短——加宽能顺带救活已经建出来的账号，截短会把它们永久留在外面。
+- 在那个迁移里**写清楚这是对 vendor schema 的有意偏离**，以及升级 Spring Session 时要重新确认。否则下一个人 diff 出差异，会以为是自己抄错了。
+- **API 侧的长度校验和这个列宽是同一个决定**，一起改（[`../backend/index.md`](../backend/index.md) §4.6）。
+
+**顺带一条通用的**：接了任何第三方 schema（会话、任务队列、审计表）之后，把**你会往它每一列里塞什么**过一遍。这类不匹配的共同特征是——在写入链条的**后半段**才炸，前半段已经提交了。
 
 ## 4. 时间与类型约定
 
@@ -119,7 +140,7 @@ docker compose -f docker-compose.dev.yml up -d
 - [ ] SQL 只写在 `db/migration/`，没有写进应用代码？
 - [ ] 新迁移是**新增文件**，没有改动任何已提交的迁移？
 - [ ] 每用户表带了 `owner_id not null references app_user(id)` + 索引？
-- [ ] 不是每用户表的，在迁移里写了一行注释说明为什么？
+- [ ] 不是每用户表的，迁移里写了注释、repository 上标了 `@OwnerlessTable("理由")`？（不是给每个方法套 `@CrossUserQuery`）
 - [ ] 时间列是 `timestamptz`？大小写不敏感的唯一性用了表达式索引？
 - [ ] 新项目跑过 `scripts/init-project.sh <项目名>` 了吗？（不跑会共享本地数据卷，`down -v` 互相清库）
 
