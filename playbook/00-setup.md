@@ -11,7 +11,7 @@
 
 ## 开始之前
 
-- [ ] Node ≥ 18、Python ≥ 3.9
+- [ ] Node ≥ 18、Python ≥ 3.9（这是 **Trellis 自己**的要求；各轨的技术栈另有更高要求，装完看 `.trellis/spec/README.md` 的栈锁定表）
 - [ ] `gh` CLI（只有同步 vendor 时才需要）
 
 ## 最要紧的一件事：这里有四套机制，不是一套
@@ -93,7 +93,14 @@ trellis init --claude --registry https://github.com/<you>/solo-vibe-framework \
              --template web-fullstack
 ```
 
-**非 web-fullstack 的项目**：换成对应的轨 id。本仓还没有那条轨的规范时，装 `universal-guides`——它只有轨无关 guides，是给这种情况准备的。
+**换轨就换 `--template` 的值**，现有的两条：
+
+| 轨 id | 技术栈 | starter |
+|---|---|---|
+| `web-fullstack` | Next.js 16 + Supabase（RLS 兜底隔离） | `starters/web-fullstack` |
+| `java-stack` | Spring Boot 4 + Postgres + React（**无 RLS**，靠归属收口 + 负向测试） | `starters/java-stack` |
+
+两条都不是你的技术栈时，装 `universal-guides`——它只有轨无关 guides，是给这种情况准备的。
 
 **怎么确认这步成了**：
 
@@ -105,8 +112,6 @@ ls .trellis/spec/guides/     # 应有 index.md code-reuse.md cross-layer.md revi
 轨规范和 guides **一次就都在**——轨模板自带 guides。
 
 > ### ⚠️ 千万别装两个模板
->
-> **旧版这份手册教人跑两次 init、第二次带 `--append` 追加 guides。那是错的，已改。**
 >
 > Trellis 的 `.trellis/config.yaml` 里 `registry.spec.template` 是**单数**的，第二次 init 会把它整行替换掉。此后 `trellis update` 只刷新第二个模板，**你的轨规范（含那些安全规则）再也收不到修复**。
 >
@@ -185,7 +190,7 @@ scripts/install-skills.sh --check
 
 **别再补一次 init 去追加**：装第二个模板会把 `registry.spec.template` 顶掉，`trellis update` 从此只刷新后装的那个。
 
-### 「我以前按旧手册装了两个模板，现在怎么办」
+### 「已经装了两个模板，现在怎么办」
 
 打开项目的 `.trellis/config.yaml` 看 `registry.spec.template` 那一行：
 
@@ -202,7 +207,7 @@ scripts/install-skills.sh --check
 
 脚本会报告并**中止不动它**——那可能是你自己装的第三方。确认后自己移走，再跑一次。
 
-**退役名也一样。** 如果你有个自己写的 `system-design` 真目录，脚本不会删它，只会报错让你处理。（这条曾经是反的：早先版本对退役名无差别 `rm -rf`，会把你的目录连内容一起删掉。已修，并由 `scripts/test-install-skills.sh` 用例 1 卡住。）
+**退役名也一样。** 如果你有个自己写的 `system-design` 真目录，脚本不会删它，只会报错让你处理。
 
 ### 「同一个 skill 出现了两份」
 
