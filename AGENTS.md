@@ -122,7 +122,7 @@ skills/<name>/
 
 ## 拍板：不设审批字段
 
-`docs/discovery/brief.md` **没有 frontmatter，没有 approved 字段**。
+`docs/discovery/` 下的两份产物——`brief.md` 与 `decisions.md`——**都没有 frontmatter，没有 approved 字段，没有状态位**。
 
 理由是机制性的：**没有任何东西读它**。本仓不提供 workflow，Trellis 的 `--registry` 只装 spec，workflow-state 的 hook 又是 parser-only（*"reads whatever you put in the block"*）——所以「门禁」在这套流程里只可能是提示语，不可能是判定。给一个没人读的文件加状态位，只会造出一个永远和现实对不上的假状态。
 

@@ -34,6 +34,7 @@
 |---|---|---|
 | **产品全貌** | `.trellis/spec/` 只放编码规范、`prd.md` 只记单次改动、journal 只是时间流水。跑五十个 task 也没有一处回答「这产品现在整体是什么」 | `docs/discovery/brief.md`（六节一页）+ [`04-checkpoint.md`](04-checkpoint.md) |
 | **切片顺序** | Trellis 原文：*"Parent/child structure is not a dependency system"* | 简报 §4 切片清单 |
+| **决策为什么是这样** | `prd.md` 模板只有 Goal / Requirements / Acceptance Criteria，journal 只有 Summary / Commits / Status——**没有一处记「当初否掉了什么」**（实测 v0.7.0-beta.3） | `docs/discovery/decisions.md`（模板 [`assets/decisions-template.md`](assets/decisions-template.md)），准入卡三条判据 |
 
 Trellis 自己也是这么设计的——它的 brainstorm 明说 *"Do not invent a project-specific product/spec hierarchy. If the repository already has product docs, use them."* 它**主动**把产品层留空给你。
 
@@ -45,6 +46,7 @@ Trellis 自己也是这么设计的——它的 brainstorm 明说 *"Do not inven
   一句话想法
       │
       ├─ 写简报 ──────────────── docs/discovery/brief.md（六节，一页）
+      │     └─ 结论分流 ──────── 事实丢掉 / 范围进 brief / 选择进 decisions.md
       │                                ★ 阶段目标 + 不做清单
       │
       ├─ （可选）探索 ────────── 技术不确定的点，丢弃品验一下
@@ -129,6 +131,8 @@ Trellis 的 brainstorm 被合同要求「每条消息只问一个问题」，直
 **答的时候顺手补进简报**，别只在对话里答——对话下个 session 就没了。补完之后下一片会明显变短，因为它的 Evidence Rule 要求「能从仓库文档查到的就别问用户」。
 
 ⚠️ 最后半句是推测，实跑后修正。
+
+**但不是所有答案都进简报。** 问出来的分三类：环境事实（丢掉，那是 AI 该自己查的）、需求边界（进简报）、**有取舍的决定**（进 `docs/discovery/decisions.md`）。分不清时问：**它是"事实"、"范围"，还是"选择"？** 详见 [`01-new-product.md`](01-new-product.md) 步骤 1 的「收尾」。
 
 ### 四、编码期发现的东西，先记 finding 再改 spec
 
