@@ -339,6 +339,7 @@ Bean Validation（`@Valid` + record 上的约束）在 controller 边界做，�
 
 - **授权必须在服务端执行**——前端隐藏入口、路由守卫都不算授权。
 - **数据不变量由数据库兜底**（NOT NULL、外键、唯一约束）——并发请求、后台任务、迁移脚本都不经过 controller。
+- **闭集枚举由数据库约束同一取值域**——应用用 `Enum.valueOf` / `@Enumerated(EnumType.STRING)` 读取的字符串列必须有对应 CHECK；新增值先扩迁移再部署写入，细则与负向测试见 [`../database/index.md`](../database/index.md) §4.1。
 
 判据见 [`../guides/cross-layer.md`](../guides/cross-layer.md) 的「校验散落各层」。
 
@@ -372,6 +373,7 @@ Bean Validation（`@Valid` + record 上的约束）在 controller 边界做，�
 - [ ] 新增的路由要公开吗？**默认需登录**——要公开就在 `SecurityConfig` 显式登记，并写下匿名能读到什么（§4）；公开 + 昂贵 = 必须限流
 - [ ] 挂了新的后端路径吗？记得加进 SPA 兜底的排除列表（§5）
 - [ ] 改了 schema 吗？只加 Flyway 迁移，`ddl-auto` 不动
+- [ ] 新增或删除持久化 enum 值吗？数据库 CHECK 同步了吗，发布顺序是先迁移后写入吗（[`../database/index.md`](../database/index.md) §4.1）？
 - [ ] 从网上抄了 Boot 3 的代码吗？先对一遍 [`../README.md`](../README.md) 的包名陷阱表（尤其 Jackson 3）
 - [ ] 要拆异构子服务吗？先问能不能在 service 里同步做完（§8）
 

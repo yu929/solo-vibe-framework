@@ -83,6 +83,58 @@ unzip -p ~/.gradle/caches/**/spring-session-jdbc-<版本>.jar \
 - 主键 `uuid`，由 Hibernate 生成（`@GeneratedValue(strategy = GenerationType.UUID)`）——不用自增，避免 id 可枚举。
 - 大小写不敏感的唯一性（邮箱）用**表达式唯一索引**：`create unique index ... on app_user (lower(email))`，查询侧也走 `lower(...)`。只在应用层 `toLowerCase()` 挡不住并发插入。
 
+### 4.1 闭集枚举必须在数据库约束同一取值域
+
+#### 1. Scope / Trigger
+
+当 Java 用 `Enum.valueOf` / `@Enumerated(EnumType.STRING)` 把数据库字符串当作**闭集枚举**读取时，这条规则生效。应用 enum 不是数据库约束：旧实例、迁移脚本、人工 SQL 和数据恢复都能绕过应用写入未知值；一行坏值就可能让整页查询在反序列化时失败。
+
+#### 2. Signatures
+
+- Java：`enum <DomainType> { A, B, ... }`
+- DB：`<column> varchar(...) not null constraint <name> check (<column> in ('A', 'B', ...))`
+- 演进：新增一个**前向 Flyway**替换 CHECK；不回改已执行迁移。
+
+#### 3. Contracts
+
+- CHECK 的值集合必须与当前 Java 闭集枚举一致；不靠应用写入口“应该只会传 enum”兜底。
+- 新增值时先部署扩展 CHECK 的迁移，再让应用写新值。删除值时先在前向迁移里裁决并处理存量行，再收紧 CHECK。
+- 正式记录（尤其审计、任务状态）遇到未知值必须 fail closed；没有真实兼容承诺时，不加 `UNKNOWN`、不静默过滤坏行。
+
+#### 4. Validation & Error Matrix
+
+| 输入 / 状态 | 结果 |
+|---|---|
+| 当前 enum 值 | 允许写入并可由应用读取 |
+| 退役值或任意未知值 | 数据库 CHECK 拒绝（PostgreSQL `23514`） |
+| 应用先写新 enum、迁移未扩约束 | 写入失败；这是发布顺序错误，不得临时放宽约束 |
+| 删除 enum 但库中仍有存量行 | 收紧迁移必须失败，直到同一前向迁移明确处理存量数据 |
+
+#### 5. Good / Base / Bad Cases
+
+- **Good**：迁移先扩 CHECK，随后新应用开始写新增枚举值。
+- **Base**：空库重放后，逐个插入 `Enum.values()` 全部成功。
+- **Bad**：只改 Java enum；或为避免查询失败把未知正式记录映射成 `UNKNOWN` / 直接过滤。
+
+#### 6. Tests Required
+
+- Testcontainers + Flyway 从空库重放全部迁移。
+- 逐个插入当前 `Enum.values()`，必须全部成功。
+- 插入一个退役值和一个随机未知值，必须都被 CHECK 拒绝；移除 CHECK 后这条负向测试必须变红。
+- 删除枚举值的迁移还要带存量旧值，证明清理/裁决发生在收紧约束之前。
+
+#### 7. Wrong vs Correct
+
+```sql
+-- Wrong: Java valueOf 把它当闭集，数据库却接受任意字符串
+event_type varchar(64) not null
+
+-- Correct: 数据库与 Java enum 共享同一个显式取值域
+event_type varchar(64) not null
+    constraint audit_event_type_check
+    check (event_type in ('LOGIN', 'LOGOUT'))
+```
+
 ## 5. 本地库的项目名陷阱
 
 新项目第一步跑 `scripts/init-project.sh <项目名>`。
@@ -142,6 +194,7 @@ docker compose -f docker-compose.dev.yml up -d
 - [ ] 每用户表带了 `owner_id not null references app_user(id)` + 索引？
 - [ ] 不是每用户表的，迁移里写了注释、repository 上标了 `@OwnerlessTable("理由")`？（不是给每个方法套 `@CrossUserQuery`）
 - [ ] 时间列是 `timestamptz`？大小写不敏感的唯一性用了表达式索引？
+- [ ] Java 用闭集 enum 读取字符串列吗？数据库有同值域 CHECK，新增值的前向迁移排在应用写入之前吗？
 - [ ] 新项目跑过 `scripts/init-project.sh <项目名>` 了吗？（不跑会共享本地数据卷，`down -v` 互相清库）
 
 ## Quality Check
@@ -155,4 +208,5 @@ docker compose -f docker-compose.dev.yml down -v && docker compose -f docker-com
 
 - [ ] 应用能在**空库**上从零起来（`validate` 没有报表结构不符）
 - [ ] 新表配了双账号负向测试，并且**验过它会红**（把归属谓词去掉试一次）
+- [ ] 闭集枚举约束逐个接受当前值，并拒绝退役值与随机未知值；摘掉 CHECK 后负向测试会红
 - [ ] 没有手改 `V*__spring_session.sql`
