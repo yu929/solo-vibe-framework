@@ -83,6 +83,35 @@ unzip -p ~/.gradle/caches/**/spring-session-jdbc-<版本>.jar \
 - 主键 `uuid`，由 Hibernate 生成（`@GeneratedValue(strategy = GenerationType.UUID)`）——不用自增，避免 id 可枚举。
 - 大小写不敏感的唯一性（邮箱）用**表达式唯一索引**：`create unique index ... on app_user (lower(email))`，查询侧也走 `lower(...)`。只在应用层 `toLowerCase()` 挡不住并发插入。
 
+### 4.1 闭集枚举必须在数据库约束同一取值域
+
+Java 那边写了 `enum`、字段标了 `@Enumerated(EnumType.STRING)`，很容易觉得取值域已经管住了。管住的只是**经过应用写入口的那一条路**。迁移脚本、人工 SQL、数据恢复、还没下线的旧版本实例，每一条都能往那一列里写进 enum 不认识的字符串。
+
+而且它炸的位置不在写入侧：坏值当场落库、事务正常提交，直到某次查询把那一行读出来做 `Enum.valueOf`——**整页列表跟着挂掉**，不是那一行降级。一行脏数据放倒一屏，这是它比普通脏数据贵的地方。
+
+所以列上要有 CHECK，值集合与当前 Java enum 一致：
+
+```sql
+-- 错：Java 拿它当闭集，数据库却收任意字符串
+event_type varchar(64) not null
+
+-- 对：两边共享同一个显式取值域
+event_type varchar(64) not null
+    constraint audit_event_type_check
+    check (event_type in ('LOGIN', 'LOGOUT'))
+```
+
+**改取值域时顺序有讲究，而且两个方向不对称**：
+
+- **加值**：先上扩 CHECK 的迁移，再让应用写新值。反过来写入直接失败（PostgreSQL `23514`）——那是发布顺序错了，**别临时把约束放宽过去**。
+- **删值**：存量行要在**同一个前向迁移**里裁决掉，再收紧 CHECK。存量没处理干净就让迁移失败，别让它带着一批读不出来的行通过。
+
+两个方向都只加新迁移，不回改已执行的（§1）。
+
+**遇到不认识的值要 fail closed。** 尤其审计、任务状态这类正式记录——加个 `UNKNOWN` 兜底、或者把读不出来的行静默过滤掉，都是把「数据坏了」翻译成「数据没了」，跟 [`../frontend/index.md`](../frontend/index.md) §2.2 是同一类错误断言。什么情况才算真有兼容对象值得保留旧值，判据在 [`../guides/review-adjudication.md`](../guides/review-adjudication.md)。
+
+**验它会红**：空库重放迁移后逐个插入 `Enum.values()`，必须全部成功；再插一个退役值和一个随机字符串，必须都被拒。摘掉 CHECK 之后那条负向测试必须变红（[`../testing/index.md`](../testing/index.md)）。
+
 ## 5. 本地库的项目名陷阱
 
 新项目第一步跑 `scripts/init-project.sh <项目名>`。
@@ -142,6 +171,7 @@ docker compose -f docker-compose.dev.yml up -d
 - [ ] 每用户表带了 `owner_id not null references app_user(id)` + 索引？
 - [ ] 不是每用户表的，迁移里写了注释、repository 上标了 `@OwnerlessTable("理由")`？（不是给每个方法套 `@CrossUserQuery`）
 - [ ] 时间列是 `timestamptz`？大小写不敏感的唯一性用了表达式索引？
+- [ ] Java 用闭集 enum 读取字符串列吗？数据库有同值域 CHECK，新增值的前向迁移排在应用写入之前吗？
 - [ ] 新项目跑过 `scripts/init-project.sh <项目名>` 了吗？（不跑会共享本地数据卷，`down -v` 互相清库）
 
 ## Quality Check
@@ -155,4 +185,5 @@ docker compose -f docker-compose.dev.yml down -v && docker compose -f docker-com
 
 - [ ] 应用能在**空库**上从零起来（`validate` 没有报表结构不符）
 - [ ] 新表配了双账号负向测试，并且**验过它会红**（把归属谓词去掉试一次）
+- [ ] 闭集枚举约束逐个接受当前值，并拒绝退役值与随机未知值；摘掉 CHECK 后负向测试会红
 - [ ] 没有手改 `V*__spring_session.sql`

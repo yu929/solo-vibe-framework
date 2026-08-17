@@ -31,6 +31,25 @@ fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/co
 
 > 别把 `-s/--save <id>` 和 `-n/--create-new` 搞混：前者写 `.trellis/workflows/<id>.md`（每 task 可选的模板库），后者写 `.trellis/workflow.md.new`（活跃 workflow 的待合并副本）。实跑一遍知道该卡在哪，再决定。
 
+#### workflow 变体：实测（2026-08-13，v0.7.0-beta.3）
+
+**「再合并没那么痛」那句话是错的，实测修正**：`trellis workflow create <id>` 产出的是 native `workflow.md` 的**逐字全量副本**（709 行 / 38 KB，`diff` 完全相同），不是差异层。建一份就是接管整份 Plan/Execute/Finish 正文，从此上游改了要自己 diff 回来。**结论不变（仍然不发、不建），但理由现在有两条**：流程没实跑过，加上代价比原先估计的高。
+
+解析优先级（`scripts/common/workflow_selection.py` 的 docstring，实测逐层验过）：
+
+| 层 | 落点 | 提交与否 |
+|---|---|---|
+| 1 | active task 的 `task.json` `workflow` 字段（`task.py create --workflow <id>` / `task.py workflow <id>`） | 提交 |
+| 2 | `.trellis/.developer` 的 `workflow=<id>` | **gitignore，个人级** |
+| 3 | `.trellis/config.yaml` 的 `default_workflow` | 提交 |
+| 4 | `.trellis/workflow.md` | 提交 |
+
+**对本仓最要紧的一条实测结论：需求探索期（`no_task`）第 1 层用不上，第 2 层照样生效。** 官方两篇文档主推的都是 per-task pin，但简报阶段**没有 task**，那一层根本不参与解析。实测：清掉 active task 后只设 `.developer` 的 `workflow=`，per-turn breadcrumb 读的就是那个变体的 `[workflow-state:no_task]` 块。
+
+所以「给需求探索期定制一套流程」在机制上唯一的落点是第 2 层——**而它是 gitignore 的个人级配置，跨项目不共享**。这也是本仓不往这个方向走的追加理由：定制的收益落在一个不可分发的位置上。
+
+真需要在简报阶段给 agent 加规则时，**先用下面两个轻得多的东西**，别动 workflow。
+
 在那之前，需要的那一段提示语靠手工粘进 `[workflow-state:no_task]`，见 [`../playbook/00-setup.md`](../playbook/00-setup.md) 步骤 5。
 
 ### 实测：它提供什么，不提供什么
@@ -47,6 +66,18 @@ fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/co
 | `finish-work` 四步：`get_context.py --mode record` → `git status` → `task.py archive` → `add_session.py` | `.agents/skills/trellis-finish-work/SKILL.md` | 归档 + journal，**零产品问题**，且 task-scoped |
 | workflow-state hook 是 **parser-only**（*"reads whatever you put in the block"*） | `trellis-meta/references/customize-local/change-workflow.md` | 任何「门禁」都只是提示语 |
 | **`--registry` 只认 `type: spec`，其他类型直接返回失败** | `dist/utils/template-fetcher.js:828` | `index.json` 只登记一条 |
+| **`no-trellis` 是自带逃生舱**：prompt 里含这个独立词（词边界匹配，`no-trellisfoo` 不算），当轮 breadcrumb 完全不注入；不影响 SessionStart 与子 agent 注入 | `config.yaml` 的 `prompt_injection.skip_keyword`，**实测注入为空** | 写简报被反复问「要不要建 task」时的正解，见 [`../playbook/01-new-product.md`](../playbook/01-new-product.md) 常见卡点 |
+| **spec 注入按 frontmatter `paths:` glob 触发，glob 不限于代码路径** | 实测：写一份 `paths: ["docs/discovery/**"]` 的 spec，`get_context.py --mode spec --file docs/discovery/brief.md` 命中；反向对照 `src/a.ts` 不命中 | 想给需求探索期加规则，这是**比 workflow 变体轻一个量级**的落点：一个文件、随 registry 分发、跨项目共享 |
+
+以下五条来自**第一次完整实跑**（2026-08-16，一个切片走完 Plan/Execute/Finish 并归档）：
+
+| 事实 | 出处 | 对本仓的后果 |
+|---|---|---|
+| **`trellis-update-spec` 不知道 spec 是不是装来的**，全文无 registry / 源仓 / 上游字样，只写 `.trellis/spec/` | 该 SKILL.md 全文（357 行） | 经 registry 装的 spec，写回权威源**没有任何机制在守**——规则只能靠 [`../specs/universal/guides/review-adjudication.md`](../specs/universal/guides/review-adjudication.md) 的落点表 |
+| **Phase 2 → Phase 3 是连着自动跑完的**，唯一会停下来问用户的是 3.4 的提交计划（*"Present the plan once, ask for one-shot confirmation"*） | `workflow.md` 3.4 step 5 | **人工验收没有位置**，必须手动插在 check 之后。这就是拍板 5 的由来 |
+| **3.4 的脏文件分类依赖会话记忆**：分「AI-edited **this session**」与「Unrecognized」两堆 | `workflow.md` 3.4 step 3 | 实现到提交之间**不要换 session**，换了所有文件都变成「不认识的」，那份提交计划就废了 |
+| **换 session 靠单文件 fallback 续上**：`.trellis/.runtime/sessions/` 里**恰好 1 个**文件才认，0 个或 ≥2 个直接返回「无活跃 task」（源码注释：*refuses to guess across windows*） | `scripts/common/active_task.py:599-621` | 单窗口串行干活无缝；**同时开两个窗口对同一个仓库，换 session 就丢活跃 task** |
+| **`task.py start` 不校验任何产物**——只解析路径、写指针、翻状态，不看 `prd.md` 在不在、不看 jsonl 填没填 | `scripts/task.py` `cmd_start` | 推论：**别用 `start` 去修丢失的指针**，它会顺手把 `planning` 翻成 `in_progress`，把开工闸门跳过去且不报错 |
 
 **推论：纯用 Trellis 看不到产品全貌。** 跑五十个 task 之后你有一堆编码规范 + 一堆已归档的单次改动 + 一条时间流水，没有一处回答「这个产品现在整体是什么」。所以 `docs/discovery/brief.md` **不是消耗品**——它是这一层唯一的宿主，跟着阶段目标更新，不随发布删除。
 
@@ -126,7 +157,7 @@ if (resolved.type !== "spec") {
 
 **那它在简报阶段靠什么收敛？** 靠它自己的两条：frontier 空即停，以及 *"Finding facts is your job, never the user's"*（环境事实派子 agent 查，不问用户）。这一步在 task 之外，Trellis 的 brainstorm 还没上场，所以确实没有外部闸——**这是有意接受的**：简报阶段问题问不够，代价会在后面每一片重复付。真正需要有界的是走查轮次和选案次数，那两条纪律落在 `lofi-prototype` 里。
 
-**ADR 三判据**（防 ADR 泛滥成流水账）：难以回退 + 没上下文会困惑 + 真有取舍。**三条全中才写**，缺一条就跳过。这条原本抄自 `domain-modeling`；那个 skill 已退役（见下），所以**本文件现在是它唯一的家**，别当成引用删掉。
+**ADR 三判据**（难以回退 + 没上下文会困惑 + 真有取舍，三条全中才写）原本抄自已退役的 `domain-modeling`，曾经暂住本文件。**现在正文归 [`../playbook/assets/decisions-template.md`](../playbook/assets/decisions-template.md)**——它是决策记录的准入闸，判据得写在照着做的地方才会被真读到。改判据改那里。
 
 ### 明确不装
 
@@ -232,8 +263,8 @@ scripts/sync-vendor.sh --pull     # 读完 diff、确认要跟随，才更新（
 |---|---|
 | `product-brief` | 降级成 [`playbook/assets/brief-template.md`](../playbook/assets/brief-template.md)，一份模板不是 skill。逐片之后它只剩「方向 + 阶段目标 + 切片清单」，一页纸的事 |
 | `prd-generator` / `-noweb` | 字段级需求不再预先穷举，随 task 在 `prd.md` 里就近定义（Trellis 的 `task.py create` 自带模板，本仓**不再提供** task 级 PRD 模板） |
-| `system-design` / `design-system-java` | 承重决策落目标仓库自己的架构文档 + ADR；切片顺序落简报 §4 |
-| `domain-modeling`（原 vendor 项，不属于旧仓） | ADR 三判据落本文件、术语裁决手法落 brief 模板注释。理由见上面「已退役：`domain-modeling`」 |
+| `system-design` / `design-system-java` | 承重决策落 `docs/discovery/decisions.md`（模板 [`decisions-template.md`](../playbook/assets/decisions-template.md)）；切片顺序落简报 §4 |
+| `domain-modeling`（原 vendor 项，不属于旧仓） | ADR 三判据落 [`decisions-template.md`](../playbook/assets/decisions-template.md)、术语裁决手法落 brief 模板注释。理由见上面「已退役：`domain-modeling`」 |
 
 清理命令见 [`../playbook/00-setup.md`](../playbook/00-setup.md) 步骤 2。**脚本只删软链**：退役名如果在 `~/.claude/skills/` 下是真目录（可能是你自己的同名 skill），它报错退出而不是删除。这条由 `scripts/test-install-skills.sh` 用例 1 卡住。
 

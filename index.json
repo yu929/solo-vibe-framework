@@ -21,9 +21,9 @@
       "id": "java-stack",
       "type": "spec",
       "name": "Java Stack (Spring Boot 4 + Postgres + React)",
-      "description": "Spring Boot 4 + Postgres/Flyway + Spring Security 会话 + React 19/Vite/Tailwind v4/shadcn 的编码规范，单容器部署（SPA 打进 jar）。**没有 RLS**，故以「归属收口 + ArchUnit + 双账号负向测试」替代，**自带轨无关 guides**，一条 init 装齐",
+      "description": "Spring Boot 4 + Postgres/Flyway + Spring Security 会话 + React 19/Vite/Ant Design 6 的编码规范，单容器部署（SPA 打进 jar）。**没有 RLS**，故以「归属收口 + ArchUnit + 双账号负向测试」替代，**自带轨无关 guides**，一条 init 装齐",
       "path": "specs/java-stack",
-      "tags": ["java", "spring-boot", "postgres", "flyway", "react", "typescript", "gradle", "docker"]
+      "tags": ["java", "spring-boot", "postgres", "flyway", "react", "typescript", "antd", "gradle", "docker"]
     }
   ]
 }

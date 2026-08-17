@@ -20,6 +20,7 @@ pnpm -C frontend typecheck && pnpm -C frontend lint && pnpm -C frontend test && 
 | 格式 | `pnpm -C frontend format` · `./gradlew spotlessApply` |
 | 页面 / 路由 / 流程 | `./gradlew :backend:bootJar && pnpm -C frontend test:e2e` |
 | DB schema | 先 `docker compose -f docker-compose.dev.yml down -v && up -d`，确认能从空库重放 |
+| 持久化闭集枚举 | Testcontainers 逐个插入当前 enum 值，并断言退役值、随机未知值被 CHECK 拒绝 |
 | 后端 API 契约 | `pnpm -C frontend api:types` 重新生成，再 `pnpm -C frontend typecheck` 看哪里断了 |
 
 **`pnpm format` / `spotlessApply` 的收尾自检**：跑完用 `git status` 看一眼——**如果出现本次任务没编辑过的文件**，先确认原因，必要时回退或拆成单独的格式化变更。
@@ -97,6 +98,7 @@ pnpm -C frontend test:e2e
 | 换账号不留残影 | 把登录成功后的 `clear()` 换回 `invalidateQueries()` → 首帧仍显示前一个账号数据；把广播关掉 → 两标签页那条必须红 |
 | 深链 E2E | 摘掉 `SpaForwardConfig` 的 `@Configuration` → 必须红 |
 | 契约漂移 | 改一下 `schema.d.ts` 里的字段名 → `pnpm typecheck` 必须红 |
+| 闭集枚举取值域 | 摘掉数据库 CHECK，或只给 Java enum 加一个数据库不认识的新值 → 当前值/未知值迁移测试必须红 |
 | 凭据不进会话 | 把 `eraseCredentials()` 的方法体清空（**保留方法**，删掉会变成编译错误而不是测试变红）→ 必须红 |
 | 写响应时间戳 | 把 `saveAndFlush` 换回 `save` → 必须红 |
 | 口令守卫 | `env -u APP_DB_PASSWORD java -jar app.jar` → 必须在任何 Hikari/Flyway 日志之前就拒绝 |
@@ -148,6 +150,7 @@ docker compose -f docker-compose.yml \
 - [ ] 改的是 bug 吗？**先写一个会失败的测试**，再修
 - [ ] 新增每用户表或新增读写它的接口了吗？**必须补双账号负向测试**
 - [ ] 新增路由了吗？E2E 补一条**冷加载 + 刷新**用例
+- [ ] 新增或删除持久化 enum 值吗？补当前全集正向、退役/随机未知值负向，以及先迁移后应用的演进断言
 - [ ] 这次的性质只在并发下才成立吗？（限流、上限、去重）顺序测试对它是绿的——补一条同时起跑的
 - [ ] 新加的守卫，验过它会红吗？改的是**守卫本身**的话，它的反向测试跟着更新了吗？
 
