@@ -38,7 +38,7 @@ Supabase 轨的每用户数据隔离由数据库兜底：策略写在表上，�
 | 鉴权 | **Spring Security** + **Spring Session JDBC**（会话存 Postgres），**不用 JWT** |
 | 认证限流 | **bucket4j**（`bucket4j_jdk17-core`）令牌桶，进程内；按客户端地址 + 按账号两份额度 |
 | API 文档 | **springdoc-openapi 3.x** → `/v3/api-docs` → 前端类型 |
-| 前端 | **Vite 8 + React 19 + TypeScript 6 + Tailwind v4 + shadcn/ui（Base UI 内核，`base-nova`，neutral）** |
+| 前端 | **Vite 8 + React 19 + TypeScript 6 + Ant Design 6**（无 Tailwind、无 CSS 框架；视觉单源在 `ConfigProvider` theme token） |
 | 前端路由 / 状态 | **React Router 8**（declarative）+ **TanStack Query 5** |
 | 包管理 | 后端 Gradle；前端 **pnpm**（宿主机 Node ≥ 24 + corepack，**不让 Gradle 另下一个 pnpm**） |
 | 测试 | **JUnit 5 + Testcontainers + ArchUnit**；**Vitest**；**Playwright** |
@@ -96,7 +96,7 @@ Boot 4 大改了坐标和包名。这些**编译期就报错**的还算好，最
 - SQL 只出现在 `backend/src/main/resources/db/migration/`。
 - 禁 `@ManyToMany`、禁 `FetchType.EAGER`；controller 不返回实体，只返回 DTO record。
 - **不引入 Lombok**（注解处理器 + 与 record/JPA 的长期摩擦）。DTO 用 record，实体用普通类。
-- 不手改生成文件：`V*__spring_session.sql`（抄自 jar）、`frontend/src/lib/api/schema.d.ts`（`pnpm api:types` 生成）、`frontend/src/components/ui/*`（shadcn 生成）。
+- 不手改生成文件：`V*__spring_session.sql`（抄自 jar）、`frontend/src/lib/api/schema.d.ts`（`pnpm api:types` 生成）。
 - 前端所有后端调用经 `frontend/src/lib/api/client.ts`，**组件里不裸 `fetch`**。
 - 唯一性由**数据库约束**裁决，不由「先查存在再插入」裁决（[`backend/index.md`](backend/index.md) §4.2）。
 - 引入新依赖（尤其重型库）前先问。
@@ -133,9 +133,9 @@ frontend/src/
   lib/api/schema.d.ts          # 生成，勿手改
   lib/api/<功能>.ts             # endpoint + TanStack Query hooks
   lib/{status,utils}.ts
-  components/ui/               # shadcn，只用 CLI 增删
-  components/{data,forms,app}/ # patterns 层
+  components/{data,forms,app}/ # patterns 层（antd 没有的那部分）
   routes/                      # 页面
+  styles/theme.ts              # 视觉唯一真源：ConfigProvider 的 token + components
   app.tsx  main.tsx  styles/globals.css  assets/fonts/
 design-system/MASTER.md        # 全站 UI 视觉权威
 docs/
