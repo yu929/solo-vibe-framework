@@ -146,7 +146,16 @@ trellis init --claude --yes --registry https://github.com/<you>/solo-vibe-framew
 
 **占位模板没什么可保的**，它本来就是等着被填的空壳。真在里面写过东西的话，先提交再 `--overwrite`，这样一条 `git diff` 就能看清换掉了什么。
 
-**`--registry` 取的是仓库的默认分支（main），不是你本地 checkout 的分支。** 在框架仓改完轨规范要先推 main，项目才拿得到——停在特性分支上改是不会生效的。
+**`--registry` 默认拉的是 `main`，不是你本地 checkout 的分支。** 注意是**写死的字面量 `main`**（`dist/utils/template-fetcher.js:201`），不是「这个仓库的默认分支」——默认分支要是叫别的名字，它不会自动跟过去，只会拉不到。
+
+所以在框架仓改完轨规范，正常路径是先合进 main 再装。**想在合并前先验一把**，用 `#<分支名>` 指过去：
+
+```bash
+trellis init --claude --yes --registry gh:<you>/solo-vibe-framework#<分支名> \
+             --template java-stack --overwrite
+```
+
+**必须用 `gh:` 这种前缀写法。** 浏览器地址 `https://github.com/<you>/<repo>/tree/<分支名>` 它也认，但那条路径解析分支名用的是 `[^/]+`——**带斜杠的分支名会被切错**，`feat/workflow` 会变成分支 `feat` + 子目录 `workflow`，然后报一个跟分支毫无关系的错。`gh:` 后面的 `#` 取的是剩下全部，斜杠不受影响。
 
 ### 步骤 4 · 装第三方 skill
 

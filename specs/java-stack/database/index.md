@@ -85,55 +85,32 @@ unzip -p ~/.gradle/caches/**/spring-session-jdbc-<版本>.jar \
 
 ### 4.1 闭集枚举必须在数据库约束同一取值域
 
-#### 1. Scope / Trigger
+Java 那边写了 `enum`、字段标了 `@Enumerated(EnumType.STRING)`，很容易觉得取值域已经管住了。管住的只是**经过应用写入口的那一条路**。迁移脚本、人工 SQL、数据恢复、还没下线的旧版本实例，每一条都能往那一列里写进 enum 不认识的字符串。
 
-当 Java 用 `Enum.valueOf` / `@Enumerated(EnumType.STRING)` 把数据库字符串当作**闭集枚举**读取时，这条规则生效。应用 enum 不是数据库约束：旧实例、迁移脚本、人工 SQL 和数据恢复都能绕过应用写入未知值；一行坏值就可能让整页查询在反序列化时失败。
+而且它炸的位置不在写入侧：坏值当场落库、事务正常提交，直到某次查询把那一行读出来做 `Enum.valueOf`——**整页列表跟着挂掉**，不是那一行降级。一行脏数据放倒一屏，这是它比普通脏数据贵的地方。
 
-#### 2. Signatures
-
-- Java：`enum <DomainType> { A, B, ... }`
-- DB：`<column> varchar(...) not null constraint <name> check (<column> in ('A', 'B', ...))`
-- 演进：新增一个**前向 Flyway**替换 CHECK；不回改已执行迁移。
-
-#### 3. Contracts
-
-- CHECK 的值集合必须与当前 Java 闭集枚举一致；不靠应用写入口“应该只会传 enum”兜底。
-- 新增值时先部署扩展 CHECK 的迁移，再让应用写新值。删除值时先在前向迁移里裁决并处理存量行，再收紧 CHECK。
-- 正式记录（尤其审计、任务状态）遇到未知值必须 fail closed；没有真实兼容承诺时，不加 `UNKNOWN`、不静默过滤坏行。
-
-#### 4. Validation & Error Matrix
-
-| 输入 / 状态 | 结果 |
-|---|---|
-| 当前 enum 值 | 允许写入并可由应用读取 |
-| 退役值或任意未知值 | 数据库 CHECK 拒绝（PostgreSQL `23514`） |
-| 应用先写新 enum、迁移未扩约束 | 写入失败；这是发布顺序错误，不得临时放宽约束 |
-| 删除 enum 但库中仍有存量行 | 收紧迁移必须失败，直到同一前向迁移明确处理存量数据 |
-
-#### 5. Good / Base / Bad Cases
-
-- **Good**：迁移先扩 CHECK，随后新应用开始写新增枚举值。
-- **Base**：空库重放后，逐个插入 `Enum.values()` 全部成功。
-- **Bad**：只改 Java enum；或为避免查询失败把未知正式记录映射成 `UNKNOWN` / 直接过滤。
-
-#### 6. Tests Required
-
-- Testcontainers + Flyway 从空库重放全部迁移。
-- 逐个插入当前 `Enum.values()`，必须全部成功。
-- 插入一个退役值和一个随机未知值，必须都被 CHECK 拒绝；移除 CHECK 后这条负向测试必须变红。
-- 删除枚举值的迁移还要带存量旧值，证明清理/裁决发生在收紧约束之前。
-
-#### 7. Wrong vs Correct
+所以列上要有 CHECK，值集合与当前 Java enum 一致：
 
 ```sql
--- Wrong: Java valueOf 把它当闭集，数据库却接受任意字符串
+-- 错：Java 拿它当闭集，数据库却收任意字符串
 event_type varchar(64) not null
 
--- Correct: 数据库与 Java enum 共享同一个显式取值域
+-- 对：两边共享同一个显式取值域
 event_type varchar(64) not null
     constraint audit_event_type_check
     check (event_type in ('LOGIN', 'LOGOUT'))
 ```
+
+**改取值域时顺序有讲究，而且两个方向不对称**：
+
+- **加值**：先上扩 CHECK 的迁移，再让应用写新值。反过来写入直接失败（PostgreSQL `23514`）——那是发布顺序错了，**别临时把约束放宽过去**。
+- **删值**：存量行要在**同一个前向迁移**里裁决掉，再收紧 CHECK。存量没处理干净就让迁移失败，别让它带着一批读不出来的行通过。
+
+两个方向都只加新迁移，不回改已执行的（§1）。
+
+**遇到不认识的值要 fail closed。** 尤其审计、任务状态这类正式记录——加个 `UNKNOWN` 兜底、或者把读不出来的行静默过滤掉，都是把「数据坏了」翻译成「数据没了」，跟 [`../frontend/index.md`](../frontend/index.md) §2.2 是同一类错误断言。什么情况才算真有兼容对象值得保留旧值，判据在 [`../guides/review-adjudication.md`](../guides/review-adjudication.md)。
+
+**验它会红**：空库重放迁移后逐个插入 `Enum.values()`，必须全部成功；再插一个退役值和一个随机字符串，必须都被拒。摘掉 CHECK 之后那条负向测试必须变红（[`../testing/index.md`](../testing/index.md)）。
 
 ## 5. 本地库的项目名陷阱
 
