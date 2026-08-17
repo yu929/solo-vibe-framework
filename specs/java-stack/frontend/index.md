@@ -15,6 +15,8 @@
 | 提示 / 弹窗 | `App.useApp()` 取 `message` / `modal`，**不用 antd 的静态方法** |
 | 色值字号 | 只在 `src/styles/theme.ts`，取值用 `theme.useToken()` |
 | 列表 key | 稳定 id，**别用数组下标** |
+| 操作列 / 分页 | 业务上不可执行的**不渲染**；只有 pending 这类暂时状态才保留并禁用 |
+| Select 选项 | 8 个及以上默认按标签搜索；多选须有明确集合语义与 API 契约 |
 | 记忆化 | 默认不加 `useMemo/useCallback/memo`，profile 证明有成本再加 |
 
 ## 1. 所有后端调用收口在一个 client
@@ -126,6 +128,10 @@ reload 看着粗暴，但它是这里最诚实的响应：一次性丢掉所有�
 
 `DataTable` 是 antd `Table` 加本项目默认值的**薄封装**，不是替代品：`size`、空态和「`rowKey` 必填」定在那里，其余 props 直通 antd。查用法翻 antd 文档，不要去读那个封装。
 
+**操作列只渲染当前身份与当前行状态下真实可执行的能力。** 业务上不适用、权限上被排除或当前状态没有意义的操作直接不渲染；不要用一排 disabled 按钮占位再靠 Tooltip 解释。分页同理：首页不渲染「首页 / 上一页」，末页不渲染「下一页 / 末页」，空结果不渲染翻页控件。异步请求进行中是另一类状态：入口已经存在且操作已经发起，必须保持可见，用 `loading` / `disabled` 阻止重复提交并反馈进度。
+
+**Select 有 8 个及以上选项时默认启用搜索，按可见标签过滤。** 多选不是视觉偏好：只有产品明确允许集合条件、API 定义了重复参数或数组且查询语义明确（通常同一字段内 OR）时才用 `mode="multiple"`。URL 筛选要能恢复全部已选值，Reset 仍只清理该筛选拥有的 key。
+
 ## 7. 表单
 
 - antd `<Form layout="vertical">` + `onFinish` 调 mutation；`<Form disabled={pending}>` 一次性禁用整组控件。
@@ -204,6 +210,8 @@ React Router declarative 模式。**每一条路由都必须能被冷加载**（
 - [ ] 用到的数据类型是从 `schema.d.ts` 派生的吗？后端改过 API 的话，重新跑过 `pnpm api:types` 了吗？
 - [ ] 要用的东西 antd 里已经有了吗？`components/{data,forms,app}/*` 里呢？（复用顺序见 §6）
 - [ ] 同类屏在 `docs/discovery/wireframe/*/final/` 里有既有结构吗？沿用还是偏离，偏离说得出理由吗？
+- [ ] 列表操作或分页边界有业务上不可执行的按钮吗？直接不渲染；pending 等暂时状态才保留 disabled/loading（§6）
+- [ ] Select 达到 8 个选项了吗？启用按标签搜索；若要多选，API 和 URL 已有明确集合语义吗？（§6）
 - [ ] 有没有用 `useEffect` 把查询结果镜像进 state？（改成子组件 + `useState` 初始化）
 - [ ] 动了登录/登出流程吗？登录 `clear()` 后塞新值、登出只 `clear()` 不塞（§3.1），并且都广播给了其他标签页
 - [ ] 动了登出吗？「登出后立刻登回来」还进得去应用，而不是一个 403 吗？（§2.1 第二扇门）
@@ -224,6 +232,8 @@ pnpm -C frontend typecheck && pnpm -C frontend lint && pnpm -C frontend test && 
 额外自检：
 
 - [ ] 列表 key 用的是稳定 id，不是数组下标
+- [ ] 操作列与分页没有业务上不可执行的 disabled 占位；pending 反馈仍可见
+- [ ] 8 个及以上选项的 Select 可按标签搜索；多选筛选可从 URL 完整恢复
 - [ ] 交互控件都是语义 HTML，键盘可达、焦点可见
 - [ ] `react-hooks/*` 零报错（deps 与 set-state-in-effect 都已配成 error）
 - [ ] 含未提交状态的 Modal / Drawer 已 `maskClosable={false}`
