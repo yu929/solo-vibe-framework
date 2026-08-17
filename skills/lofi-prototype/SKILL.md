@@ -123,8 +123,22 @@ docs/discovery/wireframe/<task-slug>/方案C/index.html   # 2 个够用时不必
    - 必须表达的状态增删
    - 走查中定掉的待确认划掉，新暴露的补上
    - 定稿方案的路径，以及「页面结构与区域分组沿用定稿原型」这句
-3. **发现问题超出这一片的范围时**，不要私自扩大切片。两个出口：挪进 `brief.md` §4 的切片清单当后面的片，或者记进待确认。**切片边界变了要说出来，不能在原型里静默长大。**
-4. 简报（`docs/discovery/brief.md`）的能力地图或阶段目标被走查证伪时，回去改简报并说明——这比在实现后发现便宜两个量级。
+3. **把定稿路径写进当前 task 的 `implement.jsonl`**——漏了这一步，前面全白做。
+
+   ```bash
+   python3 ./.trellis/scripts/task.py add-context "$TASK_DIR" implement \
+     "docs/discovery/wireframe/<task-slug>/final/index.html" \
+     "本片实现的结构依据：区域分组、字段顺序、状态表达沿用定稿"
+   ```
+
+   非 UI 分支列 `final/interaction-sketch.md`，同理。
+
+   **`prd.md` 里写了路径不等于实现能看见它。** 实现期的子 agent 在一个全新 context window 里工作，它拿到的是 `implement.jsonl` 列出的文件内容；`prd.md` 里的一行路径字符串，混在好几份规范的注入内容中间，很容易被略过。实跑验证过这个失效形态：定稿画了、走查选案了、`prd.md` 也引用了，实现出来照样不是定稿的结构。
+
+   Trellis 的 jsonl 规则说「不放 code files」，定稿 HTML 容易被误判进那条排除。**它不是 code，是结构依据**——不列进去，本 skill 的全部产出就停在了 planning，没有一个字到达真正写代码的地方。
+
+4. **发现问题超出这一片的范围时**，不要私自扩大切片。两个出口：挪进 `brief.md` §4 的切片清单当后面的片，或者记进待确认。**切片边界变了要说出来，不能在原型里静默长大。**
+5. 简报（`docs/discovery/brief.md`）的能力地图或阶段目标被走查证伪时，回去改简报并说明——这比在实现后发现便宜两个量级。
 
 回写完就把材料交给 brainstorm 的 planning summary，由**用户**在那里批准。本 skill 不置任何 approved 标记。
 

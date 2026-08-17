@@ -121,6 +121,33 @@ ls .trellis/spec/guides/     # 应有 index.md code-reuse.md cross-layer.md revi
 
 > **实测注意**：带 `--template` 时 Trellis **完全抑制默认 spec**——`.trellis/spec/` 里只有模板的内容，不会再有 Trellis 自带的 `frontend/` `backend/` `guides/`。这是对的（轨规范就该取代默认的），也正是轨模板**必须自带 guides** 的另一半理由。
 
+#### 已经跑过裸 `trellis init` 的项目，怎么补装
+
+上面那条命令是给全新项目的。如果你先跑了不带 `--template` 的 `trellis init`，`.trellis/spec/` 里已经躺着 Trellis 自带的占位脚手架，这时候要**多带一个 `--overwrite`**：
+
+```bash
+trellis init --claude --yes --registry https://github.com/<you>/solo-vibe-framework \
+             --template java-stack --overwrite
+```
+
+> #### ⚠️ 漏了 `--overwrite` 不会报错
+>
+> 实测输出是这样的：
+>
+> ```
+> 📦 Downloading template "java-stack"...
+>    Skipped: .../.trellis/spec already exists
+> 📋 Tracking 35 template files for updates
+> ```
+>
+> **它跳过了，然后照常打绿字、正常退出。** 你会以为装好了，实际 `.trellis/spec/` 一个字没变——直到某天发现 AI 一直在按占位模板干活。又一个无症状缺陷。
+
+**别用 `--append`。** 名字听起来更安全，实际是「只补缺失的文件」：`database/` `testing/` 装进来了，而 `backend/` `frontend/` 还是占位模板。半套轨规范半套脚手架，比全没装更难查。
+
+**占位模板没什么可保的**，它本来就是等着被填的空壳。真在里面写过东西的话，先提交再 `--overwrite`，这样一条 `git diff` 就能看清换掉了什么。
+
+**`--registry` 取的是仓库的默认分支（main），不是你本地 checkout 的分支。** 在框架仓改完轨规范要先推 main，项目才拿得到——停在特性分支上改是不会生效的。
+
 ### 步骤 4 · 装第三方 skill
 
 **已经装好了**——`grilling` / `grill-me` 在本仓 `vendor/mattpocock-skills/`，步骤 2 一并软链了。

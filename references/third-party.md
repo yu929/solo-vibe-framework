@@ -69,6 +69,16 @@ fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/co
 | **`no-trellis` 是自带逃生舱**：prompt 里含这个独立词（词边界匹配，`no-trellisfoo` 不算），当轮 breadcrumb 完全不注入；不影响 SessionStart 与子 agent 注入 | `config.yaml` 的 `prompt_injection.skip_keyword`，**实测注入为空** | 写简报被反复问「要不要建 task」时的正解，见 [`../playbook/01-new-product.md`](../playbook/01-new-product.md) 常见卡点 |
 | **spec 注入按 frontmatter `paths:` glob 触发，glob 不限于代码路径** | 实测：写一份 `paths: ["docs/discovery/**"]` 的 spec，`get_context.py --mode spec --file docs/discovery/brief.md` 命中；反向对照 `src/a.ts` 不命中 | 想给需求探索期加规则，这是**比 workflow 变体轻一个量级**的落点：一个文件、随 registry 分发、跨项目共享 |
 
+以下五条来自**第一次完整实跑**（2026-08-16，一个切片走完 Plan/Execute/Finish 并归档）：
+
+| 事实 | 出处 | 对本仓的后果 |
+|---|---|---|
+| **`trellis-update-spec` 不知道 spec 是不是装来的**，全文无 registry / 源仓 / 上游字样，只写 `.trellis/spec/` | 该 SKILL.md 全文（357 行） | 经 registry 装的 spec，写回权威源**没有任何机制在守**——规则只能靠 [`../specs/universal/guides/review-adjudication.md`](../specs/universal/guides/review-adjudication.md) 的落点表 |
+| **Phase 2 → Phase 3 是连着自动跑完的**，唯一会停下来问用户的是 3.4 的提交计划（*"Present the plan once, ask for one-shot confirmation"*） | `workflow.md` 3.4 step 5 | **人工验收没有位置**，必须手动插在 check 之后。这就是拍板 5 的由来 |
+| **3.4 的脏文件分类依赖会话记忆**：分「AI-edited **this session**」与「Unrecognized」两堆 | `workflow.md` 3.4 step 3 | 实现到提交之间**不要换 session**，换了所有文件都变成「不认识的」，那份提交计划就废了 |
+| **换 session 靠单文件 fallback 续上**：`.trellis/.runtime/sessions/` 里**恰好 1 个**文件才认，0 个或 ≥2 个直接返回「无活跃 task」（源码注释：*refuses to guess across windows*） | `scripts/common/active_task.py:599-621` | 单窗口串行干活无缝；**同时开两个窗口对同一个仓库，换 session 就丢活跃 task** |
+| **`task.py start` 不校验任何产物**——只解析路径、写指针、翻状态，不看 `prd.md` 在不在、不看 jsonl 填没填 | `scripts/task.py` `cmd_start` | 推论：**别用 `start` 去修丢失的指针**，它会顺手把 `planning` 翻成 `in_progress`，把开工闸门跳过去且不报错 |
+
 **推论：纯用 Trellis 看不到产品全貌。** 跑五十个 task 之后你有一堆编码规范 + 一堆已归档的单次改动 + 一条时间流水，没有一处回答「这个产品现在整体是什么」。所以 `docs/discovery/brief.md` **不是消耗品**——它是这一层唯一的宿主，跟着阶段目标更新，不随发布删除。
 
 ### 四种分发机制（最容易踩的一处）
