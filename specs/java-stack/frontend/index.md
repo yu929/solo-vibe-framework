@@ -16,6 +16,7 @@
 | 数据类型 | 从 `src/lib/api/schema.d.ts` 派生，**不手写、不手改** |
 | 读 / 写 | ra-core 的 `useGetList` / `useGetOne` / `useCreate` / `useUpdate` / `useDelete` |
 | 加 UI 组件 | `pnpm dlx shadcn@latest add <name>`，**勿手改 `components/ui/*`** |
+| 组件用法来源 | shadcn skill / MCP 优先，没接就翻官方组件页与 admin kit 文档。**不凭记忆写** |
 | 复用顺序 | `components/admin/*` → `components/ui/*` → `{data,forms,app}/*` → 都不满足才新建 |
 | 表单 | shadcn-admin-kit 的 `<SimpleForm>` + `<TextInput>` 等，底层是 React Hook Form |
 | 色值字号 | 只在 `src/styles/globals.css` 的 `@theme`；令牌之外不新造 |
@@ -154,6 +155,17 @@ reload 看着粗暴，但它是这里最诚实的响应：一次性丢掉所有�
 **布局用 Tailwind 工具类。** 一次性的间距直接写类名，不新造 CSS 文件。
 
 **`components/ui/*` 是 shadcn CLI 的产物，改了就跟不上上游。** 要改行为就在 `components/{data,forms,app}/` 里包一层，别动生成物——这条和 vendor 只读是同一个道理。
+
+**组件怎么写，权威源在上游，不在你的记忆里。** 决定 `add` 哪个组件、或写 `components/ui/*` 与 `components/admin/*` 的组合方式之前：
+
+- 项目根 `.mcp.json` 里登记了 `shadcn`，或项目 `.claude/skills/` 下装了 shadcn skill——**先查它再写**。它读得到 `components.json`，因而知道本项目的内核、别名和已装组件。
+- 两样都没有，或者 `frontend/` 下根本没有 `components.json`——**翻 <https://ui.shadcn.com/docs/components> 与 shadcn-admin-kit 的文档再写**，并顺带提醒一次这个项目没接上（提醒一次就够，别每轮都提）。
+
+> **⚠️ 待实跑验证**：shadcn-admin-kit 的组件不在 shadcn 默认 registry 里，要在 `components.json` 的 `registries` 字段登记它的 registry，MCP 才搜得到。没登记时 MCP 只覆盖 `components/ui/*` 那一层，`components/admin/*` 仍以 admin kit 自己的文档为准。
+
+**别把组件 API 抄进本规范。** 它跟着上游版本走，抄一份必然过期，而过期的那份会盖过上游。
+
+**和 `ui-ux-pro-max` 的分工**：视觉、排版、配色、设计系统归它；组件选型、composition、props 归 shadcn skill / MCP。它自带的 shadcn 数据是静态快照，**不作为组件 API 的依据**。
 
 **操作列只渲染当前身份与当前行状态下真实可执行的能力。** 业务上不适用、权限上被排除或当前状态没有意义的操作直接不渲染；不要用一排 disabled 按钮占位再靠 Tooltip 解释。分页同理：首页不渲染「首页 / 上一页」，末页不渲染「下一页 / 末页」，空结果不渲染翻页控件。异步请求进行中是另一类状态：入口已经存在且操作已经发起，必须保持可见，用 loading / disabled 阻止重复提交并反馈进度。
 

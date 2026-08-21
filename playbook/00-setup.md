@@ -201,9 +201,41 @@ cd create-prd-skill && python scripts/install_skill.py
 
 **产物落项目自己的 `docs/discovery/prd.md`**，不进本框架仓。
 
-### 步骤 4.2 · 前端组件 skill（按轨）
+### 步骤 4.2 · 前端组件 skill + MCP（在项目里装，不是全局）
 
-两条轨的前端都是 shadcn 系，装 shadcn 官方 skill + MCP 能保证组件 API 用对。装法看 shadcn 官方文档，本仓不复述——它跟着上游版本走，写死在这里必然过期。
+两条轨的前端都是 shadcn 系。官方 skill 和 MCP 都**装进项目仓**，不走步骤 2 那套全局软链——所以每开一个新项目都要再来一次。
+
+在**项目根目录**跑——就是有 `package.json` 和 `components.json` 的那一层，**不是 `~/.claude`**（下面「常见卡点」有这个坑）：
+
+```bash
+pnpm dlx skills add shadcn/ui
+```
+
+```bash
+pnpm dlx shadcn@latest mcp init --client claude
+```
+
+第二条会在项目根写 `.mcp.json`。装完重启 Claude Code，用 `/mcp` 确认 `shadcn` 连上了。
+
+**前端在子目录的项目（比如 java-stack 的 `frontend/`），要多传一个参数。** `.mcp.json` 没有 cwd 字段，Claude Code 按「配置文件在哪」决定 server 的工作目录——而你是在仓库根启动 claude 的，server 就跟着落在仓库根，那里没有 `components.json`。改用 shadcn 自己的 `--cwd`：
+
+```json
+{ "mcpServers": { "shadcn": { "command": "npx", "args": ["shadcn@latest", "mcp", "--cwd", "frontend"] } } }
+```
+
+**装之前先用一条命令判断这个项目够不够格**，它不依赖 Claude Code，秒出结果：
+
+```bash
+pnpm dlx shadcn@latest info --cwd frontend
+```
+
+看两行就够：`framework` 认出来了（`Next.js` / `Vite`，不是 `Manual`），且 `Configuration` 一节有内容而不是 `No components.json found`。**两条里有一条不满足，装了 MCP 也只是个通用 registry 搜索**——它拿不到你项目的内核、别名和已装组件，而那正是装它的理由。先把骨架跑通 `shadcn init`，再回来装。
+
+**它解决的是什么**：AI 凭记忆写出来的组件能编译、能渲染，错在 composition 和可访问性属性上，这类错不看文档发现不了。装了它，AI 就有地方查。**怎么用是轨规范管的事**，正文在 `specs/<track>/frontend/index.md` 的复用顺序一节。
+
+**没装也能开工**：轨规范里写了没装时的替代动作，不会卡住。装了只是让 AI 少猜。
+
+**java-stack 的 starter 现在还不够格**（2026-08-21 实测：`frontend/` 认得出 Vite，但没有 `components.json`，也没检测到 Tailwind）。要在这条轨上验证，先换骨架再装 MCP，顺序反了会白装。
 
 ### 步骤 5 · 粘一段 no_task 提示（可选，但推荐）
 
@@ -295,6 +327,14 @@ scripts/install-skills.sh --check
 ### 「同一个 skill 出现了两份」
 
 如果你以前用 `claude plugins install mattpocock-skills` 或 `npx skills add` 装过，先卸掉再跑本仓的脚本。两种上游装法本身也不能兼用（上游 README：*"Pick one — installing both leaves you with every skill twice."*）。
+
+### 「shadcn 的 MCP 装到 `~/.claude` 去了」
+
+`shadcn mcp init` 把 `.mcp.json` 写在**你跑命令时所在的目录**。在 `~/.claude` 里跑，它就写到那儿——那**不是**全局配置。Claude Code 的 MCP 只有三档：`local` 与 `user` 都存 `~/.claude.json`，`.mcp.json` 只从**项目根**读。所以 `~/.claude/.mcp.json` 是「`~/.claude` 这个目录当项目」时才生效的配置，等于没装。
+
+它还会顺手在那个目录留下 `package.json`、`package-lock.json` 和一个几十 MB 的 `node_modules`（安装依赖那步走的是 npm）。清掉这四样，回到项目根重跑。
+
+**要不要干脆装 user 级？不要。** MCP 的工具定义在每个 session 都占 context，而你只有前端项目用得上它——后端 task 和框架仓吃这份开销没有回报。装 project 级，再让 starter 带着 `.mcp.json`，新项目就是免费的。
 
 ### 「已有项目，能不能只装一部分」
 

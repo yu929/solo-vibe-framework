@@ -8,6 +8,7 @@
 |---|---|
 | 新组件默认 | Server Component；要 state/effect/ref/浏览器 API/事件才 `"use client"` |
 | 加 UI 组件 | `pnpm dlx shadcn@latest add <name>`，勿手改 `src/components/ui/*` |
+| 组件用法来源 | shadcn skill / MCP 优先，没接就翻官方组件页。**不凭记忆写**——本轨是 Base UI 内核，不是 Radix |
 | 复用顺序 | `ui/*` → `{data,forms,app}/*` → 都不满足才新建 |
 | 表单 | `useActionState` + server action，`<form noValidate>` |
 | 列表 key | 稳定 id，**别用数组下标** |
@@ -30,6 +31,17 @@
 3. 都不满足才新建
 
 **禁止重复实现已有组件。** 删除确认用 `ConfirmDialog`，**别用 `window.confirm`**。页面固定结构见 `design-system/MASTER.md` §6。
+
+**组件怎么写，权威源在上游，不在你的记忆里。** 决定 `add` 哪个组件、或写 `components/ui/*` 的组合方式之前：
+
+- 项目根 `.mcp.json` 里登记了 `shadcn`，或项目 `.claude/skills/` 下装了 shadcn skill——**先查它再写**。它读得到 `components.json`，因而知道本项目的内核、别名和已装组件。
+- 两样都没有——**翻 <https://ui.shadcn.com/docs/components> 里对应的组件页再写**，并顺带提醒一次这个项目没接上（提醒一次就够，别每轮都提）。
+
+**本轨尤其不能凭记忆**：`components.json` 是 `style: base-nova`，即 **Base UI 内核**，而公开资料和模型记忆里绝大多数 shadcn 写法还是 Radix 时代的。照记忆写出来的组件能编译、能渲染，错在 composition 与可访问性属性上——[`../README.md`](../README.md) 禁止清单里那条「不引入 `@radix-ui/*`」说的是不许写什么，这一条说的是对的写法去哪拿。
+
+**别把组件 API 抄进本规范。** 它跟着上游版本走，抄一份必然过期，而过期的那份会盖过上游。
+
+**和 `ui-ux-pro-max` 的分工**：视觉、排版、配色、设计系统归它；组件选型、composition、props 归 shadcn skill / MCP。它自带的 shadcn 数据是静态快照，**不作为组件 API 的依据**。
 
 ## 3. 表单
 

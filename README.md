@@ -169,7 +169,7 @@ index.json                  registry manifest（只登记 type: spec）
 | [code-review-skill](https://github.com/awesome-skills/code-review-skill) | MIT © awesome-skills | 通用代码正确性与可读性评审。轨不变量仍归 `specs/<track>/`，两者不混用 |
 | `ui-ux-pro-max` | 未核实 | 全量高保真与设计系统 |
 | `skill-creator` | Anthropic 官方 | 改完 skill 校验 frontmatter 与相对链接 |
-| shadcn 官方 skill + MCP | 见上游 | 两条轨前端都是 shadcn 系，用它保证组件 API 用对 |
+| [shadcn/ui 官方 skill + MCP](https://ui.shadcn.com/docs/skills) | MIT © shadcn | 两条轨前端都是 shadcn 系，用它保证组件 API 用对。**per-project 装，本仓不分发**——只在两条轨的 `frontend/index.md` 规定怎么用 |
 
 **只借了想法，整体不装**：
 

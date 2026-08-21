@@ -311,9 +311,29 @@ scripts/sync-vendor.sh --pull     # 读完 diff、确认要跟随，才更新（
 
 | skill | 何时用 | 边界 |
 |---|---|---|
-| `ui-ux-pro-max` | 结构定了之后的视觉与设计系统 | **不得下沉到低保真阶段**——骨架只准灰阶 + 一个强调色 |
+| `ui-ux-pro-max` | PRD 收敛到字段级之后的全量高保真与设计系统 | **不早于 PRD 收敛**——提前画等于替还没定的需求猜结构，而猜出来的结构一旦成了定稿，后面每一片都照着它实现。组件 API 不归它，归 shadcn skill / MCP |
 | `code-review-skill`（awesome） | 通用代码正确性/可读性评审 | 轨不变量由 `specs/<track>/` 的 Pre-Development Checklist 与 Quality Check 管，不混用 |
 | `skill-creator` | 改完 skill 校验 frontmatter 与相对链接 | — |
+| `shadcn/ui` 官方 skill + shadcn MCP | 两条轨写前端组件时 | **per-project 装，本仓不分发**，只规定怎么用——见下 |
+
+### shadcn 官方 skill + MCP：本仓不分发，只规定怎么用
+
+两样都是 **per-project** 装的，本仓的两条分发机制都覆盖不到：
+
+| 东西 | 装到哪 | 为什么本仓管不了 |
+|---|---|---|
+| 官方 skill（`skills add shadcn/ui`） | **项目仓**的 `.claude/skills/` | 和 mattpocock 同一个安装器，上游原话是 *"writes the skills into your repo"*。`scripts/install-skills.sh` 只管 `~/.claude/skills/` 那一层全局软链 |
+| MCP（`shadcn@latest mcp init --client claude`） | **项目根** `.mcp.json` | 是可执行配置，按 `AGENTS.md` 的落点表归 starter |
+
+`index.json` 也放不下它们——registry 只收 `type: spec`。
+
+所以本仓只做一件事：**在两条轨的 `frontend/index.md` 里规定「怎么用」，并给出没装时的替代动作**。装法在 [`../playbook/00-setup.md`](../playbook/00-setup.md) 步骤 4.2。
+
+**为什么值得接**：web-fullstack 轨的 `components.json` 是 `style: base-nova`（Base UI 内核），而公开资料里绝大多数 shadcn 写法是 Radix 时代的。轨规范早就禁了 `@radix-ui/*`，但那是否定式规则——它说不许写什么，没说对的写法去哪拿。官方 skill 读 `components.json` 就知道内核是哪个，补的正是这一半。
+
+**它替代不了 `ui-ux-pro-max`，也不该被它替代**：那个 skill 的 description 声称集成 shadcn MCP，但正文没有任何 MCP 调用——它读自带的 `data/stacks/shadcn.csv`，是一份静态快照。视觉归 `ui-ux-pro-max`、组件 API 归 shadcn skill / MCP，这条分界写进了两条轨的规范正文，理由和 `prototype` 只用 LOGIC 分支是同一个：两个来源同时回答同一个问题，就会长出两套源真。
+
+**这条规则没有机器在卡。** 「有没有先查 MCP」不可判定，它是检查点不是门禁。可判定的那条（`components/ui/*` 勿手改）规范正文里已经有了。
 
 ## 上游同步
 
