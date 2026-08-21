@@ -21,7 +21,7 @@
 
 ## 2. 新表三件套（每用户表）
 
-这条轨没有 RLS，隔离全靠这三样加一条测试。少一个就漏。
+每用户表的隔离全靠这三样加一条测试。少一个就漏。
 
 ```sql
 create table <name> (
@@ -116,7 +116,7 @@ event_type varchar(64) not null
 
 新项目第一步跑 `scripts/init-project.sh <项目名>`。
 
-**compose 从项目名派生 volume 名。** 不改则所有从本模板生成的项目**共享同一个 Postgres 数据卷**——A 项目的 `docker compose down -v` 会静默清掉 B 项目的数据。这是与 Supabase 轨 `project_id` 完全同构的坑。
+**compose 从项目名派生 volume 名。** 不改则所有从本模板生成的项目**共享同一个 Postgres 数据卷**——A 项目的 `docker compose down -v` 会静默清掉 B 项目的数据。
 
 同一个脚本还会改会话 cookie 名（默认 `JSESSIONID` 在 localhost 上被所有应用共享，两个项目同时开发会互相顶掉登录）。
 
@@ -126,13 +126,13 @@ compose 里写 `"5432:5432"` 等于 `0.0.0.0:5432`——**把开发数据库发�
 
 一律写成 **`"127.0.0.1:5432:5432"`**。要连它的东西（应用、IDE、psql）都跑在这台机器上，没有一个需要它对外可见。
 
-## 5.2 数据库口令不许有默认值（连"看起来像开发值"的也不行）
+## 5.2 数据库口令不许有默认值（连「看起来像开发值」的也不行）
 
 `application.yml` 里**不许出现口令的默认值**，哪怕它叫 `dev-only-not-a-secret`。理由不是命名，是**静默回落**：任何漏配变量的启动路径（裸 `java -jar`、systemd unit、少写一条 env 的 k8s manifest）都会用那个公开已知的口令**成功启动**。
 
 口令的唯一来源是**未提交的 `.env`**（由 `.env.example` 播种），`bootRun` 读它，部署用环境变量。
 
-### 但"没有默认值"并不等于"会失败" —— 两个反直觉的坑
+### 但「没有默认值」并不等于「会失败」 —— 两个反直觉的坑
 
 **坑一：变量名不能是属性的 relaxed-binding 形式。**
 
@@ -148,7 +148,7 @@ Spring Boot 绑定 `@ConfigurationProperties` 时**忽略无法解析的占位�
 
 **所以要在 `main()` 里显式挡一道**，在 `SpringApplication.run` 之前检查环境变量与系统属性，缺失就抛异常。这条守卫要配单测（把环境查找做成参数——JVM 内改不了自己的环境变量）。
 
-> 这两条都是实测出来的：先以为"去掉默认值就会失败"，跑了才发现是 `password authentication failed`；再改名字，还是没失败。**"我以为它会报错"不算验证过。**
+> 这两条都是实测出来的：先以为「去掉默认值就会失败」，跑了才发现是 `password authentication failed`；再改名字，还是没失败。**「我以为它会报错」不算验证过。**
 
 ## 6. 迁移写完怎么验
 
@@ -158,7 +158,7 @@ docker compose -f docker-compose.dev.yml up -d
 ./gradlew :backend:bootRun                          # Flyway 从零重放 + JPA validate
 ```
 
-能干净起来，才说明迁移在一个新环境里是成立的。**在有旧数据的库上"跑通了"什么都不证明**——那次可能只跑了增量的那一条。
+能干净起来，才说明迁移在一个新环境里是成立的。**在有旧数据的库上「跑通了」什么都不证明**——那次可能只跑了增量的那一条。
 
 集成测试用 Testcontainers，每次都是全新库，所以 `./gradlew check` 天然覆盖了「迁移能重放」这件事。
 

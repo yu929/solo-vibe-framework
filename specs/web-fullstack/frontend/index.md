@@ -92,7 +92,7 @@
 
 - [ ] 这个组件默认是 **Server Component** 吗？加 `"use client"` 的理由说得出来吗（state / effect / ref / 浏览器 API / 事件）？
 - [ ] 要用的东西在 `components/ui/*` 或 `components/{data,forms,app}/*` 里已经有了吗？（复用顺序见 §2）
-- [ ] 同类屏在 `docs/discovery/wireframe/*/final/` 里有既有结构吗？沿用还是偏离，偏离说得出理由吗？
+- [ ] **本片的高保真定稿屏进 `implement.jsonl` 了吗？**（路径在 `docs/discovery/slices.md` 切片清单第四列；漏了没有症状——实现期子 agent 在全新 context 里只看得到 jsonl 列出的文件）
 - [ ] 要新增色值 / 阴影 / 字号吗？**不允许**——先读 `design-system/MASTER.md`，令牌在 `globals.css` 的 `@theme`
 - [ ] 有没有从 `"use client"` 文件往 server 端导出常量或纯函数？（会静默失效，typecheck 不报）
 - [ ] 这一屏的主操作是哪个？说不出来说明信息架构没想清楚

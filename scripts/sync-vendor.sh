@@ -24,11 +24,17 @@ set -euo pipefail
 
 REPO="mattpocock/skills"
 # 目录名 → 上游路径。加 skill 时改这里。
-# domain-modeling 已退役：它要求维护 CONTEXT.md 当术语源真，与本仓「术语结论落
-# brief §5」构成第二事实源。见 references/third-party.md。
+# domain-modeling **不是可选项**：grill-with-docs 全文只有一句「Call the Skill tool
+# twice, for "grilling" and "domain-modeling"」，少了它第二次调用指向不存在的东西。
+# 它带来的两个源真冲突由本仓让位解决（术语归 CONTEXT.md、决策归 docs/adr/），
+# 理由见 references/third-party.md。
 declare -a SKILLS=(
   "grilling:skills/productivity/grilling"
   "grill-me:skills/productivity/grill-me"
+  "grill-with-docs:skills/engineering/grill-with-docs"
+  "domain-modeling:skills/engineering/domain-modeling"
+  "prototype:skills/engineering/prototype"
+  "writing-for-agents:skills/productivity/writing-for-agents"
 )
 # 跟着一起管的单文件（上游路径 == 本地相对路径）
 declare -a FILES=(LICENSE)
@@ -49,7 +55,7 @@ case "${1:-}" in
 esac
 
 # ── 受管文件 ────────────────────────────────────────────────────
-# 「受管」= 两个 skill 目录下的全部文件 + FILES 列的单文件。
+# 「受管」= SKILLS 列的每个 skill 目录下的全部文件 + FILES 列的单文件。
 # .upstream-sha 与 .upstream-manifest 是本仓自己的元数据，不受管。
 managed_in() { # <目录> → 相对该目录的路径，每行一个
   local dir="$1" e name f

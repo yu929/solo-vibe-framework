@@ -6,7 +6,7 @@
 
 ## 冻结输入（每轮评审更新）
 
-- 需求版本: `<brief.md commit / 已建 task 的 prd.md 版本>`
+- 需求版本: `<完整 PRD commit / 已建 task 的 prd.md 版本>`
 - 设计版本: `技术设计 v0.1` / `实施计划 v0.1`
 - 工程基线版本: `<starter / repository baseline / commit>`
 - 评审清单: `<轨专属 reviewer 路径>`

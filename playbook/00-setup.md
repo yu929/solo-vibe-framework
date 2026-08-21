@@ -25,7 +25,7 @@
 | Trellis 自带 skill（brainstorm / check / meta…） | `trellis init --claude` | 项目内 `.claude/skills/` |
 | workflow 模板 | `--workflow` / `--workflow-source` / `trellis workflow` | 项目内 `.trellis/workflow.md` |
 
-四个都长得像「装个东西进来」，落点和机制完全不同。搞混的典型症状是「我明明 init 了，怎么 `lofi-prototype` 不触发」。
+四个都长得像「装个东西进来」，落点和机制完全不同。搞混的典型症状是「我明明 init 了，怎么 `vertical-slicing` 不触发」。
 
 <details>
 <summary>为什么 registry 不装 skill（源码依据，供将来复核）</summary>
@@ -68,9 +68,9 @@ scripts/install-skills.sh
 它做四件事，**幂等**，可以反复跑：
 
 - 建 `~/.claude/skills/`（不存在时）
-- 软链本仓的 `lofi-prototype` / `design-review`
-- 软链 vendor 的 `grilling` / `grill-me`
-- **删掉已退役的软链**：`product-brief` / `prd-generator` / `prd-generator-noweb` / `system-design` / `design-system-java` / `domain-modeling`
+- 软链本仓的 `vertical-slicing` / `design-review`
+- 软链 vendor 的 `grilling` / `grill-me` / `grill-with-docs` / `domain-modeling` / `prototype` / `writing-for-agents`
+- **删掉已退役的软链**：`product-brief` / `prd-generator` / `prd-generator-noweb` / `system-design` / `design-system-java` / **`lofi-prototype`**
 
 **为什么是脚本不是几行 `ln -s`**：升级场景下目标**总是**已存在（指向旧仓），裸 `ln -s` 会直接报 `File exists` 然后静默失败——看起来装完了，实际还在跑旧实现。脚本会核对指向、替换错的、对「不是软链而是真目录」的情况**中止并报告**而不是硬覆盖。
 
@@ -84,7 +84,9 @@ scripts/install-skills.sh --check
 
 全 `=` 且 exit 0 就对了。看到 `✗` 按提示处理。
 
-> **退役清单里有 `product-brief`**，这不是笔误。它降级成了一份模板（[`assets/brief-template.md`](assets/brief-template.md)），不再是 skill——逐片推进之后它只剩「方向 + 阶段目标 + 切片清单」，一页纸的事，不需要一个会自动触发的能力。
+> **退役清单里有 `lofi-prototype`**，这不是笔误。新流程里全量高保真在切片**之前**就定稿了，task 内再出一次低保真等于跟定稿构成两个结构源真。它承接的那条实跑结论（**定稿必须进 `implement.jsonl`**）已改由 `vertical-slicing` 接住。
+>
+> `product-brief` 同理已降级成模板（[`../skills/vertical-slicing/assets/slices-template.md`](../skills/vertical-slicing/assets/slices-template.md)），不再是 skill。
 
 ### 步骤 3 · 在项目里装 spec（**只跑一条命令**）
 
@@ -106,7 +108,8 @@ trellis init --claude --registry https://github.com/<you>/solo-vibe-framework \
 
 ```bash
 ls .trellis/spec/            # 应有 README.md frontend/ backend/ database/ testing/ guides/
-ls .trellis/spec/guides/     # 应有 index.md code-reuse.md cross-layer.md review-adjudication.md
+ls .trellis/spec/guides/     # 应有 index.md code-reuse.md cross-layer.md
+                             #      review-adjudication.md task-artifacts.md source-of-truth.md
 ```
 
 轨规范和 guides **一次就都在**——轨模板自带 guides。
@@ -159,11 +162,19 @@ trellis init --claude --yes --registry gh:<you>/solo-vibe-framework#<分支名> 
 
 ### 步骤 4 · 装第三方 skill
 
-**已经装好了**——`grilling` / `grill-me` 在本仓 `vendor/mattpocock-skills/`，步骤 2 一并软链了。
+**mattpocock 那六个已经装好了**——都在本仓 `vendor/mattpocock-skills/`，步骤 2 一并软链了：
+
+| skill | 用在 0-1 的哪一步 |
+|---|---|
+| `grill-with-docs` | 步骤 1 需求讨论。它 = `grilling` + `domain-modeling`，**三个必须一起装**（它全文只有一句「Call the Skill tool twice」） |
+| `grilling` / `grill-me` | 同上，也可单独用 |
+| `domain-modeling` | 术语落 `CONTEXT.md`、有取舍的决定落 `docs/adr/`——**这两个是唯一宿主**，别在 PRD 里再存一份 |
+| `prototype` | 步骤 3 验字段。**只用 LOGIC 分支** |
+| `writing-for-agents` | 步骤 7 出项目 `AGENTS.md`，以及你自己写 skill 时 |
 
 不需要跑 `npx skills add`。理由与「不装哪些、为什么」见 [`../references/third-party.md`](../references/third-party.md)——**装什么和不装什么同样重要**，尤其是为什么必须**不装** `setup-matt-pocock-skills`（装了就有两个任务系统）。
 
-> **`domain-modeling` 已退役。** 它要求维护一份 `CONTEXT.md` 当术语源真，跟本仓「术语结论落简报 §5 措辞」撞成两个事实源。步骤 2 会把你机器上那条旧软链一并清掉。同理，上游的 `grill-with-docs` **也不要装**——它只是 `domain-modeling` 的入口（全文就一句「跑 grilling，用 domain-modeling」）。简报阶段的批量提问用 `grill-me` 就是了。
+> **`prototype` 只用 LOGIC 分支这条是提示语，不是判定。** 它第一步就是 "Pick a branch"，没有任何机制挡得住它选 UI 分支——而 UI 分支会在真项目路由里开几个变体，跟「全量高保真 + 设计系统」是两条路。发现它跑去 UI 分支就当场拉回来，并记进 `references/third-party.md`。
 
 **跟随上游更新**：
 
@@ -177,19 +188,36 @@ scripts/sync-vendor.sh --pull     # 读完 diff、确认要跟随，才更新
 
 **平时你不用手动跑这个。** 框架仓推上 GitHub 之后，`.github/workflows/sync-vendor.yml` 每晚会自己 diff 一次，内容真变了才开一个 PR 给你读。守的还是同一条规矩——它只把 diff 送到你面前，merge 与否是你的事。手动跑的场合只剩两个：还没建远端仓，或者你现在就想知道上游动没动。
 
+### 步骤 4.1 · 装完整 PRD skill（不 vendor）
+
+`create-prd-skill` **上游没有许可证**（`license: null`），不能 vendor 进本仓再分发。自己装：
+
+```bash
+git clone -b community/complexity-aware https://github.com/pmYangKun/create-prd-skill
+cd create-prd-skill && python scripts/install_skill.py
+```
+
+**分支选 `community/complexity-aware`**：主干那份对任何需求都产出 14 章，complexity-aware 会按 L1–L4 分级裁剪深度。
+
+**产物落项目自己的 `docs/discovery/prd.md`**，不进本框架仓。
+
+### 步骤 4.2 · 前端组件 skill（按轨）
+
+两条轨的前端都是 shadcn 系，装 shadcn 官方 skill + MCP 能保证组件 API 用对。装法看 shadcn 官方文档，本仓不复述——它跟着上游版本走，写死在这里必然过期。
+
 ### 步骤 5 · 粘一段 no_task 提示（可选，但推荐）
 
-Trellis 在没有活跃 task 时每轮都会问「要不要建 task」。默认它不知道你有产品简报这回事。
+Trellis 在没有活跃 task 时每轮都会问「要不要建 task」。默认它不知道你有切片地图这回事。
 
 打开项目里的 `.trellis/workflow.md`，找到 `[workflow-state:no_task]` 块，替换成：
 
 ```md
 [workflow-state:no_task]
-建 task 前先看 docs/discovery/brief.md 是否存在：
+建 task 前先看 docs/discovery/slices.md 是否存在：
 - 不存在 → 正常流程，不阻塞。
 - 存在但没写「当前阶段目标」→ 先补，再建 task。
 - 存在且有阶段目标 → 读它。本次 task 必须是阶段目标下的一个纵向切片；
-  说不出它属于哪个切片，就先回 brief 排切片。
+  说不出它属于哪个切片，就先用 vertical-slicing 排切片。
 一句话能答完、不改文件、不需要调研的，不建 task。
 [/workflow-state:no_task]
 ```
@@ -198,6 +226,24 @@ Trellis 在没有活跃 task 时每轮都会问「要不要建 task」。默认�
 
 **⚠️ 这段是未实跑验证的草稿。** 第一次用的时候看它实际效果，不对就当场改——改的是你自己项目里的文件，Trellis 的 `.template-hashes.json` 会保护本地修改不被升级覆盖。
 
+### 步骤 6 · 粘一段 planning 提示（可选，但推荐）
+
+Trellis 规定复杂 task 在 `task.py start` 之前必须有 `design.md` + `implement.md`，但**只给 `prd.md` 生成骨架**，另外两份靠 agent 自由发挥。模板已经随 registry 装进 `.trellis/spec/guides/task-artifacts.md`，这一段是让它在**写之前**被读到。
+
+打开 `.trellis/workflow.md`，找到 `[workflow-state:planning]` 块，在末尾加两行：
+
+```md
+写 design.md / implement.md 前先读 .trellis/spec/guides/task-artifacts.md 的固定小节。
+本片对应的高保真定稿屏（slices.md 切片清单第四列）必须进 implement.jsonl——
+实现期子 agent 在全新 context 里只看得到 jsonl 列出的文件，prd.md 里写一行路径不算。
+```
+
+**第二条是实跑得出的，漏了没有症状**：定稿画了、`prd.md` 也引用了，实现出来照样不是定稿的结构，看起来像是执行不认真。
+
+> **`task-artifacts.md` 自带 `paths: [".trellis/tasks/**"]`**，动 task 目录里的文件时会自动注入——**这条已实测**（在临时项目里建 task，`get_context.py --mode spec --file <task>/prd.md` 命中该文件，反向对照 `src/a.ts` 不命中）。所以这一步是加一道保险，不是唯一通路。
+>
+> 但注入在 Claude Code 那侧是 **PostToolUse**（写完才触发），所以「在动手写之前读到」仍然靠这段提示语。**这一半未实跑验证。**
+
 ## 我该在哪停下来看
 
 | # | 看什么 | 为什么 |
@@ -205,10 +251,11 @@ Trellis 在没有活跃 task 时每轮都会问「要不要建 task」。默认�
 | 1 | `scripts/install-skills.sh --check` 是不是全绿 | 旧 PRD skill 残留会抢走需求，走上已废弃的流程 |
 | 2 | `.trellis/spec/` 里轨规范**和** `guides/` 都在 | 缺一半 = agent 少一半约束在工作 |
 | 3 | 只装了**一个**模板 | 装了两个，`trellis update` 会静默只刷新后装的那个 |
+| 4 | `.trellis/spec/guides/` 里有 `task-artifacts.md` 和 `source-of-truth.md` | 少了这两份，design/implement 没有固定形状、四个源真没人管 |
 
 ## 常见卡点
 
-### 「init 完了，但 lofi-prototype 不触发」
+### 「init 完了，但 vertical-slicing 不触发」
 
 九成是软链没做。registry **不装 skill**，见本页开头那张表。
 

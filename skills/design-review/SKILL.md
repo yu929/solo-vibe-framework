@@ -32,7 +32,7 @@ description: 对承重决策与切片计划做收敛式准入评审，判断「�
 
 **什么时候不用**：
 
-- 需求还没收敛（那是简报和 `lofi-prototype` 的事，本 skill 明确不做需求评审）
+- 需求还没收敛（那是完整 PRD 和原型走查的事，本 skill 明确不做需求评审）
 - 单个 task 的实现正确性（那是 Trellis 的 check 阶段和代码评审的事）
 - **编码期发现「这条约定不对」**——那走 4 字段 finding，不开评审。规则在 `specs/universal/guides/review-adjudication.md`
 
@@ -44,7 +44,7 @@ description: 对承重决策与切片计划做收敛式准入评审，判断「�
 
 没有 overlay 时也能跑，但只覆盖通用检查面。**不要把某一轨的硬约束写进本仓**——那是漂移。
 
-评审对象与台账路径服从目标仓库约定。切片顺序在 `docs/discovery/brief.md` 的切片清单里。承重决策的落点按目标仓库自己的文档约定找（可能是 `docs/adr/`、`docs/architecture/` 或别的）——**Trellis 的 `.trellis/spec/` 只放编码规范**，不是承重决策的宿主，别去那里找。
+评审对象与台账路径服从目标仓库约定。切片顺序在 `docs/discovery/slices.md` 的切片清单里。承重决策的落点按目标仓库自己的文档约定找（可能是 `docs/adr/`、`docs/architecture/` 或别的）——**Trellis 的 `.trellis/spec/` 只放编码规范**，不是承重决策的宿主，别去那里找。
 
 ## 评审协议
 

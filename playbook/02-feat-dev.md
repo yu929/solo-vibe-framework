@@ -1,5 +1,18 @@
 # 场景二 · Feat Dev
 
+> ### ⚠️ 流程已改，本文件尚未跟上（2026-08-21）
+>
+> 0-1 流程改成 **「完整 PRD → `prototype` 验字段 → 全量高保真 → `vertical-slicing` 切片 → 逐片进 Trellis」**。相对旧版的三处硬变化：
+>
+> | 旧 | 新 |
+> |---|---|
+> | 一页六节简报 `brief.md` | **完整 PRD**（`create-prd-skill`）+ 三节切片地图 `slices.md`（`vertical-slicing`） |
+> | task 内出低保真原型走查 | **切片前全量高保真定稿**（`ui-ux-pro-max`）；`lofi-prototype` 已退役 |
+> | `docs/discovery/decisions.md` | **`CONTEXT.md`（术语）+ `docs/adr/`（决定）**，由 `domain-modeling` 维护 |
+>
+> **下面的步骤叙述还在描述旧流程**，重写待人读文档的写作 skill 落地 + 新流程实跑一片。装东西看 [`00-setup.md`](00-setup.md)（已更新），规则以 [`AGENTS.md`](../AGENTS.md) 为准。
+
+
 > 在已有结构上加一个新能力。
 >
 > **本文件第一版只有骨架**，细节等实跑后补。写在没跑过的时候就是编——那是这套框架要防的事。

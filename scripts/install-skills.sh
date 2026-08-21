@@ -25,13 +25,16 @@ check_only=false
 [[ "${1:-}" == "--check" ]] && check_only=true
 
 # 本仓自有
-declare -a OWN=(lofi-prototype design-review)
+declare -a OWN=(vertical-slicing design-review)
 # vendor（第三方只读拷贝）
-declare -a VENDORED=(grilling grill-me)
+declare -a VENDORED=(grilling grill-me grill-with-docs domain-modeling prototype writing-for-agents)
 # 已退役：软链若还在就删掉。留着会继续被触发，把需求接走去走废弃流程。
-# domain-modeling 曾经是 vendor 项：它要求维护 CONTEXT.md 当术语源真，与本仓
-# 「术语结论落 brief §5」冲突，构成第二事实源，因此整个删除（见 references/third-party.md）。
-declare -a RETIRED=(product-brief prd-generator prd-generator-noweb system-design design-system-java domain-modeling)
+# lofi-prototype 退役：新流程里全量高保真在切片**之前**就定稿，task 内再出一次低保真
+# 等于跟定稿构成两个结构源真。它承接的「定稿必须进 implement.jsonl」那条实跑结论
+# 已改由 vertical-slicing 接住（见 references/third-party.md）。
+# domain-modeling 已从退役名单**移回 VENDORED**：grill-with-docs 全文只有一句
+# 「Call the Skill tool twice, for "grilling" and "domain-modeling"」，装前者必须有后者。
+declare -a RETIRED=(product-brief prd-generator prd-generator-noweb system-design design-system-java lofi-prototype)
 # 本框架旧版本用过的仓库根。指向这些路径下的软链算「我们装的」，可以替换/删除。
 # 换过旧仓路径就往这里加一条，别去放宽归属判断本身。
 declare -a LEGACY_ROOTS=("$HOME/Developer/skills")

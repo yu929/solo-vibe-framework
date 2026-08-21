@@ -1,5 +1,18 @@
 # 操作手册
 
+> ### ⚠️ 流程已改，本文件尚未跟上（2026-08-21）
+>
+> 0-1 流程改成 **「完整 PRD → `prototype` 验字段 → 全量高保真 → `vertical-slicing` 切片 → 逐片进 Trellis」**。相对旧版的三处硬变化：
+>
+> | 旧 | 新 |
+> |---|---|
+> | 一页六节简报 `brief.md` | **完整 PRD**（`create-prd-skill`）+ 三节切片地图 `slices.md`（`vertical-slicing`） |
+> | task 内出低保真原型走查 | **切片前全量高保真定稿**（`ui-ux-pro-max`）；`lofi-prototype` 已退役 |
+> | `docs/discovery/decisions.md` | **`CONTEXT.md`（术语）+ `docs/adr/`（决定）**，由 `domain-modeling` 维护 |
+>
+> **下面的步骤叙述还在描述旧流程**，重写待人读文档的写作 skill 落地 + 新流程实跑一片。装东西看 [`00-setup.md`](00-setup.md)（已更新），规则以 [`AGENTS.md`](../AGENTS.md) 为准。
+
+
 > **这是给你自己看的清单，照着做就行。** 不是给 AI 的指令文件。
 >
 > 日常**直接走 Trellis 的流程**即可（描述需求 → 它带你 Plan → Execute → Finish）。本手册只讲 **Trellis 没有、而这套工作流需要**的那部分。
@@ -32,9 +45,9 @@
 
 | 缺什么 | 为什么它没有 | 本手册怎么补 |
 |---|---|---|
-| **产品全貌** | `.trellis/spec/` 只放编码规范、`prd.md` 只记单次改动、journal 只是时间流水。跑五十个 task 也没有一处回答「这产品现在整体是什么」 | `docs/discovery/brief.md`（六节一页）+ [`04-checkpoint.md`](04-checkpoint.md) |
+| **产品全貌** | `.trellis/spec/` 只放编码规范、`prd.md` 只记单次改动、journal 只是时间流水。跑五十个 task 也没有一处回答「这产品现在整体是什么」 | `docs/discovery/slices.md`（六节一页）+ [`04-checkpoint.md`](04-checkpoint.md) |
 | **切片顺序** | Trellis 原文：*"Parent/child structure is not a dependency system"* | 简报 §4 切片清单 |
-| **决策为什么是这样** | `prd.md` 模板只有 Goal / Requirements / Acceptance Criteria，journal 只有 Summary / Commits / Status——**没有一处记「当初否掉了什么」**（实测 v0.7.0-beta.3） | `docs/discovery/decisions.md`（模板 [`assets/decisions-template.md`](assets/decisions-template.md)），准入卡三条判据 |
+| **决策为什么是这样** | `prd.md` 模板只有 Goal / Requirements / Acceptance Criteria，journal 只有 Summary / Commits / Status——**没有一处记「当初否掉了什么」**（实测 v0.7.0-beta.3） | `docs/adr/`（由 vendor 的 `domain-modeling` 维护），准入卡三条判据 |
 
 Trellis 自己也是这么设计的——它的 brainstorm 明说 *"Do not invent a project-specific product/spec hierarchy. If the repository already has product docs, use them."* 它**主动**把产品层留空给你。
 
@@ -45,7 +58,7 @@ Trellis 自己也是这么设计的——它的 brainstorm 明说 *"Do not inven
 
   一句话想法
       │
-      ├─ 写简报 ──────────────── docs/discovery/brief.md（六节，一页）
+      ├─ 写简报 ──────────────── docs/discovery/slices.md（六节，一页）
       │     └─ 结论分流 ──────── 事实丢掉 / 范围进 brief / 选择进 decisions.md
       │                                ★ 阶段目标 + 不做清单
       │

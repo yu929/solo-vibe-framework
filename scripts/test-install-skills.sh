@@ -99,18 +99,18 @@ report_case
 teardown
 
 # ── 用例 2：退役名是**我们装的**软链 → 删软链，但不碰它指向的目标 ─────────
-# 两种真实形态都测：指向已知旧仓（product-brief 那批），指向本仓（domain-modeling
-# 退役前就是软链到 vendor/）。指向陌生位置的情况归用例 7 管，那里必须**不删**。
+# 两种真实形态都测：指向已知旧仓（product-brief 那批），指向本仓（lofi-prototype
+# 退役前就是软链到 skills/）。指向陌生位置的情况归用例 7 管，那里必须**不删**。
 echo "用例 2 · 退役名是我们装的软链"
 setup
 mkdir -p "$CLAUDE_SKILLS_DIR"
 ln -s "$HOME/Developer/skills/product-brief" "$CLAUDE_SKILLS_DIR/product-brief"        # 已知旧仓
-ln -s "$root/vendor/mattpocock-skills/grilling" "$CLAUDE_SKILLS_DIR/domain-modeling"   # 本仓（真实退役形态）
+ln -s "$root/skills/design-review" "$CLAUDE_SKILLS_DIR/lofi-prototype"                 # 本仓（真实退役形态）
 run; rc=$?
 assert_exit 0 "$rc" "只有我们装的退役软链时应当正常完成"
 assert_absent "$CLAUDE_SKILLS_DIR/product-brief" "指向旧仓的退役软链必须被删除"
-assert_absent "$CLAUDE_SKILLS_DIR/domain-modeling" "指向本仓的退役软链必须被删除"
-assert_dir "$root/vendor/mattpocock-skills/grilling" "软链指向的本仓目录必须原封不动"
+assert_absent "$CLAUDE_SKILLS_DIR/lofi-prototype" "指向本仓的退役软链必须被删除"
+assert_dir "$root/skills/design-review" "软链指向的本仓目录必须原封不动"
 report_case
 teardown
 
@@ -141,10 +141,10 @@ echo "用例 4 · 软链指向已知旧仓"
 setup
 legacy="$HOME/Developer/skills"           # 与脚本 LEGACY_ROOTS 一致
 mkdir -p "$CLAUDE_SKILLS_DIR"
-ln -s "$legacy/lofi-prototype" "$CLAUDE_SKILLS_DIR/lofi-prototype"   # 悬空也算，判据是路径前缀
+ln -s "$legacy/vertical-slicing" "$CLAUDE_SKILLS_DIR/vertical-slicing"   # 悬空也算，判据是路径前缀
 run; rc=$?
 assert_exit 0 "$rc" "指向已知旧仓的软链应当被静默修好"
-assert_symlink_to "$CLAUDE_SKILLS_DIR/lofi-prototype" "$root/skills/lofi-prototype" "软链已改指向本仓"
+assert_symlink_to "$CLAUDE_SKILLS_DIR/vertical-slicing" "$root/skills/vertical-slicing" "软链已改指向本仓"
 report_case
 teardown
 

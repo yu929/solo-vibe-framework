@@ -2,7 +2,7 @@
 
 > **装什么和不装什么同样重要。** 每条「不装」都写了理由——没有理由的禁令会在半年后被自己推翻，然后重踩同一个坑。
 >
-> 核实日期：2026-08-12。上游变了先回来改这份，别在别处打补丁。
+> 核实日期：2026-08-21（vendor 判定与实测事实表）。上游变了先回来改这份，别在别处打补丁。
 
 ## 底座：Trellis
 
@@ -67,7 +67,10 @@ fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/co
 | workflow-state hook 是 **parser-only**（*"reads whatever you put in the block"*） | `trellis-meta/references/customize-local/change-workflow.md` | 任何「门禁」都只是提示语 |
 | **`--registry` 只认 `type: spec`，其他类型直接返回失败** | `dist/utils/template-fetcher.js:828` | `index.json` 只登记一条 |
 | **`no-trellis` 是自带逃生舱**：prompt 里含这个独立词（词边界匹配，`no-trellisfoo` 不算），当轮 breadcrumb 完全不注入；不影响 SessionStart 与子 agent 注入 | `config.yaml` 的 `prompt_injection.skip_keyword`，**实测注入为空** | 写简报被反复问「要不要建 task」时的正解，见 [`../playbook/01-new-product.md`](../playbook/01-new-product.md) 常见卡点 |
-| **spec 注入按 frontmatter `paths:` glob 触发，glob 不限于代码路径** | 实测：写一份 `paths: ["docs/discovery/**"]` 的 spec，`get_context.py --mode spec --file docs/discovery/brief.md` 命中；反向对照 `src/a.ts` 不命中 | 想给需求探索期加规则，这是**比 workflow 变体轻一个量级**的落点：一个文件、随 registry 分发、跨项目共享 |
+| **spec 注入按 frontmatter `paths:` glob 触发，glob 不限于代码路径** | 实测：写一份 `paths: ["docs/discovery/**"]` 的 spec，`get_context.py --mode spec --file docs/discovery/slices.md` 命中；反向对照 `src/a.ts` 不命中 | 想给需求探索期加规则，这是**比 workflow 变体轻一个量级**的落点：一个文件、随 registry 分发、跨项目共享 |
+| **`paths: [".trellis/tasks/**"]` 同样命中**——glob 可以指向 Trellis 自己的产物目录 | 实测 2026-08-21：临时项目里 `task.py create` 之后，`get_context.py --mode spec --file .trellis/tasks/08-21-probe/prd.md` 命中该 spec；`src/a.ts` 不命中 | `specs/universal/guides/task-artifacts.md` 靠这条在 agent 动 task 产物时自动注入 |
+| **没有 `paths:` 的 spec 不参与路径路由**——它走 `guides/index.md` 指针那条路 | `scripts/common/spec_match.py` 只收 frontmatter 首行为 `---` 的文件；`spec_inject.py` 只处理 `SpecMatch` | 两条投递通道并存：**要在特定时刻自动出现的**加 `paths:`，**按需查阅的**留在 index 里 |
+| **Claude Code 那侧的注入是 PostToolUse**（Codex 是 PreToolUse 且会 deny-once 让模型重读） | `shared-hooks/inject-spec-context.py` 的 Triggers 段 | 「写之前就读到」在 Claude Code 上**不保证**——所以 `task-artifacts.md` 还配了一段 `workflow.md` 提示语兜底 |
 
 以下五条来自**第一次完整实跑**（2026-08-16，一个切片走完 Plan/Execute/Finish 并归档）：
 
@@ -79,7 +82,7 @@ fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/co
 | **换 session 靠单文件 fallback 续上**：`.trellis/.runtime/sessions/` 里**恰好 1 个**文件才认，0 个或 ≥2 个直接返回「无活跃 task」（源码注释：*refuses to guess across windows*） | `scripts/common/active_task.py:599-621` | 单窗口串行干活无缝；**同时开两个窗口对同一个仓库，换 session 就丢活跃 task** |
 | **`task.py start` 不校验任何产物**——只解析路径、写指针、翻状态，不看 `prd.md` 在不在、不看 jsonl 填没填 | `scripts/task.py` `cmd_start` | 推论：**别用 `start` 去修丢失的指针**，它会顺手把 `planning` 翻成 `in_progress`，把开工闸门跳过去且不报错 |
 
-**推论：纯用 Trellis 看不到产品全貌。** 跑五十个 task 之后你有一堆编码规范 + 一堆已归档的单次改动 + 一条时间流水，没有一处回答「这个产品现在整体是什么」。所以 `docs/discovery/brief.md` **不是消耗品**——它是这一层唯一的宿主，跟着阶段目标更新，不随发布删除。
+**推论：纯用 Trellis 看不到产品全貌。** 跑五十个 task 之后你有一堆编码规范 + 一堆已归档的单次改动 + 一条时间流水，没有一处回答「这个产品现在整体是什么」。所以完整 PRD 与 `docs/discovery/slices.md` **都不是消耗品**——它们是这一层仅有的宿主，跟着阶段目标更新，不随发布删除。
 
 ### 四种分发机制（最容易踩的一处）
 
@@ -144,35 +147,54 @@ if (resolved.type !== "spec") {
 
 如果想留后路：fork 一份**只读镜像**（不改、不发包），只用来 diff 和查源码，零维护。
 
-## mattpocock/skills — 只取两个（已 vendor）
+## mattpocock/skills — 取六个（已 vendor）
 
 ### 装
 
 | skill | 取它什么 | 附带依赖 |
 |---|---|---|
 | `grilling` | design tree + frontier 分轮批量提问：一轮问完整个 frontier、编号 + **每题附推荐答案**、依赖未决的排到下一轮、「Finding facts is your job, never the user's」（环境事实派子 agent 查，不问用户） | 无 |
-| `grill-me` | 用户可调用薄壳（147 字节：`disable-model-invocation: true` + 一句 `Run a /grilling session`） | 依赖 `grilling` |
+| `grill-me` | 用户可调用薄壳（`disable-model-invocation: true` + 一句 `Run a /grilling session`） | 依赖 `grilling` |
+| `grill-with-docs` | 逼问的同时把术语与决策落盘。**全文只有一句** `Call the Skill tool twice, for "grilling" and "domain-modeling"` | **强依赖 `domain-modeling`**，少了它第二次调用指向不存在的东西 |
+| `domain-modeling` | `CONTEXT.md` 术语表（*"a glossary and nothing else"*）+ `docs/adr/` + **ADR 三判据原件** | 无 |
+| `prototype` | **只用 LOGIC 分支**：为回答「这个逻辑/状态模型对不对」造一个单文件可分享 HTML，把状态机推过纸上想不清的用例，非开发者也能驱动 | 无 |
+| `writing-for-agents` | 写给 agent 读的文档的元规则：context pointer 的措辞决定触发可靠性、两种 load 的预算、信息层级与 progressive disclosure、completion criterion 的清晰度与要求量、leading words | sibling `SKILL-MECHANICS.md` |
 
 **它的停止条件是「frontier 空」，无界。** 本仓不给提问加轮次上限。
 
-**那它在简报阶段靠什么收敛？** 靠它自己的两条：frontier 空即停，以及 *"Finding facts is your job, never the user's"*（环境事实派子 agent 查，不问用户）。这一步在 task 之外，Trellis 的 brainstorm 还没上场，所以确实没有外部闸——**这是有意接受的**：简报阶段问题问不够，代价会在后面每一片重复付。真正需要有界的是走查轮次和选案次数，那两条纪律落在 `lofi-prototype` 里。
+**那它在 PRD 阶段靠什么收敛？** 靠它自己的两条：frontier 空即停，以及 *"Finding facts is your job, never the user's"*（环境事实派子 agent 查，不问用户）。这一步在 task 之外，Trellis 的 brainstorm 还没上场，所以确实没有外部闸——**这是有意接受的**：需求阶段问题问不够，代价会在后面每一片重复付。真正需要有界的是走查轮次和选案次数，那两条纪律现在落在 `skills/vertical-slicing/` 与 `ui-ux-pro-max` 的用法约定里。
 
-**ADR 三判据**（难以回退 + 没上下文会困惑 + 真有取舍，三条全中才写）原本抄自已退役的 `domain-modeling`，曾经暂住本文件。**现在正文归 [`../playbook/assets/decisions-template.md`](../playbook/assets/decisions-template.md)**——它是决策记录的准入闸，判据得写在照着做的地方才会被真读到。改判据改那里。
+**ADR 三判据**（难以回退 + 没上下文会困惑 + 真有取舍，三条全中才写）**正文在上游原件** `vendor/mattpocock-skills/domain-modeling/SKILL.md`。本仓一度维护过一份抄本（`playbook/assets/decisions-template.md`），2026-08-21 随 `domain-modeling` 装回来一起删掉了——**同一套判据两个落点必然分叉**。要改判据只能改用法，不能改原件（vendor 只读）。
 
 ### 明确不装
 
 | 不装 | 理由 |
 |---|---|
-| **`to-spec`（本体）** | 其 SKILL.md **硬依赖 issue tracker**：步骤 3 要求 publish 到 issue tracker 并打 `ready-for-agent` 标签，且要求先跑 `setup-matt-pocock-skills`。装了就与 `.trellis/tasks/` 构成两个任务系统 |
 | **`setup-matt-pocock-skills`** | 它配置的正是 issue tracker 与 label 词表。**上游 README 提示必装，我们必须不装** |
-| `tdd` / `code-review` / `triage` / `to-tickets` | 同上，都建立在 issue tracker 工作流上 |
+| **`to-spec`（本体）** | 其 SKILL.md 步骤 3 要求 publish 到 issue tracker 并打 `ready-for-agent` 标签，且要求先跑 `setup-matt-pocock-skills` |
+| **`to-tickets`** | **判据 2026-08-21 更新**：上游现在有本地文件模式（`.scratch/<feature>/issues/<NN>-<slug>.md`），且 `disable-model-invocation: true`（只能用户显式调用，不会自动抢）。冲突**降级但没消失**——`.scratch/.../issues/` 与 `.trellis/tasks/` 仍是两个任务系统。**结论不变，理由已换**。它的四条纪律见下 |
+| `tdd` / `code-review` / `triage` | 都建立在 issue tracker 工作流上 |
+| **`addyosmani/agent-skills` 的 `planning-and-task-breakdown`**（MIT，2026-08-14） | 三条：① `tasks/plan.md` + `tasks/todo.md` 是第二任务系统，且它明说 `/build` 与下游工具期望该路径 ② **粒度锚在文件数上**（≤5 文件），而一个真垂直切片（表 + 迁移 + 服务 + 路由 + 页面）天然 5 文件起，按它的表被判 M/L 会诱导往横切走 ③ `## See Also` 引 `../../references/definition-of-done.md`，**跨目录引用装到 `~/.claude/skills/` 就断** |
 
-**但要借 `to-spec` 的两条纪律**（不是它的代码）。逐片之后本仓没有「合成」这一步了——需求收敛由 Trellis 的 brainstorm 在 task 内做——但这两条对写 `prd.md` 仍然成立：
+**但要借它们的纪律**（不是代码）。
+
+**`to-spec` 两条**，对写 `prd.md` 与 `design.md` 仍然成立：
 
 - 不写具体文件路径和代码片段（会很快过时）；例外是比散文更精确的 schema / 状态机 / 类型形状
 - 只合成已有共识，不新问问题——要问的在 grilling 阶段已经问完
 
-差异只有一处：**发布目标是 `.trellis/tasks/<task>/prd.md`，不是 issue tracker**。
+**`to-tickets` 四条**，全部落进本仓的 `skills/vertical-slicing/`：
+
+| 借什么 | 为什么它值钱 |
+|---|---|
+| **切片尺度锚 = 一个全新 context window**（*"sized to fit in a single fresh context window"*） | 本仓原有判据只答「是不是切片」，不答「切得对不对大」。这个锚比文件数/工时对——Trellis 的实现就是子 agent 在全新 context 里跑 |
+| **宽重构是垂直切片的显式例外，走 expand–contract** | 影响面铺满全仓的机械改动切不成垂直片，硬切每片都红。本仓原有判据遇到它会判「不是切片」然后**没有下文** |
+| **阻塞边 + frontier 替代顺序列表** | 每片自己声明被谁阻塞，frontier = blocker 全完成的片。比「依赖」列精确，且正好补上 Trellis 那个洞（*"Parent/child structure is not a dependency system"*） |
+| **第 4 步「Quiz the user」** | 编号清单 + 三个问题（粒度 / 阻塞边 / 合并或拆分）+ 迭代到批准。这正是本仓的拍板形态 |
+
+**`addyosmani` 一条**：「**标题里出现「和 / 与 / and」就是两个任务**」——零成本、可判定的拆分信号。它的尺寸表不借，锚错了。
+
+**不借的是发布步骤**：发布目标是 `docs/discovery/slices.md`（切片地图）与 `.trellis/tasks/<task>/prd.md`，不是 issue tracker，也不是 `tasks/todo.md`。
 
 ### 装法：vendor 进本仓，不用上游安装器
 
@@ -215,27 +237,44 @@ scripts/sync-vendor.sh --pull     # 读完 diff、确认要跟随，才更新（
 # npx skills@latest add mattpocock/skills    ← 拷进项目仓库，per-repo
 ```
 
-**还需不需要 `grilling`——待实跑验证。** 本仓已决定提问纪律取 Trellis 的（见上「两套提问纪律会打架」），而 Trellis 的 brainstorm 已经有了 grilling 的两条核心（Evidence Rule、每题附推荐答案），差别只剩 frontier 批量 vs 一次一问。所以 grilling 的净增量只剩「**写简报那一步、brainstorm 还没上场时的批量提问**」——真实但很窄。
+**还需不需要 `grilling`——待实跑验证。** 本仓已决定提问纪律取 Trellis 的（见上「两套提问纪律会打架」），而 Trellis 的 brainstorm 已经有了 grilling 的两条核心（Evidence Rule、每题附推荐答案），差别只剩 frontier 批量 vs 一次一问。所以 grilling 的净增量只剩「**出完整 PRD 那一步、brainstorm 还没上场时的批量提问**」——真实但很窄。
 
-实跑一次简报之后再定去留。不需要了就删掉 `vendor/mattpocock-skills/<name>/`、从 `scripts/install-skills.sh` 的 `VENDORED` 数组移除、**并加进 `RETIRED` 数组**（否则已存在的软链会留着继续被触发），同时从 `scripts/sync-vendor.sh` 的 `SKILLS` 数组移除。
+**新流程下这个净增量变大了一点**：0-1 的前四步（需求讨论 → 完整 PRD → 验字段 → 反写）全在 task 之外，`grill-with-docs` 在那里没有竞争者。实跑一次完整 PRD 之后再定去留。不需要了就删掉 `vendor/mattpocock-skills/<name>/`、从 `scripts/install-skills.sh` 的 `VENDORED` 数组移除、**并加进 `RETIRED` 数组**（否则已存在的软链会留着继续被触发），同时从 `scripts/sync-vendor.sh` 的 `SKILLS` 数组移除。
 
-### 已退役：`domain-modeling`
+### `domain-modeling`：退役过，2026-08-21 装回来
 
-**曾经装过，现已整个删除。** 它的问题是机制性的，不是好不好用：
+**它曾被整个删除**，理由是它要求维护 `CONTEXT.md` 当术语源真，而当时本仓的术语结论落在产品简报里，两处都自称术语权威，一次正常的术语讨论就能产生两个互相漂移的事实源。
 
-它的 SKILL.md 明确要求「首次术语裁决时创建 `CONTEXT.md` 并即时更新」，且规定 *"It is a glossary and nothing else"*。而本仓的术语结论落 **brief §5「措辞」**。两处都自称术语权威，正常的一次术语讨论就能产生两个互相漂移的事实源——而安装脚本是**全局**启用它的，也就是说这个冲突默认就会发生。
+**装回来是因为 `grill-with-docs` 强依赖它**——上游那个 skill 全文只有一句 `Call the Skill tool twice, for "grilling" and "domain-modeling"`，没有它第二次调用指向不存在的东西。
 
-三条候选路径里选了删除：
+冲突现在有**两处**（原记录只有一处）：
 
-| 路径 | 为什么不选 |
-|---|---|
-| 改 vendor 原件让它写 brief §5 | 违反 `vendor/` 只读——改了就跟上游 diff 不上 |
-| 新写一个本仓包装 skill 转移落点 | 为一个净增量很窄的能力新增一份要维护的 skill |
-| **删掉**（选中） | 它的两样干货已经在本仓有家：ADR 三判据在本文件，术语裁决手法在 brief 模板注释 |
+| 它的产出 | 本仓曾经的 | 冲突 |
+|---|---|---|
+| `CONTEXT.md`（且要求术语一裁决就**立刻**更新、不许攒） | 简报 §5「措辞」 | 两个术语源真 |
+| `docs/adr/` + 三判据 | `docs/discovery/decisions.md` + **同一套三判据**（本仓那份就是从它抄的） | 两个决策落点 + 一份抄本 |
 
-**`grill-with-docs` 不能拿来替代它。** 上游那个 skill 全文只有一句 —— `Run a /grilling session, using the /domain-modeling skill.` —— 它是 `domain-modeling` 的**入口**，description 还明写 *"creates docs (ADR's and glossary) as we go"*。装它等于把冲突装回来并加一个显式入口。想要「简报阶段批量提问」，`grill-me` 已经在做，两者的差别正好就是 `domain-modeling`。
+**解法：本仓让位。** 理由是机制性的，不是「上游更好」——当年判定它时列过三条路径，「改 vendor 原件让它写别的位置」因**违反 vendor 只读**被否；那条理由今天原样成立。既然要装，只能接受它的落点。
 
-要回退这个决定：把 `domain-modeling:skills/engineering/domain-modeling` 加回 `sync-vendor.sh` 的 `SKILLS`、跑 `--pull` 取回目录，再在 `install-skills.sh` 里从 `RETIRED` 挪回 `VENDORED`。**但先解决 `CONTEXT.md` 与 brief §5 谁是源真**，不然装回来还是同一个问题。
+- **术语源真 = `CONTEXT.md`**。完整 PRD 的术语章改成**指向它**，不自己存一份
+- **决策源真 = `docs/adr/`**。`docs/discovery/decisions.md` 与 `playbook/assets/decisions-template.md` **已删除**，ADR 三判据（难以回退 + 没上下文会困惑 + 真有取舍，三条全中才写）回到上游原件 `vendor/mattpocock-skills/domain-modeling/SKILL.md`，本仓不再维护抄本
+
+**代价说清**：`decisions.md` 是 2026-08-13 才加的，理由是实测确认 Trellis 四处候选宿主全都不记「当初否掉了什么」。换成 `docs/adr/` 之后**那个需求仍然被满足**（ADR 正是记这个的），只是宿主和格式换成上游的。**需求不丢，宿主换人**，并且少一个漂移源。
+
+**要再退役它**：先解决 `grill-with-docs` 怎么办（一起退，还是自己写一个只调 `grilling` 的壳），再走「删一个 vendor skill 要动四处」。
+
+### `prototype`：只用 LOGIC 分支
+
+上游这个 skill 分两支，**第一步就是 "Pick a branch"**：
+
+| 分支 | 产物 | 本仓 |
+|---|---|---|
+| **LOGIC**（*"Does this logic / state model feel right?"*） | 单个可分享 HTML，free-play 按钮 + 分页引导走查，把状态机推过纸上想不清的用例 | **用它**——对应 0-1 流程「每个模块即抛 prototype，验证字段」 |
+| UI（*"What should this look like?"*） | 真项目路由上开几个变体，URL search param 切换 | **不用**——归 `ui-ux-pro-max`。两者都答「这该长什么样」，但一个是在真项目里开变体、一个是全量高保真 + 设计系统，混用会长出两套视觉源真 |
+
+**这条纪律是提示语，不是判定。** skill 是整个装的，没有任何机制挡得住它选 UI 分支。发现它跑去 UI 分支就当场拉回来，并把实际手感记在这里。
+
+**它的规则 1 与规则 6 跟本仓「探索」纪律曾经对撞**（*"Locate the prototype code close to where it will actually be used"*、*"commit it to a throwaway branch"* vs 本仓的「不进 `src/`、验完就删」）。**新流程下这个冲突消失了**：验字段发生在 0-1 流程步骤 3，早于步骤 6「定后端轨」——那时候还没有 `src/`。
 
 ## spec-anchor — 整体不装
 
@@ -261,10 +300,10 @@ scripts/sync-vendor.sh --pull     # 读完 diff、确认要跟随，才更新（
 
 | 退役的 | 掉下来的能力去哪了 |
 |---|---|
-| `product-brief` | 降级成 [`playbook/assets/brief-template.md`](../playbook/assets/brief-template.md)，一份模板不是 skill。逐片之后它只剩「方向 + 阶段目标 + 切片清单」，一页纸的事 |
+| `product-brief` | 降级成 [`skills/vertical-slicing/assets/slices-template.md`](../skills/vertical-slicing/assets/slices-template.md)，一份模板不是 skill。它只剩「阶段目标 + 切片清单 + frontier」三节 |
 | `prd-generator` / `-noweb` | 字段级需求不再预先穷举，随 task 在 `prd.md` 里就近定义（Trellis 的 `task.py create` 自带模板，本仓**不再提供** task 级 PRD 模板） |
-| `system-design` / `design-system-java` | 承重决策落 `docs/discovery/decisions.md`（模板 [`decisions-template.md`](../playbook/assets/decisions-template.md)）；切片顺序落简报 §4 |
-| `domain-modeling`（原 vendor 项，不属于旧仓） | ADR 三判据落 [`decisions-template.md`](../playbook/assets/decisions-template.md)、术语裁决手法落 brief 模板注释。理由见上面「已退役：`domain-modeling`」 |
+| `system-design` / `design-system-java` | 承重决策落 `docs/adr/`（由 `domain-modeling` 维护）；切片顺序落 `docs/discovery/slices.md` |
+| **`lofi-prototype`**（本仓自有，2026-08-21 退役） | 新流程里全量高保真在切片**之前**就定稿，task 内再出一次低保真等于跟定稿构成两个结构源真。它承接的实跑结论「**定稿必须进 `implement.jsonl`**」已改由 `vertical-slicing` 接住（`slices.md` 切片清单第四列 → 每片进 task 时填 jsonl）。保真度红线、走查轮次上限随之作废 |
 
 清理命令见 [`../playbook/00-setup.md`](../playbook/00-setup.md) 步骤 2。**脚本只删软链**：退役名如果在 `~/.claude/skills/` 下是真目录（可能是你自己的同名 skill），它报错退出而不是删除。这条由 `scripts/test-install-skills.sh` 用例 1 卡住。
 

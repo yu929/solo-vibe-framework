@@ -1,5 +1,18 @@
 # 场景一 · 全新产品
 
+> ### ⚠️ 流程已改，本文件尚未跟上（2026-08-21）
+>
+> 0-1 流程改成 **「完整 PRD → `prototype` 验字段 → 全量高保真 → `vertical-slicing` 切片 → 逐片进 Trellis」**。相对旧版的三处硬变化：
+>
+> | 旧 | 新 |
+> |---|---|
+> | 一页六节简报 `brief.md` | **完整 PRD**（`create-prd-skill`）+ 三节切片地图 `slices.md`（`vertical-slicing`） |
+> | task 内出低保真原型走查 | **切片前全量高保真定稿**（`ui-ux-pro-max`）；`lofi-prototype` 已退役 |
+> | `docs/discovery/decisions.md` | **`CONTEXT.md`（术语）+ `docs/adr/`（决定）**，由 `domain-modeling` 维护 |
+>
+> **下面的步骤叙述还在描述旧流程**，重写待人读文档的写作 skill 落地 + 新流程实跑一片。装东西看 [`00-setup.md`](00-setup.md)（已更新），规则以 [`AGENTS.md`](../AGENTS.md) 为准。
+
+
 > 从一句话想法到第一个能开工的纵向切片。
 
 ## 什么时候用这个场景
@@ -41,12 +54,12 @@
 
 ```
 我想做 <一段话，不用组织>。
-用 playbook/assets/brief-template.md 的结构，帮我落成 docs/discovery/brief.md。
+用 skills/vertical-slicing/assets/slices-template.md 的结构，帮我落成 docs/discovery/slices.md。
 先把你能自己查的查了（现有仓库有什么、技术上有没有明显不可行的点），
 剩下真需要我拍板的，一次列出来，每题给个推荐答案。
 ```
 
-**AI 会产出什么**：一批编号问题（每题带推荐答案），你答完之后是 `docs/discovery/brief.md`，六节，一页。
+**AI 会产出什么**：一批编号问题（每题带推荐答案），你答完之后是 `docs/discovery/slices.md`，六节，一页。
 
 装了 `grilling` 的话它会用 frontier 机制组织问题——前置已定的一次问完，依赖未决的排到下一轮。**环境事实它该自己查，不该问你。**
 
@@ -62,7 +75,7 @@
 
 分不清一条属于哪类时问：**它是"事实"、"范围"，还是"选择"？** 只有选择进决策记录。
 
-决策记录用 [`assets/decisions-template.md`](assets/decisions-template.md)，**准入卡三条判据**：难以回退 + 没上下文会困惑 + 真有取舍，**三条全中才写**。不卡这三条它会在两周内变成对话转储，那时比不存在更糟——没人愿意读的档案等于没有档案。
+决策记录用 `docs/adr/`（由 `domain-modeling` 维护），**准入卡三条判据**：难以回退 + 没上下文会困惑 + 真有取舍，**三条全中才写**。不卡这三条它会在两周内变成对话转储，那时比不存在更糟——没人愿意读的档案等于没有档案。
 
 **我敲什么**：
 
@@ -365,7 +378,7 @@ no-trellis 我们先把简报第 3 节聊完
 
 | 步骤 | 待验证初稿 | 状态 |
 |---|---|---|
-| 1 · 写简报 | `我想做 <一段话>。用 playbook/assets/brief-template.md 的结构落成 docs/discovery/brief.md。能自己查的先查了，剩下需要我拍板的一次列出来，每题给推荐答案` | 待验证 |
+| 1 · 写简报 | `我想做 <一段话>。用 skills/vertical-slicing/assets/slices-template.md 的结构落成 docs/discovery/slices.md。能自己查的先查了，剩下需要我拍板的一次列出来，每题给推荐答案` | 待验证 |
 | 1 · 检查阶段目标 | `§2 的阶段目标是一条端到端链路还是一批功能？如果是后者，改成前者` | 待验证 |
 | 1 · 结论分流 | `刚才问出来的按三类分：环境事实（丢掉）/ 需求边界（进 brief 哪一节）/ 有取舍的决定（进 decisions.md）。第三类按 decisions-template.md 的三条判据筛，缺一条就不写，并告诉我它缺哪条` | 待验证 |
 | 1 · 让它闭嘴一轮 | `no-trellis <你要说的话>` | **机制已实测**（注入为空）；实际手感待验证 |

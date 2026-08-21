@@ -1,5 +1,18 @@
 # 场景四 · 项目级检查点
 
+> ### ⚠️ 流程已改，本文件尚未跟上（2026-08-21）
+>
+> 0-1 流程改成 **「完整 PRD → `prototype` 验字段 → 全量高保真 → `vertical-slicing` 切片 → 逐片进 Trellis」**。相对旧版的三处硬变化：
+>
+> | 旧 | 新 |
+> |---|---|
+> | 一页六节简报 `brief.md` | **完整 PRD**（`create-prd-skill`）+ 三节切片地图 `slices.md`（`vertical-slicing`） |
+> | task 内出低保真原型走查 | **切片前全量高保真定稿**（`ui-ux-pro-max`）；`lofi-prototype` 已退役 |
+> | `docs/discovery/decisions.md` | **`CONTEXT.md`（术语）+ `docs/adr/`（决定）**，由 `domain-modeling` 维护 |
+>
+> **下面的步骤叙述还在描述旧流程**，重写待人读文档的写作 skill 落地 + 新流程实跑一片。装东西看 [`00-setup.md`](00-setup.md)（已更新），规则以 [`AGENTS.md`](../AGENTS.md) 为准。
+
+
 > 停下来看一眼全貌。非时间盒——不是每两周一次，是达到某个条件时一次。
 
 ## 什么时候用这个场景
@@ -34,7 +47,7 @@ Trellis 的 `finish-work` 看起来像收尾，其实只有四步：查状态 �
 ## 开始之前
 
 - [ ] 手上没有进行中的 task（有就先 Finish，别在半截上盘点）
-- [ ] `docs/discovery/brief.md` 还在
+- [ ] `docs/discovery/slices.md` 还在
 
 ## 步骤
 
@@ -45,7 +58,7 @@ Trellis 的 `finish-work` 看起来像收尾，其实只有四步：查状态 �
 ```
 做一次项目检查点。先只做汇总，不要给建议：
 1. 列出 .trellis/tasks/archive/ 里已完成的切片，每个一句话
-2. 对照 docs/discovery/brief.md §4 的切片清单，标出：做了但不在清单里的、清单里还没做的
+2. 对照 docs/discovery/slices.md §4 的切片清单，标出：做了但不在清单里的、清单里还没做的
 3. 列出 .trellis/spec/ 里最近新增的约定
 4. 如果有 docs/discovery/decisions.md，把写了「什么时候回来重看」的条目列出来，
    逐条说触发条件到了没有（到没到就是事实判断，不要给建议）
@@ -87,7 +100,7 @@ Trellis 的 `finish-work` 看起来像收尾，其实只有四步：查状态 �
 
 ### 步骤 3 · 回写简报
 
-检查点唯一的产物是**更新后的 `docs/discovery/brief.md`**：
+检查点唯一的产物是**更新后的 `docs/discovery/slices.md`**：
 
 - §2 阶段目标——达成了就写下一阶段的，变了就改
 - §3 能力地图——扩张的补进来，该砍的移进「明确不做」
