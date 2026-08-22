@@ -36,10 +36,10 @@
 | 鉴权 | **Spring Security** + **Spring Session JDBC**（会话存 Postgres），**不用 JWT** |
 | 认证限流 | **bucket4j**（`bucket4j_jdk17-core`）令牌桶，进程内；按客户端地址 + 按账号两份额度 |
 | API 文档 | **springdoc-openapi 3.x** → `/v3/api-docs` → 前端类型 |
-| 前端 | **Vite 8 + React 19 + TypeScript 6 + Tailwind v4 + shadcn/ui + shadcn-admin-kit**（视觉单源在 `globals.css` 的 `@theme`） |
-| 前端数据层 | **ra-core**（shadcn-admin-kit 的内核）的 dataProvider / authProvider / `<Resource>`；**TanStack Query 在它下面，不直接用** |
-| 前端路由 / 表单 | **React Router 8** + **React Hook Form**（ra-core 自带集成） |
-| 包管理 | 后端 Gradle；前端 **pnpm**（宿主机 Node ≥ 24 + corepack，**不让 Gradle 另下一个 pnpm**） |
+| 前端 | **Vite 8 + React 19 + TypeScript 6 + Tailwind v4 + shadcn/ui + shadcn-admin-kit**；shadcn 内核锁 **Radix + new-york**（视觉单源见「目录结构」的 `globals.css`） |
+| 前端数据层 | **ra-core 5.x**（shadcn-admin-kit 的内核）的 dataProvider / authProvider / `<Resource>`；**TanStack Query 在它下面，不直接用** |
+| 前端路由 / 表单 | **React Router 7**（`react-router` 与 `react-router-dom` **两个都要精确同版**） + **React Hook Form**（ra-core 自带集成） |
+| 包管理 | 后端 Gradle；前端 **pnpm**（宿主机 Node ≥ 24 + corepack，**不让 Gradle 另下一个 pnpm**）；`packageManager` 声明的版本要和 PATH 上的一致 |
 | 测试 | **JUnit 5 + Testcontainers + ArchUnit**；**Vitest**；**Playwright** |
 | 部署 | **单容器**：SPA 打进 jar 的 `static/`，三阶段 Dockerfile + 分层 jar |
 
@@ -47,6 +47,9 @@
 
 - **TypeScript 锁 6.0.x，不要升 7。** TS 7 已发布，但 `typescript-eslint` 的 peer 范围是 `>=4.8.4 <6.1.0`——升上去 `tsc` 照常跑，**lint 链会断**。升级前先确认 typescript-eslint 支持了。
 - **Flyway / Testcontainers / Postgres 驱动 / Spring Session 不在 version catalog 里钉版本**，由 Spring Boot BOM 管。在 catalog 里覆盖它们等于让它们悄悄脱离你所在的 Boot 版本。要升就升 Boot。
+- **`react-router` 与 `react-router-dom` 必须都是 direct dependency 且精确同版。** 只锁前者时，pnpm 会按 peer 自己装一个版本不同的后者，两份 Router 上下文副本互相不认，运行时报「不是 `<Route>` 组件」——而 **typecheck 和 build 全绿**。验收要用打包 jar 上的深链 E2E。
+- **shadcn 内核锁 Radix + new-york，不要换 Base UI。** admin kit 的 registry 源码用的是 Radix/new-york 的组件 API（含 `asChild` 这类组合方式），换内核不是改 import 能了事的——会长出一个适配 fork，并让生成的组件和上游文档从此对不上。
+- **`openapi-typescript` 的 peer 仍声明 TypeScript 5**，本项目是 6，生成时另有 Springdoc/Jackson 的 JsonSchema 警告。当前是**非阻断**的上游声明与生成警告，`pnpm api:types` 正常产出。**不要手改生成文件去掩盖它**，等上游正式支持 TS 6 再收敛版本。
 
 ## Boot 4 的包名陷阱（照抄 Boot 3 的代码会中招）
 
@@ -96,6 +99,8 @@ Boot 4 大改了坐标和包名。这些**编译期就报错**的还算好，最
 - 禁 `@ManyToMany`、禁 `FetchType.EAGER`；controller 不返回实体，只返回 DTO record。
 - **不引入 Lombok**（注解处理器 + 与 record/JPA 的长期摩擦）。DTO 用 record，实体用普通类。
 - 不手改生成文件：`V*__spring_session.sql`（抄自 jar）、`frontend/src/lib/api/schema.d.ts`（`pnpm api:types` 生成）。
+- **`components/admin/*` 是冻结的上游源码快照，不可手改**；确有必要的本地修改逐条记进 `THIRD_PARTY_NOTICES.md`，比对基线取 pin 那个 commit 的源码而不是 registry 地址（[`frontend/index.md`](frontend/index.md) §6）。
+- **项目名在 `frontend/src` 里只有一个拼写点**（`lib/app-config.ts` 的 `APP_NAME`），由它往下分发。散成多处之后模具的改名步骤就追不完了，而改名漏掉的后果是所有生成项目共用一个 Postgres 数据卷和一个会话 cookie（[`database/index.md`](database/index.md) §5）。
 - 前端所有后端调用经 ra-core 的 `dataProvider` / `authProvider`，**组件里不裸 `fetch`**，也不绕开 provider 直接 `useQuery`。
 - 唯一性由**数据库约束**裁决，不由「先查存在再插入」裁决（[`backend/index.md`](backend/index.md) §4.2）。
 - 引入新依赖（尤其重型库）前先问。
@@ -127,17 +132,20 @@ backend/src/test/java/<pkg>/
   architecture/                # ArchUnit：归属收口
   <功能>/                       # 含 *OwnershipIsolationTest（负向）
   TestcontainersConfiguration · DatabasePasswordGuardTest   # 跨模块的，放包根
-frontend/src/
-  lib/api/                     # dataProvider（唯一数据出口：CSRF 头 + 错误归一化）
-                               # authProvider（唯一认证出口）· schema.d.ts（生成，勿手改）
-  lib/{status,utils}.ts
-  components/ui/               # shadcn 基础件，勿手改（用 CLI 加）
-  components/admin/            # shadcn-admin-kit 的 List/Edit/Create 封装
-  components/{data,forms,app}/ # patterns 层（上面两层都没有的那部分）
+frontend/src/                  # 只列承重项；不在此列的目录按就近原则放
+  lib/api/client.ts            # transport：CSRF 头 + problem+json 归一化，所有后端调用的底座
+  lib/api/schema.d.ts          # pnpm api:types 生成，勿手改
+  providers/                   # dataProvider（唯一数据出口）· authProvider（唯一认证出口）
+  lib/app-config.ts            # APP_NAME：项目名在 frontend/src 里的唯一拼写点
+  components/admin/            # shadcn-admin-kit 冻结源码快照，勿手改（改动记进 THIRD_PARTY_NOTICES.md）
+  components/ui/               # shadcn 生成件，勿手改（用 CLI 加）
+  components/{data,forms,app}/ # patterns 层：资源 CRUD 屏用不到，非 CRUD 屏才往这里长
   routes/                      # 页面
-  styles/globals.css           # 视觉唯一真源：Tailwind v4 的 @theme
-  app.tsx  main.tsx  assets/fonts/
+  app.tsx                      # <Admin> 与 <Resource> 声明：路由与数据的绑定处
+  styles/globals.css           # 视觉唯一真源：值在 :root，@theme inline 做映射
+  assets/fonts/                # 字体 vendored，禁 CDN
 design-system/MASTER.md        # 全站 UI 视觉权威
+THIRD_PARTY_NOTICES.md         # 第三方声明 + 冻结快照的本地修改账目
 CONTEXT.md                     # 术语表（domain-modeling 维护，唯一宿主）
 docs/
   adr/NNNN-*.md                # 有取舍的决定（唯一宿主）
@@ -159,7 +167,7 @@ docker-compose.external-db.yml # 外部库；显式 -f 会连带抑制上面那�
 
 > **数据库为什么不写在 `docker-compose.yml` 里**：compose **先逐文件插值、再合并**。自带库的 `${POSTGRES_PASSWORD:?…}` 只要写在基础文件里，外部库那条路径也会去解析它——为一个自己根本不启动的数据库要口令，整个 deploy 失败。把它挪进 override 之后，两种模式各自只解析自己用到的变量。注意 `deploy: replicas: 0` **不解决这个问题**：插值发生在任何 override 生效之前。
 
-> **`lib/api/` 内部怎么分文件待实跑确认。** 已定的是职责：后端调用一律经 `dataProvider`，认证经 `authProvider`，`schema.d.ts` 由 `pnpm api:types` 生成。
+> **`lib/api/` 与 `providers/` 的分工**：transport（CSRF 头与 `problem+json` 归一化）在 `lib/api/client.ts`，两个 provider 建在它之上、住 `providers/`。业务组件只看得见 provider，看不见 transport。
 
 > **实现规格不进 `docs/`**——它随 task 住在 `.trellis/tasks/<task>/prd.md`。集中预先穷举的那份必然先于代码腐化。
 
@@ -175,6 +183,7 @@ docker-compose.external-db.yml # 外部库；显式 -f 会连带抑制上面那�
 
 - **写路径默认是无条件 last-write-wins**，没有版本列、`@Version`、ETag 或条件更新。实体单人所有时，冲突只可能出现在同一用户的两个标签页之间，默认不为它付这份复杂度。**但凡你的实体会被多人同时编辑，就必须上乐观锁**：加版本列 + `@Version`，请求带上版本（或 `If-Match`），不匹配返回 409/412，并配并发事务与陈旧表单测试。**沿用默认**等于把「后提交者静默覆盖」带进一个它不再安全的场景。
 - **限流是进程内的**，两个实例就是两份额度（[`backend/index.md`](backend/index.md) §4.5）。单实例部署下这是诚实的取舍——不用多跑一个 Redis——但横向扩容后要换成共享存储的桶。
+- **首屏 bundle 不分包**。admin 栈单入口，构建会超过 Vite 默认那条 500 kB 警告——但那条量的是**未压缩**体积，跟用户真正下载的不是一回事。**判据用初始 chunk 的 gzip：≤ 350 kB 视为基线内**，构建输出本来就打印这个数。超了就按路由分包或写明理由；没超**不要**为「看着有点大」擅自加 lazy route 或自定义 chunk 策略——那是在为一个样例扩大架构。
 - **没有二次验证 / 人机挑战**。所以按账号的限流有一份残余风险，写在 §4.5 里，不许假装它不存在。
 
 ## 本轨规范索引
@@ -187,7 +196,9 @@ docker-compose.external-db.yml # 外部库；显式 -f 会连带抑制上面那�
 |---|---|
 | [`backend/index.md`](backend/index.md) | 分层与数据读写、**归属收口**、鉴权与会话、CSRF、JPA 禁止项、SPA 深链、异构子服务 |
 | [`database/index.md`](database/index.md) | Flyway 流程、**新表三件套**、`ddl-auto=validate`、生成的迁移不手改、本地卷名陷阱 |
-| [`frontend/index.md`](frontend/index.md) | API 调用收口、组件复用顺序、Hooks、表单、主题与视觉、可访问性 |
+| [`frontend/index.md`](frontend/index.md) | API 调用收口、组件复用顺序、Hooks、表单接线、主题令牌、路由与深链 |
+| [`frontend/ui-structure.md`](frontend/ui-structure.md) | UI/UX 判定规则（结构）：优先级裁决、页面骨架、按钮层级、筛选、表格、空态、patterns 层角色清单、可访问性不变量。**英文** |
+| [`frontend/ui-interaction.md`](frontend/ui-interaction.md) | UI/UX 判定规则（行为）：表单、校验、弹层选型、反馈、加载、危险操作、成功后落点。**英文** |
 | [`testing/index.md`](testing/index.md) | 质量门命令、怎么验证（含两条负向测试）、Testcontainers、E2E 必须跑在打包产物上 |
 
 **轨无关（换技术栈也成立，随本模板一起装）**：

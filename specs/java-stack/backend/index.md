@@ -14,7 +14,8 @@
 | 公开且昂贵的端点 | 限流：按地址 + 按账号两份额度，**验证前**原子预留（§4.5） |
 | 当前用户 | `CurrentUserService.requireUserId()`，只在 controller 调一次往下传 |
 | 会话 | Spring Session JDBC（存 Postgres），httpOnly cookie，**不用 JWT** |
-| 写接口 | `@RestController` + DTO record + `@Valid`；错误经 `ProblemDetail` |
+| 写接口 | `@RestController` + DTO record + `@Valid`；错误经 `ProblemDetail`，字段错误另附 `errors` map（§7.1） |
+| 列表端点 | 回 `{ items, total }`；页码 / 页大小 / 排序 / 搜索**逐项验证**，排序走白名单 + 固定次级键（§9） |
 | schema 变更 | 只加 Flyway 迁移；`ddl-auto` 永远是 `validate` |
 
 ## 1. 分层
@@ -343,6 +344,14 @@ Bean Validation（`@Valid` + record 上的约束）在 controller 边界做，�
 
 判据见 [`../guides/cross-layer.md`](../guides/cross-layer.md) 的「校验散落各层」。
 
+### 7.1 字段错误要可定位，而且两条 handler 只能有一种形状
+
+只回 `detail` 的 400，前端定位不到是哪个字段错了，只能把整条渲染成一句话。**Bean Validation 的 400 保留 `detail`，并附一个 `errors`：字段名 → 人类可读消息**，由 `dataProvider` 归一化后交给表单内联展示。
+
+**请求体和查询参数走的是两条不同的 handler**——`@Valid` 的 record 抛 `MethodArgumentNotValidException`，controller 方法参数上的约束抛 `ConstraintViolationException`。只接前者，查询参数的 400 就没有 `errors`，前端只能退化成一条 root 错误，而「统一一种错误形状」这个前提当场就不成立了。两条必须产出同一形状：`ConstraintViolationException` 按 property path 的**末段**建 key，多个违规时用有序 map，保证同样输入下 `detail` 稳定。
+
+**查询参数的每个约束都要显式写人类可读的 `message`。** Bean Validation 的默认文案是英文的，而 `@Pattern` 会把正则原样打进去——`detail` 正是前端逐字渲染的那一段，于是用户屏幕上会出现一串正则。
+
 ## 8. 异构子服务
 
 > **项目里没有 `services/` 目录时，本节整节不适用**——骨架里没有它，多数项目也不会有。保留它是因为那条信任边界的推理很贵，真要拆时不该重新踩一遍。
@@ -357,6 +366,27 @@ Bean Validation（`@Valid` + record 上的约束）在 controller 边界做，�
 
 ---
 
+## 9. 列表端点契约
+
+前端的 `getList` 要求 `{ data, total }` 形状，所以列表端点回 `{ items, total }`，由 `dataProvider` 做映射。**不要在前端对全量数组做伪分页**——那会把权限与性能契约藏进 provider，越权和越界都变得看不见。
+
+四样东西逐项验证，缺一个就是把非法值带进 SQL：
+
+| 参数 | 约束 |
+|---|---|
+| 页码 | 一基，且有上界 |
+| 页大小 | 有上界 |
+| 排序字段与方向 | **白名单**，不是自由字符串 |
+| 搜索词 | 有长度上限 |
+
+**用户指定的排序后面必须固定追加一个唯一次级键（`id ASC`）。** 排序值重复时，OFFSET 分页在相邻两页之间既可能重复同一行、也可能整行漏掉，而这**不会报错**——它表现为「翻页时看到重复数据」，看起来像前端缓存问题，排查会走到完全错误的方向。
+
+**搜索词先转义 `!`、`%`、`_`，再做不区分大小写的字面包含**，否则用户输入的 `%` 会变成通配符。
+
+**白名单必须和前端的夹取是同一份。** 类型层带不住这个约束——生成的 `schema.d.ts` 把这些参数放宽回 `string` / `number`——所以两侧各写注释指向对方与配对测试，**改一边必须在同一个 commit 里改另一边**（前端侧见 [`../frontend/index.md`](../frontend/index.md) §3.2）。
+
+repository 仍然只能是裸 `Repository`，列表查询照样带 `ownerId`（§2）。**双账号负向测试要覆盖搜索**：断言 B 账号的 `items` 与 `total` 都是零，且回头确认 A 的数据没被改动。
+
 ## Pre-Development Checklist
 
 - [ ] 这次要建的 repository，父接口**只有**裸 `Repository` 吗？（`PagingAndSortingRepository`、混入 `JpaSpecificationExecutor` 一样不行——§2.2）
@@ -370,6 +400,9 @@ Bean Validation（`@Valid` + record 上的约束）在 controller 边界做，�
 - [ ] 这张表的一行有没有「它属于的人」？没有（字典、参考数据、配置）→ 接口上标 `@OwnerlessTable("理由")`，别逐个方法套 `@CrossUserQuery`。**`app_user` 那种「行本身就是人」的表不算无归属**（§2.4）
 - [ ] 新加的端点是公开的、或者会做昂贵的事（哈希、外部调用）吗？限流了吗，拒绝点在昂贵操作**之前**吗（§4.5）
 - [ ] 新字段的长度/格式上限，和它底下那一列、那个库的真实限制对得上吗（§4.6）
+- [ ] 新加的是列表端点吗？回的是 `{ items, total }` 吗？页码 / 页大小 / 排序白名单 / 搜索长度四项都验了吗？固定次级键加了吗（§9）
+- [ ] 改了排序白名单或参数上界吗？**同一个 commit 里**改前端那份夹取了吗（§9）
+- [ ] 新增的校验会回 400 吗？带 `errors` map 了吗？查询参数那条 handler 也带了吗（§7.1）
 - [ ] 新增的路由要公开吗？**默认需登录**——要公开就在 `SecurityConfig` 显式登记，并写下匿名能读到什么（§4）；公开 + 昂贵 = 必须限流
 - [ ] 挂了新的后端路径吗？记得加进 SPA 兜底的排除列表（§5）
 - [ ] 改了 schema 吗？只加 Flyway 迁移，`ddl-auto` 不动
