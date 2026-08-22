@@ -57,6 +57,8 @@ Trellis 的 `.trellis/config.yaml` 里 `registry.spec.template` 是**单数**字
 3. 跑 `scripts/sync-spec-guides.sh` —— 它会自动给新目录带上 `guides/`。脚本是**推导**轨列表的（`specs/` 下除 `universal` 外的每个目录），不需要回来改脚本
 4. 跑 `scripts/test-spec-templates.sh` 验收
 
+**spec 的 frontmatter 要么带 `paths`，要么整块不写。** Trellis 的匹配器直接跳过没有 `paths` 的 spec（`spec_match.py:358`），而 `description` 只在**已命中**的 spec 的索引行里被用到（`spec_inject.py:248`）——所以「只写 `name` + `description`」是三行死代码，且它看起来和真能注入的那些一模一样。由 `test-spec-templates.sh` 用例 5 卡住。
+
 **跨模板引用一律禁止。** `specs/<track>/**` 里不许出现 `](../../`——一个项目只装一个模板，跨模板链接装完必然断。guides 与轨规范同级之后，`../guides/x.md` 在源码树和安装树里指的是同一个东西，这是唯一正确的写法。
 
 **链接必须按安装树验，不是按源码树。** `specs/<id>/` 那一层安装时会被抹平，所以源码树里通的链接装完可能是断的——仓库里跑任何常规链接检查都发现不了。`test-spec-templates.sh` 用例 1 把模板映射到临时 `.trellis/spec/` 之后再验，就是为这件事。
@@ -264,7 +266,7 @@ skills/<name>/
 > |---|---|---|
 > | `test-install-skills.sh` | 退役项只删软链、只动能证明是本框架装的链接 | 那条 `rm -rf` 会删掉用户真目录，纯文字约定挡不住 |
 > | `test-sync-vendor.sh` | vendor 内容 == 固定 SHA 的上游内容（离线校验和） | 只比 SHA 会把本地漂移报成「已是最新」 |
-> | `test-spec-templates.sh` | **按安装树**校验链接 + 各轨 guides 与权威源一致 | 装完才断的链接，在源码树里怎么查都是绿的 |
+> | `test-spec-templates.sh` | **按安装树**校验链接 + 各轨 guides 与权威源一致 + 每条 `§N` 章节引用指得到真实章节 + frontmatter 不得只写 `name`/`description` | 装完才断的链接，在源码树里怎么查都是绿的；`§N` 指错、frontmatter 没有 `paths`，则连断链都不算，完全没有症状 |
 >
 > 三条的共同点：**缺陷都没有症状**。装两个模板不报错、vendor 被改过 SHA 不变、断链只在安装产物里存在。这类东西必须靠机器发现。
 >
