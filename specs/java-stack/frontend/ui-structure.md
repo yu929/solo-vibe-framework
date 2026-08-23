@@ -1,35 +1,10 @@
----
-name: ui-structure
-description: Page skeletons, button hierarchy, filters, tables and empty states — the layout decisions a single approved mockup cannot generalize
-paths:
-  - frontend/src/routes/**
-  - frontend/src/components/**
----
-
 # UI/UX Decision Rules · Structure
 
-> The behavioural half — forms, validation, dialogs, feedback, loading, dangerous actions — is in [`ui-interaction.md`](ui-interaction.md). Stack rules (provider, generated types, hooks, theme tokens) stay in [`index.md`](index.md).
-
-## 0. What decides what
-
-Four things govern this UI. Only one of them produces *rules*.
-
-| Source | Produces | Owns |
-|---|---|---|
-| Approved hi-fi screens | An instance: this screen looks like this | Every structural choice it actually depicts |
-| `design-system/MASTER.md` | Tokens: colour roles, type scale, spacing, density | All visual values, plus this project's recorded deviations from the rules below |
-| shadcn skill / MCP | Parts: which component exists, what props it takes | Component API and composition |
-| This file + `ui-interaction.md` | Rules: which pattern applies in which situation | Cross-screen consistency, and every state no mockup drew |
-
-**Follow the approved hi-fi wherever it depicts something.** It is the slice's signed-off instance, and it outranks the defaults below.
-
-**Apply these rules everywhere it is silent.** A mockup depicts one state of one screen. It is silent about loading, empty, failure, pending and disabled, and about every screen a later slice adds. Silence is not permission to improvise.
-
-**Apply every NEVER rule even when a mockup contradicts it.** They cover accessibility and destructive actions, which are not style preferences.
-
-A project may override a default here by writing the deviation and its reason into `design-system/MASTER.md`. An unwritten deviation is not an override.
-
-> **Read this file before writing UI code, not after.** Path-based injection fires PostToolUse on Claude Code, so it can arrive after the first write.
+> Structure: page skeletons, button hierarchy, search and filters, tables, empty states, what the admin kit switches on by default, and the accessibility invariants.
+>
+> Part of the frontend spec — the resident rules, what decides what, and the two
+> checklists are in [`index.md`](index.md). Section numbers are per file, so a
+> reference always names its file.
 
 ## 1. Page skeletons
 
@@ -190,14 +165,14 @@ Applies to any screen the approved hi-fi did not draw.
 **NEVER render an empty state for a request that failed.**
 
 - *Applies:* 401, 404, 5xx, network and parse failures.
-- *Instead:* route it through the failure classification in [`index.md`](index.md) §1.2.
+- *Instead:* route it through the failure classification in [`data-layer.md`](data-layer.md) §1.2.
 - *✗* rendering "no data" for a request that never returned rows to begin with, which tells the user their data is gone and sends them looking for it instead of signing in again.
 
 **Permission never surfaces as an empty state.** Row-level isolation returns an empty list and is *designed* to be indistinguishable from "there is nothing" — this track answers 404 for both "not yours" and "does not exist", because 403 would confirm the record exists. Page-level permission is handled before the page: the entry is not rendered, and a pasted URL produces a failure state.
 
 ## 6. What the kit covers, and what you must switch off
 
-Reuse order is in [`index.md`](index.md) §6. **The inventory of what already exists is the `components/admin/` directory itself** — read it before building anything. A parallel list maintained here would go stale the moment the pin moves, for the same reason component APIs are not copied into this spec.
+Reuse order is in [`data-layer.md`](data-layer.md) §6. **The inventory of what already exists is the `components/admin/` directory itself** — read it before building anything. A parallel list maintained here would go stale the moment the pin moves, for the same reason component APIs are not copied into this spec.
 
 Two things live outside that directory, and each needs a rule.
 

@@ -1,10 +1,8 @@
-# 本仓自己的三条不变量检查。改任何脚本或 spec 之后都会跑。
+# 本仓自己的四条不变量检查。改任何脚本或 spec 之后都会跑。
 #
-# 为什么要 CI 而不是「记得手动跑」：这三个测试守的都是**没有症状的缺陷**——
-# 装两个模板不报错、vendor 被改过 SHA 不变、安装后断链在源码树里查不出来。
-# 靠人记得跑，等于没有守。
-#
-# ⚠️ 未实跑验证：本仓建这个文件时还没有 GitHub remote，一次都没跑过。
+# 为什么要 CI 而不是「记得手动跑」：这四个测试守的都是**没有症状的缺陷**——
+# 装两个模板不报错、vendor 被改过 SHA 不变、安装后断链在源码树里查不出来、
+# spec 被截断成一半也不报错。靠人记得跑，等于没有守。
 
 name: checks
 
@@ -31,3 +29,15 @@ jobs:
       # spec 模板：按**安装树**校验链接 + 各轨 guides 与权威源一致 + 已登记 index.json。
       - name: spec 模板回归
         run: scripts/test-spec-templates.sh
+
+      # spec 注入：一次编辑真正到达 agent 的是什么（rank-1 是谁、有没有被截断、
+      # 是不是只命中一份）。这一条要调 Trellis 自己的匹配器，所以版本**钉死**——
+      # 上游改了排序算法或预算默认值，应当是一次要人拍板的升级，不是某天 CI 莫名变红。
+      # 版本同时写在 scripts/test-spec-injection.sh 的 TRELLIS_PIN，两处要一起改。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: 装 Trellis（钉死版本）
+        run: npm i -g @mindfoldhq/trellis@0.7.0-beta.3
+      - name: spec 注入回归
+        run: scripts/test-spec-injection.sh

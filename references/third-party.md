@@ -239,7 +239,22 @@ Read-only by default is deliberate: automatically following upstream lets somebo
 
 **Whether `grilling` is still needed has not been settled by a real run.** This repository has decided to take Trellis's questioning discipline (see "Two questioning disciplines collide" above), and Trellis's brainstorm already has two of grilling's core ideas — the Evidence Rule, and a recommended answer per question — leaving only frontier batching versus one question at a time. So grilling's net addition is down to **batched questioning during the step that produces the full PRD, before brainstorm is in play** — real, but narrow.
 
-**Under the current flow that net addition grew slightly**: the first four steps of 0-to-1 — discussing requirements, the full PRD, verifying fields, writing back — are all outside any task, and `grill-with-docs` has no competitor there. Decide whether to keep it after running one full PRD for real. If it is not needed, delete `vendor/mattpocock-skills/<name>/`, remove it from the `VENDORED` array in `scripts/install-skills.sh`, **and add it to the `RETIRED` array** (otherwise the existing symlink stays and keeps being triggered), and remove it from the `SKILLS` array in `scripts/sync-vendor.sh`.
+**Under the current flow that net addition grew slightly**: the first four steps of 0-to-1 — discussing requirements, the full PRD, verifying fields, writing back — are all outside any task, and `grill-with-docs` has no competitor there. Decide whether to keep it after running one full PRD for real. If it is not needed, follow "Retiring and reinstating a vendored skill" below.
+
+### Retiring and reinstating a vendored skill
+
+**Retiring one touches four places.** Skip the third and a live symlink stays behind, still being triggered:
+
+1. Delete `vendor/mattpocock-skills/<name>/`.
+2. Remove the name from `VENDORED` in [`../scripts/install-skills.sh`](../scripts/install-skills.sh).
+3. **Add it to `RETIRED`** in the same file — that array is how the installer knows to clean up the existing symlink.
+4. Remove it from `SKILLS` in [`../scripts/sync-vendor.sh`](../scripts/sync-vendor.sh).
+
+**Reinstating one is the reverse, and only one step of it is easy to lose**: the name must go back into `sync-vendor.sh`'s `SKILLS` array. `managed_in()` enumerates managed files by walking that array, so a name missing from it means the directory is never scanned, its files never enter the manifest, and the drift check prints `✓ 与固定版本一致` while the skill is symlinked out and being triggered. The nightly upstream diff never looks at it either. Rebuilding `.upstream-manifest` needs no reminder — a missing manifest entry makes `verify_local` report every file in the new directory as unmanaged, loudly, with the fix command printed.
+
+Reinstatement is not hypothetical: `domain-modeling` was retired and moved back in the same commit that recorded this (`e38ea15`), because `grill-with-docs` is one line that calls it. An upstream dependency forcing a skill back in is the main way a retirement decision gets reversed.
+
+**Before changing either array, read the fixture warning above `RETIRED`** — `test-install-skills.sh` pins three specific skill names as test fixtures, and moving one produces a failure message that reads like a broken installer.
 
 ### `domain-modeling`: retired once, reinstalled 2026-08-21
 
@@ -261,7 +276,7 @@ There are now **two** conflicts, where the original record listed one:
 
 **The cost, stated plainly**: `decisions.md` was added on 2026-08-13, because measurement confirmed that none of Trellis's four candidate hosts records "what was rejected and why". Switching to `docs/adr/` **still satisfies that need** — an ADR is exactly what records it — with the host and the format now upstream's. **The need survives, the host changes**, and there is one fewer source of drift.
 
-**To retire it again**: first settle what happens to `grill-with-docs` (retire it too, or write a shell that calls `grilling` only), then follow "retiring a vendor skill touches four places".
+**To retire it again**: first settle what happens to `grill-with-docs` (retire it too, or write a shell that calls `grilling` only), then follow "Retiring and reinstating a vendored skill" above.
 
 ### `prototype`: the LOGIC branch only
 

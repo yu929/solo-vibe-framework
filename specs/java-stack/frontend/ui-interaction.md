@@ -1,18 +1,14 @@
----
-name: ui-interaction
-description: Forms, validation, dialog-vs-route, feedback, loading and destructive actions — the states an approved mockup does not draw
-paths:
-  - frontend/src/routes/**
-  - frontend/src/components/**
----
-
 # UI/UX Decision Rules · Interaction
 
-> The layout half — page skeletons, button hierarchy, filters, tables, empty states — is in [`ui-structure.md`](ui-structure.md). Stack rules (provider, generated types, hooks, theme tokens) stay in [`index.md`](index.md).
+> Behaviour: forms and validation, dialog vs drawer vs route, feedback, loading, destructive actions, and where a successful mutation leaves the user.
+>
+> Part of the frontend spec — the resident rules, what decides what, and the two
+> checklists are in [`index.md`](index.md). Section numbers are per file, so a
+> reference always names its file.
 
-**Precedence, in full, is [`ui-structure.md`](ui-structure.md) §0.** In short: follow the approved hi-fi wherever it depicts something; apply the rules below everywhere it is silent, which is most of this file, because mockups draw the success state and almost never the other four; apply every NEVER rule even when a mockup contradicts it.
+**Precedence, in full, is [`index.md`](index.md), under "What decides what".** In short: follow the approved hi-fi wherever it depicts something; apply the rules below everywhere it is silent, which is most of this file, because mockups draw the success state and almost never the other four; apply every NEVER rule even when a mockup contradicts it.
 
-> **Read this file before writing UI code, not after.** Path-based injection fires PostToolUse on Claude Code, so it can arrive after the first write.
+> **Read this file before writing UI code, not after.** It carries no `paths:`, so it never arrives on its own — open it from `index.md`'s "Where the rest of it lives" table.
 
 ## 1. Form layout and submission
 
@@ -81,7 +77,7 @@ paths:
 - *Default:* a route, through the kit's edit and create shells.
 - *Exception:* none. The deciding question is "is this the resource's main CRUD flow?", never "how many fields does it have today".
 - *Why the field count is the wrong question:* field counts change. A two-field form that grows to five would have to migrate out of the overlay, and that migration rewrites the URL, the deep link and the E2E suite — the cost lands exactly where it hurts most. Whether something is a resource's main CRUD flow stays stable for the life of the project.
-- *Why a route at all:* every route in this track must survive a cold load from a pasted URL ([`index.md`](index.md) §9), and a form inside an overlay has no URL to paste.
+- *Why a route at all:* every route in this track must survive a cold load from a pasted URL ([`data-layer.md`](data-layer.md) §9), and a form inside an overlay has no URL to paste.
 
 **Use a dialog for a decision, not for a CRUD flow.**
 

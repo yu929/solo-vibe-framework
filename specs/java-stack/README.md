@@ -22,7 +22,7 @@
 
 Per-user data isolation **has no database backstop**. The isolation *is* the `owner_id` predicate in the query, and it is **fail-open**: omit it and nothing errors — you get a 200 and somebody else's data, with nothing in the log.
 
-So this track replaces a rule a human has to remember with three things a machine can check. The full definition is in [`backend/index.md`](backend/index.md) §2. Everything else here is ordinary engineering.
+So this track replaces a rule a human has to remember with three things a machine can check. The full definition is in [`backend/owner-scoping.md`](backend/owner-scoping.md) §2. Everything else here is ordinary engineering.
 
 ## Locked stack (substitutions need confirmation)
 
@@ -70,24 +70,24 @@ Boot 4 changed coordinates and package names substantially. The ones that fail a
 **Data isolation — this track's first red line:**
 
 - **The only permitted parent interface for a repository is the bare `Repository<T, ID>`.** This is an allow-list, not a "anything except `JpaRepository`/`CrudRepository`" deny-list. A deny-list is guaranteed to leak: `PagingAndSortingRepository` has extended the bare `Repository` directly since Spring Data 3.0 and still hands out `findAll(Sort)` / `findAll(Pageable)`; `JpaSpecificationExecutor` and `QueryByExampleExecutor` are not `Repository` subtypes at all, and let a whole table be scooped up.
-- **A hand-written method leaks exactly as much as an inherited one.** A `findById(UUID)` declared on a bare `Repository` carries no ownership predicate either. So every declared method either genuinely **filters** by `ownerId` in its derived query name, or carries `@CrossUserQuery("reason")` ([`backend/index.md`](backend/index.md) §2).
-- **Both rules above apply to every repository, not only the ones for per-user entities.** A table with no ownership — a lookup table, reference data, configuration — carries `@OwnerlessTable("reason")` on the **interface**. Do not approximate it with `@CrossUserQuery` on each method; that drowns out the signal that says "this genuinely reads across users". It exempts the method-level ownership check only, **never the parent-interface allow-list**, and it is rejected outright when the entity does carry `ownerId` ([`backend/index.md`](backend/index.md) §2.4).
+- **A hand-written method leaks exactly as much as an inherited one.** A `findById(UUID)` declared on a bare `Repository` carries no ownership predicate either. So every declared method either genuinely **filters** by `ownerId` in its derived query name, or carries `@CrossUserQuery("reason")` ([`backend/owner-scoping.md`](backend/owner-scoping.md) §2).
+- **Both rules above apply to every repository, not only the ones for per-user entities.** A table with no ownership — a lookup table, reference data, configuration — carries `@OwnerlessTable("reason")` on the **interface**. Do not approximate it with `@CrossUserQuery` on each method; that drowns out the signal that says "this genuinely reads across users". It exempts the method-level ownership check only, **never the parent-interface allow-list**, and it is rejected outright when the entity does carry `ownerId` ([`backend/owner-scoping.md`](backend/owner-scoping.md) §2.4).
 - Every per-user table has `owner_id uuid not null references app_user(id)`, an index on `owner_id`, and **one two-account negative test**.
 - "Not yours" and "does not exist" both answer **404**, never 403 — a 403 confirms the record exists.
-- Cross-user reads and writes go through an **explicitly registered, controlled exception** ([`backend/index.md`](backend/index.md) §2.4), annotated on the **method**. Never by adding a method or widening the parent interface.
+- Cross-user reads and writes go through an **explicitly registered, controlled exception** ([`backend/owner-scoping.md`](backend/owner-scoping.md) §2.4), annotated on the **method**. Never by adding a method or widening the parent interface.
 - **The guards themselves have negative tests.** A broken guard and a guard with nothing to catch are both green, and nothing distinguishes them ([`testing/index.md`](testing/index.md)).
 
 **Security:**
 
 - **No secret goes into a `VITE_*` variable.** Vite inlines `VITE_`-prefixed values into the browser bundle, which is publication.
-- **CSRF stays on**, and the `setCsrfRequestAttributeName(null)` line in `SecurityConfig` stays where it is (see [`backend/index.md`](backend/index.md) §3).
+- **CSRF stays on**, and the `setCsrfRequestAttributeName(null)` line in `SecurityConfig` stays where it is (see [`backend/auth-sessions.md`](backend/auth-sessions.md) §3).
 - Session credentials and tokens do not go in `localStorage`; the session is an httpOnly cookie.
-- **No credentials in the session principal.** The session is serialized into Postgres, so carrying a password hash there copies it into a second table ([`backend/index.md`](backend/index.md) §4.1).
-- `.env` is not committed, and passwords and keys do not go into `application.yml` or source. **The database password has no default of any kind**, not even one that looks like a development value — a startup path with the variable unset would otherwise succeed silently on a publicly known password. Note that "has no default" does not mean "will fail": a failed placeholder resolution **does not** abort Spring startup, so `main()` blocks it explicitly ([`database/index.md`](database/index.md) §5.3).
+- **No credentials in the session principal.** The session is serialized into Postgres, so carrying a password hash there copies it into a second table ([`backend/auth-sessions.md`](backend/auth-sessions.md) §4.1).
+- `.env` is not committed, and passwords and keys do not go into `application.yml` or source. **The database password has no default of any kind**, not even one that looks like a development value — a startup path with the variable unset would otherwise succeed silently on a publicly known password. Note that "has no default" does not mean "will fail": a failed placeholder resolution **does not** abort Spring startup, so `main()` blocks it explicitly ([`database/local-database.md`](database/local-database.md) §5.3).
 - **Development container ports bind to `127.0.0.1` only**, never `"5432:5432"`, which is 0.0.0.0.
-- **Rate limiting on login and signup stays on** ([`backend/index.md`](backend/index.md) §4.2). BCrypt is deliberately slow, and signup has already hashed **before** the unique index adjudicates — without rate limiting, one machine resubmitting the same already-registered email saturates the CPU while the database sits idle.
+- **Rate limiting on login and signup stays on** ([`backend/auth-sessions.md`](backend/auth-sessions.md) §4.2). BCrypt is deliberately slow, and signup has already hashed **before** the unique index adjudicates — without rate limiting, one machine resubmitting the same already-registered email saturates the CPU while the database sits idle.
 - **The client address comes from `getRemoteAddr()` alone; `X-Forwarded-For` is never trusted** — the client writes that header, so trusting it hands an attacker unlimited identities. Behind a reverse proxy, set `server.forward-headers-strategy=native` and let Tomcat's valve rewrite `getRemoteAddr()`.
-- **What the API accepts must be what the storage underneath can actually hold** ([`backend/index.md`](backend/index.md) §4.3). Under-validation fails *after* the write: half the record has landed and the user gets a 500.
+- **What the API accepts must be what the storage underneath can actually hold** ([`backend/auth-sessions.md`](backend/auth-sessions.md) §4.3). Under-validation fails *after* the write: half the record has landed and the user gets a 500.
 - Authorization is server-side, always. A frontend route guard governs rendering and is not authorization.
 - With TLS in front, set `APP_COOKIE_SECURE=true`; in production, `APP_API_DOCS_ENABLED=false`.
 
@@ -99,10 +99,10 @@ Boot 4 changed coordinates and package names substantially. The ones that fail a
 - No `@ManyToMany` and no `FetchType.EAGER`; a controller returns DTO records, never entities.
 - **No Lombok** (an annotation processor, plus long-running friction with records and JPA). DTOs are records; entities are plain classes.
 - Generated files are not hand-edited: `V*__spring_session.sql` (copied from the jar) and `frontend/src/lib/api/schema.d.ts` (produced by `pnpm api:types`).
-- **`components/admin/*` is a frozen snapshot of upstream source and is not hand-edited.** Record any genuinely necessary local modification, one at a time, in `THIRD_PARTY_NOTICES.md`, and diff against the source at the pinned commit rather than the registry address ([`frontend/index.md`](frontend/index.md) §6).
-- **The project name is spelled once inside `frontend/src`** — `APP_NAME` in `lib/app-config.ts` — and distributed from there. Spread it across several places and the scaffold's rename step becomes impossible to follow; a missed rename means every generated project shares one Postgres volume and one session cookie ([`database/index.md`](database/index.md) §5.1).
+- **`components/admin/*` is a frozen snapshot of upstream source and is not hand-edited.** Record any genuinely necessary local modification, one at a time, in `THIRD_PARTY_NOTICES.md`, and diff against the source at the pinned commit rather than the registry address ([`frontend/data-layer.md`](frontend/data-layer.md) §6).
+- **The project name is spelled once inside `frontend/src`** — `APP_NAME` in `lib/app-config.ts` — and distributed from there. Spread it across several places and the scaffold's rename step becomes impossible to follow; a missed rename means every generated project shares one Postgres volume and one session cookie ([`database/local-database.md`](database/local-database.md) §5.1).
 - Every frontend call to the backend goes through ra-core's `dataProvider` / `authProvider`. **No bare `fetch` in a component**, and no `useQuery` pointed straight at an endpoint.
-- Uniqueness is adjudicated by **a database constraint**, never by "check whether it exists, then insert" ([`backend/index.md`](backend/index.md) §5.1).
+- Uniqueness is adjudicated by **a database constraint**, never by "check whether it exists, then insert" ([`backend/write-path.md`](backend/write-path.md) §5.1).
 - Ask before introducing a new dependency, especially a heavy one.
 
 **Tooling and scripts:**
@@ -182,24 +182,39 @@ docker-compose.external-db.yml # external database; passing -f explicitly also s
 These are written down because **silence reads as endorsement**: whatever the default implementation lacks, the next person assumes this track does not need.
 
 - **Writes are unconditional last-write-wins by default** — no version column, no `@Version`, no ETag, no conditional update. While an entity has a single owner, conflicts can only arise between two tabs belonging to the same user, and the default declines to pay for that. **The moment your entity can be edited by several people at once, optimistic locking becomes mandatory**: add a version column and `@Version`, carry the version on the request (or `If-Match`), answer 409/412 on a mismatch, and cover it with concurrent-transaction and stale-form tests. **Keeping the default** carries "the later writer silently overwrites" into a situation where it is no longer safe.
-- **Rate limiting is in-process**, so two instances mean two budgets ([`backend/index.md`](backend/index.md) §4.2). On a single-instance deployment that is an honest trade — no extra Redis to run — but scaling horizontally means moving to a bucket in shared storage.
+- **Rate limiting is in-process**, so two instances mean two budgets ([`backend/auth-sessions.md`](backend/auth-sessions.md) §4.2). On a single-instance deployment that is an honest trade — no extra Redis to run — but scaling horizontally means moving to a bucket in shared storage.
 - **The first-load bundle is not split.** The admin stack has one entry point, and the build exceeds Vite's default 500 kB warning — but that warning measures **uncompressed** size, which is not what a user downloads. **The bar is the initial chunk's gzip size: 350 kB or less is within baseline**, and the build already prints that number. Over the bar, split by route or write down the reason. Under it, leave it alone: adding a lazy route or a custom chunk strategy because something "looks big" expands the architecture for a sample.
-- **There is no second factor and no human challenge.** So per-account rate limiting carries a residual risk, written down in [`backend/index.md`](backend/index.md) §4.2. Do not pretend it is absent.
+- **There is no second factor and no human challenge.** So per-account rate limiting carries a residual risk, written down in [`backend/auth-sessions.md`](backend/auth-sessions.md) §4.2. Do not pretend it is absent.
 
 ## Spec index
 
 Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality Check** sections Trellis expects (`workflow.md` reads them by that convention).
 
-**Track-specific.** Every file in this table declares `paths:`, so it is injected when you touch the source files it governs.
+**Track-specific.** Each layer has exactly one `index.md`, and that one file declares `paths:` — it is what arrives automatically when you touch the source files that layer governs. It carries the one way to do each thing, the rules that fail silently, and the two checklists, sized to fit the injection budget whole.
 
-| File | Covers | Read it when |
-|---|---|---|
-| [`backend/index.md`](backend/index.md) | Layering and data access, **owner-scoped queries**, auth and sessions, CSRF, JPA prohibitions, SPA deep links, heterogeneous sub-services | Writing a repository, controller or service, or touching Spring Security |
-| [`database/index.md`](database/index.md) | Flyway workflow, **the three parts of a new table**, `ddl-auto=validate`, generated migrations, the local volume-name trap | Adding a table, writing a migration, changing a column type |
-| [`frontend/index.md`](frontend/index.md) | The provider as the only path to the backend, reuse order, hooks, form wiring, theme tokens, routing and deep links | Calling the backend, adding a component, touching theme tokens |
-| [`frontend/ui-structure.md`](frontend/ui-structure.md) | UI/UX rules (structure): precedence, page skeletons, button hierarchy, filters, tables, empty states, the pattern layer's role, accessibility invariants | Building a screen the approved hi-fi did not draw |
-| [`frontend/ui-interaction.md`](frontend/ui-interaction.md) | UI/UX rules (behaviour): forms, validation, dialog vs route, feedback, loading, destructive actions, where a success lands | Building a form, a dialog, or any loading and failure state |
-| [`testing/index.md`](testing/index.md) | Required checks, how to verify (including two negative tests), Testcontainers, why E2E runs against the packaged artifact | Before saying it is done |
+| Layer core (injected) | Read it when |
+|---|---|
+| [`backend/index.md`](backend/index.md) | Writing a repository, controller or service, or touching Spring Security |
+| [`database/index.md`](database/index.md) | Adding a table, writing a migration, changing a column type |
+| [`frontend/index.md`](frontend/index.md) | Calling the backend, building a screen, touching theme tokens |
+| [`testing/index.md`](testing/index.md) | Before saying it is done |
+
+**The full text sits beside each core**, in files that carry no `paths:` — they are reached from the core's "Where the rest of it lives" table, never injected. Open the one your change touches:
+
+| File | Covers |
+|---|---|
+| [`backend/owner-scoping.md`](backend/owner-scoping.md) | The repository choke point, `@CrossUserQuery` and `@OwnerlessTable`, the three ArchUnit rules, testing the guards |
+| [`backend/auth-sessions.md`](backend/auth-sessions.md) | CSRF, Spring Session JDBC, login and logout, rate limiting, matching API limits to what storage holds |
+| [`backend/write-path.md`](backend/write-path.md) | The write/response seam, validation and the error shape, the list-endpoint contract |
+| [`backend/platform.md`](backend/platform.md) | Layering, SPA deep links, JPA prohibitions, heterogeneous sub-services |
+| [`database/conventions.md`](database/conventions.md) | Column types, closed enums constrained by a CHECK, timestamp precision |
+| [`database/local-database.md`](database/local-database.md) | Bringing the local stack up and resetting it, and the traps that exist only there |
+| [`frontend/data-layer.md`](frontend/data-layer.md) | The provider as the only path to the backend, generated types, the cache across tabs, reuse order, hooks, theme tokens, deep links |
+| [`frontend/ui-structure.md`](frontend/ui-structure.md) | Page skeletons, button hierarchy, filters, tables, empty states, what the admin kit switches on, accessibility invariants |
+| [`frontend/ui-interaction.md`](frontend/ui-interaction.md) | Forms, validation, dialog vs route, feedback, loading, destructive actions |
+| [`testing/test-matrix.md`](testing/test-matrix.md) | Which level uses which tool, and the application state that leaks between tests |
+| [`testing/falsification.md`](testing/falsification.md) | Proving each guard actually goes red |
+| [`testing/containers-and-releases.md`](testing/containers-and-releases.md) | What must be running locally, and how the artifact is built and shipped |
 
 **Track-independent** (holds on any stack; ships with this template):
 

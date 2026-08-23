@@ -27,6 +27,10 @@ check_only=false
 # 本仓自有
 declare -a OWN=(vertical-slicing design-review)
 # vendor（第三方只读拷贝）
+# 往这里加一个名字（新装或从 RETIRED 装回），**必须同时加进 sync-vendor.sh 的 SKILLS
+# 数组**。漏了那一步是全仓最安静的失效：managed_in() 靠遍历 SKILLS 枚举受管文件，
+# 名字不在里面 → 目录不被扫、文件不进 manifest → 漂移检查打印绿字说一切正常，
+# 而这个 skill 已经软链出去、正在被 agent 触发，且每晚的上游 diff 永远不会看它一眼。
 declare -a VENDORED=(grilling grill-me grill-with-docs domain-modeling prototype writing-for-agents)
 # 已退役：软链若还在就删掉。留着会继续被触发，把需求接走去走废弃流程。
 # lofi-prototype 退役：新流程里全量高保真在切片**之前**就定稿，task 内再出一次低保真
@@ -34,6 +38,10 @@ declare -a VENDORED=(grilling grill-me grill-with-docs domain-modeling prototype
 # 已改由 vertical-slicing 接住（见 references/third-party.md）。
 # domain-modeling 已从退役名单**移回 VENDORED**：grill-with-docs 全文只有一句
 # 「Call the Skill tool twice, for "grilling" and "domain-modeling"」，装前者必须有后者。
+# ⚠ 这三个名字被 test-install-skills.sh 当**测试夹具**钉死了：用例 2 钉 product-brief
+# 与 lofi-prototype（断言退役软链必须被删），用例 4 钉 vertical-slicing（断言指向旧仓的
+# 软链必须改指向本仓）。改名、或把它们移出 RETIRED，要同步改那两条用例——否则报错写的是
+# 「退役软链必须被删除」，看起来像安装脚本坏了。
 declare -a RETIRED=(product-brief prd-generator prd-generator-noweb system-design design-system-java lofi-prototype)
 # 本框架旧版本用过的仓库根。指向这些路径下的软链算「我们装的」，可以替换/删除。
 # 换过旧仓路径就往这里加一条，别去放宽归属判断本身。
