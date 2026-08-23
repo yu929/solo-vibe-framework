@@ -4,8 +4,8 @@
     {
       "id": "universal-guides",
       "type": "spec",
-      "name": "Universal Thinking Guides (无轨项目专用)",
-      "description": "轨无关思维清单：复用、跨层、召回与裁决分离。**只给还没有轨规范的项目单独装**——轨模板已自带同一份 guides，一个项目只能装一个模板",
+      "name": "Universal Thinking Guides (for projects with no track spec)",
+      "description": "Track-independent thinking guides: reuse, cross-layer work, and separating reporting from deciding. **Install this only for a project that has no track spec yet** — a track template already ships the same guides, and a project can install exactly one template.",
       "path": "specs/universal",
       "tags": [
         "universal",
@@ -18,7 +18,7 @@
       "id": "web-fullstack",
       "type": "spec",
       "name": "Web Fullstack (Next.js 16 + Supabase)",
-      "description": "Next.js 16 App Router + React 19 + Tailwind v4 + shadcn/Base UI + Supabase(RLS) + Vitest/Playwright + Docker 的编码规范，**自带轨无关 guides**，一条 init 装齐",
+      "description": "Coding rules for Next.js 16 App Router + React 19 + Tailwind v4 + shadcn/Base UI + Supabase (RLS) + Vitest/Playwright + Docker. **Ships the track-independent guides**, so one init installs everything.",
       "path": "specs/web-fullstack",
       "tags": [
         "nextjs",
@@ -34,7 +34,7 @@
       "id": "java-stack",
       "type": "spec",
       "name": "Java Stack (Spring Boot 4 + Postgres + shadcn-admin-kit)",
-      "description": "Spring Boot 4 + Postgres/Flyway + Spring Security 会话 + React 19/Vite/Tailwind v4/shadcn-admin-kit(ra-core) 的编码规范，单容器部署（SPA 打进 jar）。**没有 RLS**，故以「归属收口 + ArchUnit + 双账号负向测试」替代，**自带轨无关 guides**，一条 init 装齐",
+      "description": "Coding rules for Spring Boot 4 + Postgres/Flyway + Spring Security sessions + React 19/Vite/Tailwind v4/shadcn-admin-kit (ra-core), deployed as a single container with the SPA packaged into the jar. **There is no RLS**, so isolation rests on owner-scoped queries, ArchUnit and two-account negative tests instead. **Ships the track-independent guides**, so one init installs everything.",
       "path": "specs/java-stack",
       "tags": [
         "java",

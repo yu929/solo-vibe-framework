@@ -48,29 +48,7 @@ Two things live in the provider and must not be reimplemented at a call site:
 - *Default:* one backend resource, one `<Resource name list edit create>`.
 - *✗* declaring the same resource in two places.
 
-## 2. Types come from the backend, not from your hands
-
-```ts
-import type { components } from "./schema";
-export type Note = Required<components["schemas"]["NoteResponse"]>;
-```
-
-**MUST derive every API type from `src/lib/api/schema.d.ts`. NEVER hand-edit that file.**
-
-- *Applies:* every type that crosses the API boundary.
-- *Default:* `pnpm api:types` generates it from the backend's `/v3/api-docs`.
-- *Why:* when the backend renames a DTO field and the frontend has not followed, **typecheck fails outright** — which is exactly the effect you want. A parallel hand-written interface switches that protection off, and the rename becomes a runtime `undefined` instead.
-- *✗* hand-editing `schema.d.ts` until it compiles. Regenerate, run `pnpm typecheck`, fix what it reports.
-
-**`Required<>` is deliberate.** springdoc marks a property `required` only when it carries a Bean Validation annotation, and response DTOs usually carry none — so the generated types come out entirely optional. These columns are `NOT NULL` in the database; the API really does always send them.
-
-**MUST map the primary key onto `id` inside `dataProvider` when the backend calls it something else.**
-
-- *Applies:* every resource whose backend primary key is not named `id`. ra-core requires an `id` field on every record.
-- *Default:* the mapping lives in `dataProvider`.
-- *✗* mapping inside components — once it is spread out, "which field is this resource's id" has no single answer.
-
-### 2.1 CSRF cold start: a form reachable while signed out must wait for the bootstrap
+### 1.1 CSRF cold start: a form reachable while signed out must wait for the bootstrap
 
 Login and signup are **the only two screens that can be submitted before an `XSRF-TOKEN` cookie exists**. Every other page sits behind a route guard, by which time `/auth/me` has long since returned.
 
@@ -93,7 +71,7 @@ A password manager filling both fields instantly, or someone fast enough to hit 
 
 **Acceptance — this is run evidence and does not change with the implementation:** sign out, immediately sign back in with the same account, and assert you reach the app, rather than sitting on the login page holding a 403 nobody can interpret.
 
-### 2.2 Classify failures; never render them all as "not found"
+### 1.2 Classify failures; never render them all as "not found"
 
 Rendering every failed request as "X does not exist" is **a false claim about content**. A 401 (session expired), a 500 and a dropped connection all get reported as "your data is gone", so the user goes looking for the data instead of signing back in or reporting an outage.
 
@@ -110,6 +88,28 @@ Rendering every failed request as "X does not exist" is **a false claim about co
 - *Applies:* every 401.
 - *Default:* ra-core runs its own sign-out flow when `checkError` rejects.
 - *✗* redirecting from both places, which makes the two fight.
+
+## 2. Types come from the backend, not from your hands
+
+```ts
+import type { components } from "./schema";
+export type Note = Required<components["schemas"]["NoteResponse"]>;
+```
+
+**MUST derive every API type from `src/lib/api/schema.d.ts`. NEVER hand-edit that file.**
+
+- *Applies:* every type that crosses the API boundary.
+- *Default:* `pnpm api:types` generates it from the backend's `/v3/api-docs`.
+- *Why:* when the backend renames a DTO field and the frontend has not followed, **typecheck fails outright** — which is exactly the effect you want. A parallel hand-written interface switches that protection off, and the rename becomes a runtime `undefined` instead.
+- *✗* hand-editing `schema.d.ts` until it compiles. Regenerate, run `pnpm typecheck`, fix what it reports.
+
+**`Required<>` is deliberate.** springdoc marks a property `required` only when it carries a Bean Validation annotation, and response DTOs usually carry none — so the generated types come out entirely optional. These columns are `NOT NULL` in the database; the API really does always send them.
+
+**MUST map the primary key onto `id` inside `dataProvider` when the backend calls it something else.**
+
+- *Applies:* every resource whose backend primary key is not named `id`. ra-core requires an `id` field on every record.
+- *Default:* the mapping lives in `dataProvider`.
+- *✗* mapping inside components — once it is spread out, "which field is this resource's id" has no single answer.
 
 ## 3. Reading, writing and the cache
 
@@ -132,7 +132,7 @@ Rendering every failed request as "X does not exist" is **a false claim about co
 
 - *Applies:* sign-out.
 - *Default:* clear, and write nothing in its place.
-- *Why:* this reads like the mirror of the rule above and is in fact its opposite, which is why it is written out separately. At sign-in you hold a freshly fetched user object and a freshly established session. After sign-out there is nothing to write, and writing an empty value makes the "current user" query read as *confirmed signed out* **without a single request having been sent** — which switches off the CSRF bootstrap guard in §2.1, **and sign-out has just deleted the XSRF-TOKEN cookie**.
+- *Why:* this reads like the mirror of the rule above and is in fact its opposite, which is why it is written out separately. At sign-in you hold a freshly fetched user object and a freshly established session. After sign-out there is nothing to write, and writing an empty value makes the "current user" query read as *confirmed signed out* **without a single request having been sent** — which switches off the CSRF bootstrap guard in §1.1, **and sign-out has just deleted the XSRF-TOKEN cookie**.
 
 **The harder half: the query cache lives in one tab.**
 
@@ -176,7 +176,7 @@ ra-core **persists list parameters into localStorage** and restores them wheneve
 
 - *Applies:* the sort allow-list and the parameter bounds, which exist once on each side of the API.
 - *Default:* a comment on each side pointing at the other and at the paired test.
-- *Why:* the type layer cannot carry this constraint — `schema.d.ts` widens these parameters back to `string` and `number`. The backend half is in [`../backend/index.md`](../backend/index.md) §9.
+- *Why:* the type layer cannot carry this constraint — `schema.d.ts` widens these parameters back to `string` and `number`. The backend half is in [`../backend/index.md`](../backend/index.md) §10.
 
 ## 4. Server / Client boundary (this track has none)
 
@@ -262,8 +262,8 @@ A client-side route guard decides **what to render**. It is not authorization �
 Work through this before writing frontend code.
 
 - [ ] Does this touch the backend? Does it go through `dataProvider` / `authProvider`? Any bare `fetch`, or a `useQuery` that bypasses the provider?
-- [ ] Is this a form reachable while signed out? Is submit disabled until the CSRF bootstrap returns (§2.1)?
-- [ ] Do the error branches separate 401, 5xx and network failure from a genuine 404? Does 401 go through `checkError` (§2.2)?
+- [ ] Is this a form reachable while signed out? Is submit disabled until the CSRF bootstrap returns (§1.1)?
+- [ ] Do the error branches separate 401, 5xx and network failure from a genuine 404? Does 401 go through `checkError` (§1.2)?
 - [ ] Are the data types derived from `schema.d.ts`? If the backend API changed, has `pnpm api:types` been re-run?
 - [ ] Does `components/admin/*` already have what you need? Does `components/ui/*`? (Reuse order in §6.)
 - [ ] **Are this slice's approved hi-fi screens in `implement.jsonl`?** (Fourth column of `slices.md`; missing them has no symptom.)
@@ -272,8 +272,8 @@ Work through this before writing frontend code.
 - [ ] Is there a destructive action? Confirmation dialog, destructive variant, copy that names the target, and the overlay stays open on failure ([`ui-interaction.md`](ui-interaction.md) §6).
 - [ ] Is a `useEffect` mirroring a query result into state? Replace it with a child component initialized by `useState`, or use `<Edit>`.
 - [ ] Did you touch the sign-in, sign-up or sign-out flow? Cache cleared, no empty value written on sign-out, and all three broadcast to the other tabs (§3.1)?
-- [ ] Did you touch sign-out? Does "sign out and immediately sign back in" still reach the app, rather than a 403 (§2.1, the second door)?
-- [ ] Did you edit `components/ui/*` or `components/admin/*`? **Not allowed** — a modification the snapshot needs in order to compile is recorded in `THIRD_PARTY_NOTICES.md` (§6).
+- [ ] Did you touch sign-out? Does "sign out and immediately sign back in" still reach the app, rather than a 403 (§1.1, the second door)?
+- [ ] Did you edit `components/ui/*` or `components/admin/*`? **Not allowed** — a modification the snapshot needs in order to compile is recorded in `THIRD_PARTY_NOTICES.md`, one entry at a time.
 - [ ] Did you touch list parameters? Is the provider's clamp the same list as the backend's allow-list, and are both changed in **the same commit** (§3.2)?
 - [ ] In code carried over from the Next.js track, are `"use client"`, server actions and `useFormStatus` all gone?
 - [ ] Adding a colour, shadow or type size? **Not allowed** — read `design-system/MASTER.md`, then change `@theme` in `globals.css`.

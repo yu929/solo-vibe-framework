@@ -1,86 +1,86 @@
-# 召回与裁决分离（日常海拔）
+# Reporting Is Not Deciding
 
-> **一条原则，两个场合。**
+> **One principle, two occasions.**
 >
-> 原则：**发现的人不兼任拍板的人。** AI 负责召回（观察到了什么），人负责裁决（哪些值得成为长期约定、哪些该改）。让召回方兼任裁决方，未经检验的经验会在几周内填满 spec。
+> The principle: **whoever finds something does not also get to decide it.** The AI reports — what it observed. The human decides — which observations are worth becoming long-term rules, and what should change. Let the finder also decide, and untested conclusions will fill the spec within weeks.
 >
-> 本文件管的是**每天都会遇到**的两个场合：编码期发现、需求探索期收敛。
+> This file covers the two occasions you hit **every day**: findings during coding, and converging during requirements discovery.
 >
-> **正式设计准入评审**（十条纪律、P0–P3、八字段证据格式、停止规则）不在这里——它在 `design-review` skill 的 `references/review-adjudication.md`，只在触发评审时加载。两边管的事不同，不是同一份正文的两个副本。
+> **The formal design-admission review** — ten disciplines, P0–P3, the eight-field evidence format, stopping rules — is not here. It lives in the `design-review` skill's own `references/review-adjudication.md` and loads only when a review is triggered. The two cover different things; they are not two copies of one text.
 
-## 一、编码期发现（finding）
+## 1. Findings during coding
 
-编码和调试期间 AI 会发现一类东西：「这个约定其实不对」「这里有个坑 spec 没写」。
+While coding and debugging, an AI turns up a particular kind of observation: "this rule is actually wrong", "there is a trap here the spec never mentioned".
 
-**规则：先落 finding，确认后才升级进 spec。不允许 AI 直接改 spec。**
+**The rule: record a finding first, promote it into the spec only after confirmation. An AI never edits the spec directly.**
 
-Trellis 的 `trellis-update-spec` 会在 Phase 3 把本次 task 的经验升级进 `.trellis/spec/`——那一步是**升级动作**，前提是这条经验已经被你确认过。绕过确认直接写，spec 就变成了一堆没人验证过的临时结论。
+Trellis's `trellis-update-spec` promotes this task's lessons into `.trellis/spec/` during Phase 3 — that step is **the promotion**, and it assumes the lesson has already been confirmed by you. Skip the confirmation and write straight through, and the spec becomes a pile of provisional conclusions nobody verified.
 
-**只要 4 个字段**：
+**Four fields, no more:**
 
 ```markdown
-## F-<日期>-<序号>：<一句话>
+## F-<date>-<number>: <one line>
 
-- **现象**：观察到什么（不是结论）
-- **证据**：怎么复现 / 在哪看到的
-- **该改哪个 spec**：具体文件；不确定就写「待定」
-- **状态**：open / 已升级进 spec / 已拒绝（附理由）
+- **Observed**: what you saw (not what you concluded)
+- **Evidence**: how to reproduce it / where you saw it
+- **Which spec should change**: the specific file; write "undecided" when you do not know
+- **Status**: open / promoted into the spec / rejected (with the reason)
 ```
 
-**为什么只 4 个字段**：这类发现的形态是「跑的时候发现 X」，不是「设计文档 §3.3 规定了 Y 会导致 Z」。套设计准入那套八字段，等于要求为每条实战观察写举证材料——那会让人干脆不记，或者让 AI 编出证据来凑格式。
+**Why only four fields.** These observations have the shape "while running it I found X", not "design doc §3.3 specifies Y, which causes Z". Imposing the eight-field format used for design admission would demand a case file for every hands-on observation — which leads either to nobody recording anything, or to an AI inventing evidence to fill the shape.
 
-**判据（要不要记）**：下次别的 session 遇到同类情况，会不会因为 spec 没写而重犯？会就记。**大部分 bug 不需要记**——一个 bug 说明代码没做到已有约定，约定本身没变。
+**The test — is it worth recording?** Would another session hit the same thing again *because the spec does not say so*? If yes, record it. **Most bugs do not need recording**: a bug means the code failed to meet a rule that already exists; the rule itself has not changed.
 
-**落点**：finding 本身落项目自己的 `findings/` 目录或已知问题文件，按目标仓库约定。
+**Where findings live**: in the project's own `findings/` directory or its known-issues file, following that repository's conventions.
 
-**升级到哪，取决于这条经验的适用面**——先按判据分类，再定时机：
+**Where a lesson gets promoted to depends on how far it applies.** Classify first, then decide when:
 
-| 判据：换一个同轨项目，这条还成立吗？ | 升级到哪 | 什么时候 |
+| The test: would this still hold on a different project on the same track? | Promote to | When |
 |---|---|---|
-| 成立 | spec 的**权威源**（经 registry 安装时，那是模板来源仓库，不是项目里的安装产物） | **阶段收尾时批量回写**，不是每个 task |
-| 不成立，但本项目后面的 task 还会用上 | 项目自己的 `.trellis/spec/` 对应层 | 当场 |
-| 不成立，也只此一次 | 留在 `findings/`，状态保持 `open` | 当场 |
+| Yes | The spec's **source of truth** — when the spec was installed from a registry, that is the template's source repository, not the installed copy inside the project | **In a batch, at the end of a phase** — not per task |
+| No, but later tasks in this project will still need it | This project's own `.trellis/spec/`, in the matching layer | Right away |
+| No, and it was a one-off | Leave it in `findings/`, status `open` | Right away |
 
-**照着判据问，别换成「跨 task 会不会复用」。** 跨 task 复用只说明这条值得进 spec，不说明它该进权威源——那是第二行的位置。判据问的是**换个项目还成不成立**。
+**Ask the test as written; do not swap it for "will this be reused across tasks".** Cross-task reuse only shows the lesson belongs in a spec — it does not show it belongs in the source of truth, which is the second row. The test asks whether it **still holds on a different project**.
 
-**为什么第一行要等到阶段收尾**：一条刚学到的经验只经过一个场景，那时判断不出它是普适的还是这次特殊的。逐个回写等于让召回方兼任裁决方——本文件开篇要防的正是这个。攒到阶段收尾一起看，几条摆在一起，「哪些是同一个模式、哪些只是这次碰巧」才有判断依据。
+**Why the first row waits until the end of a phase.** A lesson that has been through exactly one situation gives you no way to tell whether it is general or specific to that one time. Writing back one at a time is the finder also deciding — the thing this file opens by ruling out. Collect them to the end of a phase and look at them together; with several side by side, you can finally tell which are one pattern and which merely coincided.
 
-**task 内遇到第一行，记进 `findings/` 就停**，不要去动权威源。`trellis-update-spec` 不知道 spec 是不是装来的，它只写项目里的 `.trellis/spec/`；把这类经验带回模板来源仓库、再装回来，是**阶段收尾那一步的操作**，不是 task 内的动作。
+**Inside a task, a first-row finding is recorded in `findings/` and stops there.** Do not touch the source of truth. `trellis-update-spec` does not know whether a spec was installed from somewhere — it only writes the project's `.trellis/spec/`. Carrying a lesson back to the template's source repository and reinstalling it is **an end-of-phase operation**, never an in-task one.
 
-**第二行写进 `.trellis/spec/` 是可接受的**，即使那里是 registry 安装产物：`trellis update` 对本地改过的文件走「Modified by you」逐文件确认，不会静默覆盖。只对本项目成立的约定本来就不该进权威源。
+**Writing a second-row lesson into `.trellis/spec/` is acceptable**, even though that directory holds registry-installed files: `trellis update` handles locally modified files with a per-file "Modified by you" confirmation, so nothing is silently overwritten. A rule that only holds for this project never belonged in the source of truth anyway.
 
-升级完把 finding 状态改成「已升级」，留下指向那条 spec 的链接。
+Once promoted, set the finding's status to promoted and leave a link to the spec rule.
 
-### 提出兼容方案前，先确认兼容对象存在
+### Before proposing a compatibility path, confirm something needs it
 
-保留旧字段、旧枚举、旧接口或兼容分支之前，至少要有一项真实兼容对象：已经发布且需要升级的数据、仍在使用的外部调用方，或明确承诺的向后兼容边界。仅有本地开发数据、未发布实现或当前工作树中的旧代码，**不构成兼容承诺**。
+Before keeping an old field, an old enum value, an old endpoint or a compatibility branch, there must be at least one real thing to be compatible **with**: released data that needs migrating, an external caller still in use, or an explicitly promised backward-compatibility boundary. Local development data, an unreleased implementation, or old code in the current working tree **are not compatibility commitments**.
 
-如果项目仍处于未发布开发阶段，且不存在上述对象，就直接删除过时契约与实现；必要时用前向迁移清理开发数据，不为假设中的历史版本保留读取分支、废弃接口或旧枚举。兼容对象是否存在不清楚时，把它记成待裁决的 finding，不要由 AI 自行假定。
+If the project is still unreleased and none of those exist, delete the obsolete contract and implementation outright; clean up development data with a forward migration if you have to. Do not keep read branches, deprecated endpoints or old enum values for a history that never happened. When it is unclear whether anything needs the compatibility, record it as a finding awaiting a decision rather than letting the AI assume.
 
-## 二、需求探索期轻量收敛
+## 2. Lightweight convergence during requirements discovery
 
-写 PRD、原型走查、切片选案这些场合，用轻量收敛：
+Writing a PRD, walking through a prototype, choosing between slicing options — all of these use the lightweight version:
 
-| 项 | 规则 |
+| Item | Rule |
 |---|---|
-| 走查 | ≤ 2 轮。第 2 轮后的分歧记「待确认」或「挪到后面的切片」 |
-| 方案 | 2–3 个且必须有结构性区分度；**一次拍板**，落选要素当场合并入定稿 |
-| 问题记录 | 只 4 字段（现象 / 判定 / 动作 / 落点），判定 ∈ {改 PRD, 改原型, 挪到后面的切片, 待确认} |
-| 单片规模警报 | 一片对应的屏或交互序列 > 6 时提醒「是不是切大了」，结论留痕，**不阻塞** |
+| Walkthroughs | Two rounds at most. After the second, a disagreement is recorded as "pending" or "moved to a later slice" |
+| Options | Two or three, and they must be structurally distinct; **one sign-off**, with anything worth keeping from the losing options folded into the decision on the spot |
+| Issue records | Four fields only — observed / decision / action / where it lands — where decision ∈ {change the PRD, change the prototype, move to a later slice, pending} |
+| Slice-size alarm | When one slice maps to more than six screens or interaction sequences, raise "is this slice too big?"; record the conclusion, **do not block on it** |
 
-**这张表里没有「提问轮次」，是有意的。** Trellis 的 `trellis-brainstorm` 在 planning 阶段强制「每条消息只问一个问题」，本框架再规定一套批量提问上限只会跟它对着来。**别把提问轮次加回这张表**——有界的是走查和选案，不是提问。
+**The absence of a "question rounds" row is deliberate.** Trellis's `trellis-brainstorm` enforces "one question per message" during planning, and a second cap on batched questions would only work against it. **Do not add question rounds back to this table** — what is bounded here is walkthroughs and option selection, not questioning.
 
-**收敛压力放在轮次与拍板上，不放在覆盖面上。** 无限审计的形态是反复评审同一份东西、停不下来；**把声明过的东西走查全不是无限审计**。真会失控的是在方案之间反复摇摆，所以纪律落在选案上。
+**Convergence pressure goes on rounds and sign-off, never on coverage.** Runaway auditing looks like reviewing the same artifact over and over, unable to stop; **walking through everything that was declared is not runaway auditing**. What actually runs away is oscillating between options, so the discipline lands on the choosing.
 
-覆盖面的规则是另一条，且方向相反：原型定稿必须覆盖 PRD 声明的全量屏**或交互序列**（它是实现期的结构依据，覆盖面小于实现就等于把缺口留给 AI 自由发挥）。两条不冲突——一条限轮次，一条定范围。
+The coverage rule is separate, and points the other way: the approved prototype must cover every screen **or interaction sequence** the PRD declares — it is the structural basis for implementation, and covering less than the implementation hands the gap to the AI to fill freely. The two do not conflict: one bounds rounds, the other fixes scope.
 
-## 三、什么时候该升级到完整评审协议
+## 3. When to escalate to the full review protocol
 
-上面两条不够用、需要调 `design-review` 的信号：
+Signals that the two sections above are not enough and `design-review` is needed:
 
-- 要判断「能不能开工了」，而不只是「这条要不要记」
-- 评审已经进行了两轮以上还在冒新问题
-- 换了 session 之后又冒出一批意见
-- 有多个 reviewer 的发现要合并去重
+- the question is "can we safely start building", not merely "is this worth recording"
+- the review has run more than two rounds and new issues keep appearing
+- a new session produced another batch of opinions
+- findings from several reviewers need merging and de-duplicating
 
-那时用 `design-review` skill，它带冻结输入、问题台账、证据门槛和停止规则。**不要在这里复述那套**——海拔不同，套上去就是给日常工作新增审计负担，正好是那套纪律本身要治的病。
+Use the `design-review` skill then. It brings frozen inputs, an issue log, an evidence threshold and stopping rules. **Do not restate any of that here** — it is much heavier, and applying it to everyday work adds exactly the audit burden that discipline exists to cure.

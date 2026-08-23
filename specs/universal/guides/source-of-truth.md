@@ -1,76 +1,77 @@
 ---
 name: source-of-truth
-description: 每个阶段谁是权威源、反写往哪个方向、delta 怎么写
+description: Which artifact is authoritative at each stage, which direction updates flow, and how to write a delta
 paths:
   - docs/discovery/**
 ---
 
-# 权威源
+# Source of Truth
 
-> **同一件事在两个地方各存一份，改的时候必然只改一处。** 这份清单回答：此刻谁是准的。
+> **When one fact is stored in two places, an edit will reach only one of them.** This guide answers a single question: which one is authoritative right now?
 
-## 按领域分工
+## By subject
 
-四个领域各有唯一宿主，互不覆盖：
+Four subjects, one host each, no overlap:
 
-| 领域 | 宿主 |
+| Subject | Host |
 |---|---|
-| 需求与验收 | 完整 PRD；切片开始后是该片 task 的 `prd.md` |
-| 术语 | `CONTEXT.md` |
-| 有取舍的决定 | `docs/adr/` |
-| 界面与交互结构 | 定稿高保真 + `master.md` |
+| Requirements and acceptance | The full PRD; once slicing starts, that slice's task `prd.md` |
+| Terminology | `CONTEXT.md` |
+| Decisions with a trade-off | `docs/adr/` |
+| Interface and interaction structure | The approved hi-fi plus `master.md` |
 
-**别在别处顺手存副本。** PRD 里想说术语就指向 `CONTEXT.md`，想说「为什么这么定」就指向对应 ADR。
+**Do not keep a convenience copy anywhere else.** When the PRD needs to talk about terminology, point at `CONTEXT.md`; when it needs to say why something was decided, point at the ADR.
 
-## 按阶段分工
+## By stage
 
-同一份 artifact 在不同阶段的权威性不一样：
+The same artifact carries different authority at different stages:
 
 ```
-需求探索 → 高保真定稿前
-    权威源 = 完整 PRD
-    原型是探针，冲突时改原型
+Requirements discovery → before the hi-fi is approved
+    Source of truth = the full PRD
+    The prototype is a spike; on a conflict, change the prototype
 
-高保真定稿 → 切片开始前
-    权威源 = 高保真 + master.md
-    唯一一次正式反写：把原型暴露出的字段、状态、边界回灌进 PRD
+Hi-fi approved → before slicing starts
+    Source of truth = the hi-fi plus master.md
+    The one formal write-back: fold the fields, states and edge cases the
+    prototype exposed back into the PRD
 
-切片实现开始后
-    权威源 = 该片 task 的 prd.md + 本片对应的定稿屏
-    完整 PRD 冻结为背景资料，切片完成时用 delta 更新
+After slice implementation starts
+    Source of truth = that slice's task prd.md plus this slice's approved screens
+    The full PRD is frozen as background, updated by delta as each slice finishes
 ```
 
-**反写只在阶段切换点发生一次。** 每次探针跑完就回头改 PRD，会让 PRD 变成一份对话记录——想知道当前状态得从头读一遍。
+**The write-back happens once, at a stage boundary.** Editing the PRD every time a spike finishes turns it into a transcript of the conversation — and then finding the current state means reading it from the top.
 
-## 反写用 delta，不要追加
+## Write back as a delta, never as an append
 
-回灌的时候用三个标记，**直接改正文**：
+Fold findings back using three markers, **editing the body directly**:
 
 ```markdown
 ## ADDED
-### 双因子认证
-系统支持基于 TOTP 的双因子认证。
+### Two-factor authentication
+The system supports TOTP-based two-factor authentication.
 
 ## MODIFIED
-### 会话过期
-15 分钟无活动后过期。（原为 30 分钟）
+### Session expiry
+Expires after 15 minutes of inactivity. (Was 30 minutes.)
 
 ## REMOVED
-### 记住我
-已由双因子认证取代。
+### Remember me
+Superseded by two-factor authentication.
 ```
 
-归档时把 delta 合并回主文档，主文档**永远只描述当前状态**。
+When archiving, merge the delta back into the main document. The main document **only ever describes the current state**.
 
-**为什么这条值得单独写：** 追加式的修改会长出这种东西——
+**Why this deserves its own rule:** appending edits grows things like this —
 
-> ~~注意：上面那段已废弃，不要按它做。~~
-> ~~补充：C 方案改了，实际用的是 D。~~
+> ~~Note: the section above is obsolete, do not follow it.~~
+> ~~Addendum: option C changed, we actually use D.~~
 
-它们的共同形态是**该做 MODIFIED / REMOVED 的地方做成了追加**。攒够几轮之后，文档就从「这个东西是什么」变成了「这个东西曾经被改过几次」，而读的人得自己拼出当前状态——那正是文档该替他做的事。
+What they have in common is that **an append was used where a MODIFIED or a REMOVED belonged**. After a few rounds the document stops describing what the thing *is* and starts describing how many times it has been changed, leaving the reader to reconstruct the current state — which is precisely what the document was supposed to do for them.
 
-## 冲突时怎么判
+## Resolving a conflict
 
-按上面的阶段表找当前权威源，改另一边。
+Find the current source of truth in the stage table above, and change the other side.
 
-**如果改的是权威源那一边**，说明发现了真问题——那就改，但要说明为什么，并检查这个改动会不会连累已经定稿的其他部分。这比在实现之后发现便宜两个量级。
+**If the change belongs on the authoritative side**, you have found a real problem. Make the change — but say why, and check whether it drags in anything already approved. It is two orders of magnitude cheaper here than after implementation.

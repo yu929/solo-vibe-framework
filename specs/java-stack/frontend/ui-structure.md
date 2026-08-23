@@ -190,7 +190,7 @@ Applies to any screen the approved hi-fi did not draw.
 **NEVER render an empty state for a request that failed.**
 
 - *Applies:* 401, 404, 5xx, network and parse failures.
-- *Instead:* route it through the failure classification in [`index.md`](index.md) §2.2.
+- *Instead:* route it through the failure classification in [`index.md`](index.md) §1.2.
 - *✗* rendering "no data" for a request that never returned rows to begin with, which tells the user their data is gone and sends them looking for it instead of signing in again.
 
 **Permission never surfaces as an empty state.** Row-level isolation returns an empty list and is *designed* to be indistinguishable from "there is nothing" — this track answers 404 for both "not yours" and "does not exist", because 403 would confirm the record exists. Page-level permission is handled before the page: the entry is not rendered, and a pasted URL produces a failure state.

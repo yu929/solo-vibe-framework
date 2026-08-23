@@ -1,65 +1,65 @@
 ---
 name: task-artifacts
-description: task 的 design.md 与 implement.md 写什么、不写什么
+description: What goes in a task's design.md and implement.md, and what does not
 paths:
   - .trellis/tasks/**
 ---
 
-# task 产物：design.md 与 implement.md
+# Task Artifacts: design.md and implement.md
 
-> Trellis 规定复杂 task 在 `task.py start` 之前必须有 `prd.md` + `design.md` + `implement.md`，但只给 `prd.md` 生成骨架。另外两份的形状定在这里。
+> Trellis requires a complex task to have `prd.md`, `design.md` and `implement.md` before `task.py start`, but generates a skeleton only for `prd.md`. The shape of the other two is defined here.
 
-## 三份的分工
+## What each one answers
 
-写错地方比写少更贵——同一件事出现在两份里，改的时候只会改一份。
+Putting something in the wrong file costs more than leaving it out — one fact in two files means an edit reaches only one.
 
-| 文件 | 回答 | 不写 |
+| File | Answers | Does not contain |
 |---|---|---|
-| `prd.md` | 这一片**要什么**、做完怎么算对 | 技术方案、实现步骤 |
-| `design.md` | **怎么设计**——边界、契约、取舍 | 需求、逐步清单 |
-| `implement.md` | **按什么顺序做**、怎么验 | 需求、设计论证 |
+| `prd.md` | **What** this slice needs, and how you know it is right | Technical approach, implementation steps |
+| `design.md` | **How it is designed** — boundaries, contracts, trade-offs | Requirements, step-by-step lists |
+| `implement.md` | **In what order** to build it, and how to verify | Requirements, design rationale |
 
-轻量 task 只有 `prd.md` 就够。**判据不是改动大小，是「实现的人需不需要先做决定」**——需要就补 `design.md`。
+A lightweight task needs only `prd.md`. **The test is not the size of the change, it is whether the implementer has to make a decision first** — if so, add `design.md`.
 
 ## design.md
 
 ```markdown
-## 边界与职责
-## 契约与数据流
-## 兼容与迁移
-## 取舍
-## 回滚形态
+## Boundaries and responsibilities
+## Contracts and data flow
+## Compatibility and migration
+## Trade-offs
+## Rollback shape
 ```
 
-**边界与职责**：这次改动碰哪些模块，各自负责什么，谁不许知道谁。写清楚边界，实现期的子 agent 才不会顺手把逻辑塞进错误的层。
+**Boundaries and responsibilities**: which modules this change touches, what each is responsible for, and who is not allowed to know about whom. State the boundaries and an implementation sub-agent will not casually put logic in the wrong layer.
 
-**契约与数据流**：接口形状、数据从哪来到哪去、谁持有状态。**用类型 / schema / 状态机表达比散文准确**——这类地方值得贴具体片段，其余地方别贴代码（会过时）。
+**Contracts and data flow**: interface shapes, where data comes from and goes to, who holds state. **A type, a schema or a state machine says this more precisely than prose** — these are the places worth pasting a concrete fragment. Everywhere else, do not paste code; it goes stale.
 
-**兼容与迁移**：老数据怎么办、老调用方怎么办、要不要分两步上。没有兼容问题就写一行「无」，别留空——空着分不清是没有还是忘了想。
+**Compatibility and migration**: what happens to old data, what happens to old callers, whether this ships in two steps. When there is no compatibility concern, write one line saying so. Do not leave it blank — blank does not distinguish "none" from "never considered".
 
-**取舍**：**把被否掉的方案写下来，连同否掉的理由。** 这是三份文件里最容易省略、也最值钱的一节——半年后回来看，「为什么不用那个更简单的做法」如果没人记得，就会有人把它再实现一遍。
+**Trade-offs**: **write down the options you rejected, with the reason you rejected them.** This is the section most often skipped and the most valuable of the three files — six months later, if nobody remembers why the simpler approach was not used, somebody will implement it again.
 
-**回滚形态**：出问题怎么退回去。改数据库或改外部契约时这节必填。
+**Rollback shape**: how to back out when it goes wrong. Mandatory when the change touches the database or an external contract.
 
 ## implement.md
 
 ```markdown
-## 实现顺序
-## 验证命令
-## 风险文件与回滚点
-## start 前的复查
+## Implementation order
+## Verification commands
+## Risky files and rollback points
+## Pre-start review
 ```
 
-**实现顺序**：有序清单，每步一件事。**每步都要能单独验证**——一口气改八个文件再跑测试，红了之后你不知道是哪一步。
+**Implementation order**: an ordered list, one thing per step. **Every step must be independently verifiable** — change eight files and then run the tests, and a red result tells you nothing about which step caused it.
 
-**验证命令**：可以直接复制执行的命令，不是「跑一下测试」。写具体到能贴进终端，因为实现期的子 agent 会照着跑。
+**Verification commands**: commands that can be copied and run, not "run the tests". Write them out concretely enough to paste into a terminal, because an implementation sub-agent will run them as written.
 
-**风险文件与回滚点**：哪几个文件动了容易连累别处、做到哪一步之后回滚成本会跳升。
+**Risky files and rollback points**: which files, when touched, tend to drag in others, and at which step the cost of rolling back jumps.
 
-**start 前的复查**：`task.py start` 之前要确认的事。**本片的结构依据（定稿屏 / 契约文件）进 `implement.jsonl` 了吗**——这条最容易漏，而且漏了没有症状：子 agent 在全新 context 里只看得到 jsonl 列出的文件，`prd.md` 里写一行路径不算。
+**Pre-start review**: what to confirm before `task.py start`. **Are this slice's structural references — the approved screens, the contract files — in `implement.jsonl`?** This is the one most often missed, and missing it has no symptom: a sub-agent in a fresh context sees only the files that jsonl lists, and a path written into `prd.md` does not count.
 
-## 两条通用的
+## Two rules that apply to both
 
-**不写具体文件路径和代码片段**，它们过时得比文档快。例外是**比散文更精确**的东西：schema、状态机、类型形状、错误码表——那些贴出来反而减少歧义。
+**Do not write out specific file paths or code fragments** — they go stale faster than the document. The exception is anything **more precise than prose**: schemas, state machines, type shapes, error-code tables. Pasting those reduces ambiguity rather than adding it.
 
-**不重复 `prd.md` 已经说过的需求。** 需要引用就指过去。同一条需求两处各存一份，改的时候必然只改一处。
+**Do not restate requirements `prd.md` already covers.** Point at it when you need to refer to one. One requirement stored in two places means an edit will reach only one.

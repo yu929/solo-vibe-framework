@@ -1,127 +1,129 @@
-# Web Fullstack 轨 · 规范总览
+# Web Fullstack · Spec Overview
 
-> 本文件是 spec 根总览（对应官方模板的 `.trellis/spec/README.md`）。各层入口在 `<layer>/index.md`，轨无关思维清单在 `guides/`。
+> This file is the spec root overview (the official template's `.trellis/spec/README.md`). Each layer's entry point is `<layer>/index.md`; the track-independent thinking guides are in `guides/`.
 
-> Next.js 16 + Supabase 轨的编码规范。装进项目后位于 `.trellis/spec/`，由 Trellis 按需注入。
+> Coding rules for the Next.js 16 + Supabase track. Once installed they sit in `.trellis/spec/` and Trellis injects them on demand.
 >
-> **本文件是本轨锁定规则的权威源。** 与 starter 仓 `AGENTS.md` 冲突时以本文件为准——见本页末「与 starter AGENTS.md 的关系」。
+> **This file is the source of truth for the rules this track locks.** Where it conflicts with the starter repository's `AGENTS.md`, this file wins — see "Relationship to the starter's AGENTS.md" at the end.
 
-> ### 本模板是自足的，一个项目只装它一个
+> ### This template is self-contained; install exactly one
 >
-> 装法只有一条命令：
+> One command:
 >
 > ```bash
-> trellis init --claude --registry <框架仓 URL> --template web-fullstack
+> trellis init --claude --registry <framework repo URL> --template web-fullstack
 > ```
 >
-> **不要再装第二个模板。** Trellis 的 `.trellis/config.yaml` 里 `registry.spec.template` 是**单数**字段，装第二个会把它整行替换掉，此后 `trellis update` 只刷新后装的那个——**本轨规范（含上面那些安全红线）从此收不到修复，而且不报错**。
+> **Do not install a second template.** `registry.spec.template` in `.trellis/config.yaml` is a **singular** field, and installing a second one replaces that line outright. From then on `trellis update` refreshes only the one installed last — **this track's rules, including the safety red lines below, stop receiving fixes, and nothing reports an error**.
 >
-> 所以 `guides/`（轨无关思维清单）已经打包在本模板里，不需要额外装 `universal-guides`。那个模板只给**还没有轨规范**的项目用。
+> That is why `guides/` (the track-independent thinking guides) is already packaged here: you do not need to install `universal-guides` as well. That template exists only for projects that have **no track spec at all**.
 
-## 栈锁定（不经确认不得替换）
+## Locked stack (substitutions need confirmation)
 
-| 层 | 锁定 |
+| Layer | Locked to |
 |---|---|
-| 框架 | **Next.js 16 App Router** + **React 19** + **TypeScript**（strict） |
-| 样式/组件 | **Tailwind v4** + **shadcn/ui**（Base UI 内核，`base-nova` 风格，neutral 主色） |
-| 后端/数据 | **Supabase**（Postgres + Auth + RLS），本地经 Supabase CLI + Docker |
-| 包管理 / 运行时 | **pnpm**（corepack 启用）；**Node ≥ 22** |
-| 数据访问 | `@supabase/supabase-js` + `@supabase/ssr` |
-| 测试 | **Vitest**（`*.test.ts`）+ **Playwright**（`e2e/*.spec.ts`） |
-| 部署 | **Docker 容器化**（`output: "standalone"` + 多阶段构建），**不用 Vercel** |
+| Framework | **Next.js 16 App Router** + **React 19** + **TypeScript** (strict) |
+| Styling and components | **Tailwind v4** + **shadcn/ui** (Base UI kernel, `base-nova` style, neutral base colour) |
+| Backend and data | **Supabase** (Postgres, Auth, RLS), locally through the Supabase CLI and Docker |
+| Package manager and runtime | **pnpm** (corepack enabled); **Node ≥ 22** |
+| Data access | `@supabase/supabase-js` + `@supabase/ssr` |
+| Testing | **Vitest** (`*.test.ts`) + **Playwright** (`e2e/*.spec.ts`) |
+| Deployment | **Docker containers** (`output: "standalone"` with a multi-stage build); **not Vercel** |
 
-## 禁止清单（最致命的先列）
+## Never (most lethal first)
 
-> 真实项目确需破例时（如 service-role 用于 Auth Admin API、secret 不能作 server action 入参而需一个转发壳 Route），必须**显式记载受控例外**（范围 + 理由 + 落点），不许默默绕过；例外本身也要能被评审核对。
+> When a real project genuinely needs an exception — service-role for the Auth Admin API, say, or a forwarding Route because a secret cannot be a server-action argument — it is **recorded explicitly as a controlled exception** (scope, reason, where it lives). Nothing is bypassed quietly, and the exception itself has to survive review.
 >
-> **已登记的受控例外只有一条，而且多数项目用不上它**：异构子服务的 worker 持 service-role，范围写在 [`backend/index.md`](backend/index.md) §6.1。**项目里没有 `services/` 目录时这条例外不存在**，规则就是「不绕过 RLS」六个字。它带一条不许简写的不变量——worker 的入参只有 job id，不按外部传入的主键取用户数据——和一条负向验收（拿 A 租户的 job 够 B 租户的资源必须被拒）。**「有一条例外」不等于「service-role 可以自由用」**：不在那张表里的用法一律按禁止处理。
+> **There is exactly one registered controlled exception, and most projects will never use it**: a heterogeneous sub-service's worker holding service-role, scoped in [`backend/index.md`](backend/index.md) §6.1. **When the project has no `services/` directory that exception does not exist**, and the rule is five words: do not bypass RLS. It carries one invariant that must not be abbreviated — the worker's only input is a job id, and it never fetches user data by an externally supplied primary key — plus one negative acceptance test: using tenant A's job to reach tenant B's resource must be refused. **"There is an exception" does not mean "service-role is free to use"**: anything not in that table is forbidden.
 
-**安全（破了会出真事故）**：
+**Security (breaking these causes a real incident):**
 
-- 不把 `service_role` / `secret` key 用于前端或任何 `NEXT_PUBLIC_*` 变量。
-- 不绕过 RLS（不用 service-role client 读写用户数据）。
-- 不在 `localStorage` 存会话凭证或长期 token（用 httpOnly cookie——Supabase SSR 已走 cookie）。
-- 不在 client 用 `dangerouslySetInnerHTML`（非用不可则在调用点用 allowlist 消毒）；不可信 URL 赋给 `href`/`src` 前先校验协议；`target="_blank"` 必配 `rel="noopener noreferrer"`。
-- 不提交 `.env.local` 或把密钥写进源码。
+- Never use a `service_role` or `secret` key in the frontend, or in any `NEXT_PUBLIC_*` variable.
+- Never bypass RLS — no service-role client reading or writing user data.
+- Never keep session credentials or a long-lived token in `localStorage`; use an httpOnly cookie, which Supabase SSR already does.
+- Never use `dangerouslySetInnerHTML` on the client; where it is unavoidable, sanitize against an allow-list at the call site. Validate the protocol of an untrusted URL before assigning it to `href` or `src`, and always pair `target="_blank"` with `rel="noopener noreferrer"`.
+- Never commit `.env.local`, and never write a key into source.
 
-**结构（破了会扩散）**：
+**Structure (breaking these spreads):**
 
-- 不在应用代码里手写 SQL（SQL 只出现在 `supabase/migrations/`）。
-- 不手改生成文件：`src/components/ui/*`（shadcn 生成）与 `src/lib/supabase/database.types.ts`（Supabase 生成）。
-- 不用 API Route 处理表单提交（用 Server Actions）。
-- 不在 Server Component 里直接写 cookie（交给 proxy 或 server action）。
-- 不引入 `@radix-ui/*`：本轨 shadcn 用 **Base UI** 内核（`components.json` → `style: base-nova`）。Base UI 用 render prop、**无 `asChild`**，别套网上 Radix 时代的 shadcn 写法。
-- 不用 `next/font/google`（构建时联网下载字体，内网/离线构建会失败）；字体一律 vendored 在 `src/app/fonts/` 走 `next/font/local`。
-- 引入新依赖（尤其重型库）前先问。
+- No hand-written SQL in application code; SQL appears only in `supabase/migrations/`.
+- Generated files are not hand-edited: `src/components/ui/*` (produced by shadcn) and `src/lib/supabase/database.types.ts` (produced by Supabase).
+- No API Route for handling a form submission; use Server Actions.
+- No cookie written directly in a Server Component; leave it to the proxy or a server action.
+- No `@radix-ui/*`: shadcn on this track runs the **Base UI** kernel (`components.json` → `style: base-nova`). Base UI uses a render prop and has **no `asChild`**, so do not apply Radix-era shadcn patterns found online.
+- No `next/font/google` — it downloads fonts from the network at build time, so an internal or offline build fails. Fonts are vendored in `src/app/fonts/` and loaded through `next/font/local`.
+- Ask before introducing a new dependency, especially a heavy one.
 
-## 目录结构（新增代码按此归位）
+## Directory structure (where new code goes)
 
 ```
 src/
   app/
-    layout.tsx                  # 根布局，挂 <Toaster/>
-    fonts/*.woff2               # vendored 字体（next/font/local），构建零外网依赖
-    page.tsx                    # 首页（骨架里是受保护的；要公开见 backend/index.md §2）
+    layout.tsx                  # root layout, mounts <Toaster/>
+    fonts/*.woff2               # vendored fonts (next/font/local): zero network dependency at build time
+    page.tsx                    # home (protected in the scaffold; to make it public see backend/index.md §2)
     login/page.tsx  signup/page.tsx
-    auth/actions.ts             # 鉴权 server actions: login/signup/signOut
-    <功能>/actions.ts           # 每个业务模块一组写操作
-    <功能>/[id]/edit/page.tsx   # 模块编辑页（按需）
+    auth/actions.ts             # auth server actions: login / signup / signOut
+    <feature>/actions.ts        # one group of write operations per business module
+    <feature>/[id]/edit/page.tsx  # a module's edit page, where needed
   components/
-    ui/                         # shadcn 组件，只用 CLI 增删，勿手改
-    data/                       # patterns：DataTable / FilterBar / EmptyState / StatusBadge / ConfirmDialog / CopyButton / ActionTooltip
-    forms/                      # patterns：FormRow / PasswordInput / SubmitButton
-    app/                        # 页面骨架：page-header.tsx
-    *.tsx                       # 业务组件
+    ui/                         # shadcn components; add and remove with the CLI only, never hand-edit
+    data/                       # patterns: DataTable / FilterBar / EmptyState / StatusBadge / ConfirmDialog / CopyButton / ActionTooltip
+    forms/                      # patterns: FormRow / PasswordInput / SubmitButton
+    app/                        # page scaffolding: page-header.tsx
+    *.tsx                       # business components
   lib/
-    auth/require-user.ts        # requireUser()（server-only + react cache）
-    supabase/{client,server,middleware}.ts   # 浏览器 / 服务端 / 会话刷新三个接入点
-    supabase/auth-cookie.ts     # 统一 auth cookie 名（三处共用）
-    supabase/database.types.ts  # supabase 生成，勿手改
-    status.ts                   # 状态词表：domain → tone/label
+    auth/require-user.ts        # requireUser() (server-only plus react cache)
+    supabase/{client,server,middleware}.ts   # the browser, server and session-refresh entry points
+    supabase/auth-cookie.ts     # the one auth cookie name, shared by all three
+    supabase/database.types.ts  # generated by supabase, not hand-edited
+    status.ts                   # the status vocabulary: domain → tone and label
     utils.ts                    # cn()
-  proxy.ts                      # Next 16 proxy（原 middleware），调 updateSession
-design-system/MASTER.md         # 全站 UI 视觉权威
+  proxy.ts                      # the Next 16 proxy (formerly middleware); calls updateSession
+design-system/MASTER.md         # the authority on the product's visual design
 supabase/
-  config.toml  migrations/*.sql # 数据库 schema（唯一写 SQL 的地方）
-e2e/*.spec.ts                   # Playwright E2E（含 RLS 隔离）
-*.test.ts                       # Vitest 单元测试（与被测代码同目录）
-Dockerfile  docker-compose*.yml # 容器化部署（含 selfhost 内网版）
+  config.toml  migrations/*.sql # the database schema (the only place SQL is written)
+e2e/*.spec.ts                   # Playwright E2E, including RLS isolation
+*.test.ts                       # Vitest unit tests, beside the code under test
+Dockerfile  docker-compose*.yml # containerized deployment, including the self-hosted internal variant
 .github/workflows/{ci,release}.yml
 ```
 
-## 锁死 vs 放手
+## Locked vs free
 
-**锁死，改动先问**：栈、目录、数据访问方式、RLS、鉴权位置。
+**Locked — ask before changing**: the stack, the directory layout, how data is accessed, RLS, where authorization happens.
 
-**放手，直接改**：单个页面的布局、文案、组件选用。
+**Free — just change it**: an individual page's layout, its copy, which components it uses.
 
-## 本轨规范索引
+## Spec index
 
-每个 `<layer>/index.md` 都带 Trellis 约定的 **Pre-Development Checklist** 与 **Quality Check** 两节（`workflow.md` 会按这个约定去读）。
+Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality Check** sections Trellis expects (`workflow.md` reads them by that convention).
 
-**轨特化（这条轨专有）**：
+**Track-specific.** Every file in this table declares `paths:`, so it is injected when you touch the source files it governs.
 
-| 文件 | 管什么 |
-|---|---|
-| [`frontend/index.md`](frontend/index.md) | 组件复用顺序、Server/Client 边界、Hooks、表单与弹框、主题与视觉、可访问性 |
-| [`backend/index.md`](backend/index.md) | 数据读写方式、鉴权与会话、auth cookie、注册开关、异构子服务的信任边界 |
-| [`database/index.md`](database/index.md) | RLS、新表三件套、迁移、类型生成 |
-| [`testing/index.md`](testing/index.md) | 质量门命令、怎么验证功能与数据（含两条负向测试） |
+| File | Covers | Read it when |
+|---|---|---|
+| [`frontend/index.md`](frontend/index.md) | Component reuse order, the Server/Client boundary, hooks, forms and overlays, theme and visuals, accessibility | Adding a component, writing a form, touching theme tokens |
+| [`backend/index.md`](backend/index.md) | How data is read and written, auth and sessions, the auth cookie, the signup toggle, a sub-service's trust boundary | Writing a server action, touching auth or the proxy |
+| [`database/index.md`](database/index.md) | RLS, the three parts of a new table, migrations, type generation | Adding a table, writing a migration |
+| [`testing/index.md`](testing/index.md) | Required checks, how to verify behaviour and data (including two negative tests) | Before saying it is done |
 
-**轨无关（换技术栈也成立，随本模板一起装）**：
+**Track-independent** (holds on any stack; ships with this template):
 
-| 文件 | 管什么 |
-|---|---|
-| [`guides/index.md`](guides/index.md) | guides 总入口 |
-| [`guides/code-reuse.md`](guides/code-reuse.md) | 写新代码前先找既有实现的顺序 |
-| [`guides/cross-layer.md`](guides/cross-layer.md) | 跨层职责判据（含「校验散落各层」，[`backend/index.md`](backend/index.md) §5 与 [`frontend/index.md`](frontend/index.md) §3 引的就是它） |
-| [`guides/review-adjudication.md`](guides/review-adjudication.md) | 编码期 finding 的 4 字段、召回与裁决分离 |
+| File | Covers | Read it when |
+|---|---|---|
+| [`guides/index.md`](guides/index.md) | Entry point for the guides | Unsure which guide applies |
+| [`guides/code-reuse.md`](guides/code-reuse.md) | Where to look for an existing implementation before writing a new one | About to write something that resembles existing code |
+| [`guides/cross-layer.md`](guides/cross-layer.md) | Criteria for splitting responsibility across layers, including "validation scattered across layers" — what [`backend/index.md`](backend/index.md) §5 and [`frontend/index.md`](frontend/index.md) §3 both point at | A feature crosses three or more layers |
+| [`guides/review-adjudication.md`](guides/review-adjudication.md) | The four-field finding while coding; reporting is not deciding | You found a rule that is wrong, or a trap the spec never mentioned |
+| [`guides/task-artifacts.md`](guides/task-artifacts.md) | What belongs in a task's `design.md` and `implement.md` | Writing task artifacts — **injected by path** |
+| [`guides/source-of-truth.md`](guides/source-of-truth.md) | Which artifact is authoritative at each stage; writing back as a delta | Two documents disagree — **injected by path** |
 
-> `guides/` 在框架仓里是**生成副本**，权威源是 `specs/universal/guides/`，由 `scripts/sync-spec-guides.sh` 同步。**改 guides 要去改权威源**——直接改这里下次同步就被覆盖（框架仓的 CI 会先报出来）。
+> In the framework repository `guides/` is a **generated copy**; the source of truth is `specs/universal/guides/`, synced by `scripts/sync-spec-guides.sh`. **Edit the source of truth** — editing the copy here is overwritten at the next sync, and the framework repository's CI reports it first.
 
-## 与 starter AGENTS.md 的关系
+## Relationship to the starter's AGENTS.md
 
-- **本目录是权威源**，跟着框架仓维护、经 Trellis 按需注入。
-- starter 的 `AGENTS.md` 只保留「项目信息 + 指向本规范 + 最致命的那几条红线」，且它们必须是本页禁止清单的**严格子集**，分组也与本页一致（安全 / 结构）。**下放的判据**：不走 Trellis 的 session 读不到按需注入的 spec，而这条破了会出真事故。不满足这条判据的规则留在本页，不下放。
-- **不要把这份子集写成固定枚举。** 两边的清单都会长，枚举一旦落后，读的人会按枚举判定 starter「超范围」，而它其实只是又下放了一条同样致命的规则。核对方式是**逐条回本页禁止清单找对应项**——找不到对应项才是违规。
-- 改规则**先改本目录**，再同步回 starter。反向改会漂移。
+- **This directory is the source of truth.** It is maintained in the framework repository and injected on demand by Trellis.
+- The starter's `AGENTS.md` keeps only project information, a pointer to this spec, and the few most lethal red lines — and those must be a **strict subset** of the Never list on this page, grouped the same way (security / structure). **The test for pushing a rule down**: a session that does not go through Trellis cannot see an on-demand spec, and breaking this rule causes a real incident. A rule that fails that test stays on this page.
+- **Do not write that subset as a fixed enumeration.** Both lists will grow, and the moment an enumeration falls behind, a reader will judge the starter "out of scope" when it has merely pushed down one more equally lethal rule. Check it by **finding each starter rule's counterpart in the Never list on this page** — having no counterpart is the violation.
+- **Change this directory first**, then sync back to the starter. Changing the other direction drifts.

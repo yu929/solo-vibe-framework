@@ -1,27 +1,34 @@
-# 数据库规范 · Java Stack 轨
+---
+name: database
+description: Flyway as the only way schema changes, the three parts of a per-user table, the copied session schema, closed enums constrained in the database, and the local volume-name trap
+paths:
+  - backend/src/main/resources/db/migration/**
+---
 
-> SQL 只出现在 `backend/src/main/resources/db/migration/`。轨总览与禁止清单见 [`../README.md`](../README.md)。
+# Database Rules · Java Stack
 
-## 速查
+> SQL appears only in `backend/src/main/resources/db/migration/`. The track overview and the Never list are in [`../README.md`](../README.md).
 
-| 场景 | 做法 |
+## Quick reference
+
+| Situation | What to do |
 |---|---|
-| 改 schema | 新增一个 `V<n>__<name>.sql`，**永不改已提交的迁移** |
-| 建每用户表 | 必须三件套：`owner_id not null` 外键 + `owner_id` 索引 + 归属收口的 repository |
-| 验证迁移能干净重放 | `docker compose -f docker-compose.dev.yml down -v && up -d` 再起应用 |
-| schema 生成方式 | **只有 Flyway**。`ddl-auto` 恒为 `validate` |
+| Changing the schema | Add a `V<n>__<name>.sql`; **never edit a migration that has been committed** |
+| Creating a per-user table | Three parts, all required: an `owner_id not null` foreign key, an index on `owner_id`, and an owner-scoped repository |
+| Checking a migration replays cleanly | `docker compose -f docker-compose.dev.yml down -v && up -d`, then start the application |
+| How the schema is produced | **Flyway alone.** `ddl-auto` is permanently `validate` |
 
-## 1. Flyway 是唯一改 schema 的东西
+## 1. Flyway is the only thing that changes the schema
 
-`spring.jpa.hibernate.ddl-auto: validate`，**禁 `update` / `create-drop`**。
+`spring.jpa.hibernate.ddl-auto: validate`, and **never `update` or `create-drop`**.
 
-`update` 的问题不是它不好用，而是它**没有症状**：Hibernate 按实体推断出一个 DDL 打上去，你的库和迁移脚本从此分叉。本地一切正常，直到 CI 或新环境从零重放迁移，得到一个**结构不同的库**。`validate` 会在启动时就把这种分叉喊出来。
+The problem with `update` is not that it works badly, it is that **it has no symptom**: Hibernate infers a DDL from the entities and applies it, and from then on your database and your migration scripts have diverged. Everything is fine locally until CI or a new environment replays the migrations from zero and gets **a differently shaped database**. `validate` shouts about that divergence at startup.
 
-**已提交的迁移不许改。** 改了的话，已经跑过它的环境不会重跑，校验和还会对不上。要修就加下一个版本。
+**A committed migration is never edited.** Environments that already ran it will not re-run it, and the checksum will no longer match. To fix something, add the next version.
 
-## 2. 新表三件套（每用户表）
+## 2. The three parts of a per-user table
 
-每用户表的隔离全靠这三样加一条测试。少一个就漏。
+A per-user table's isolation rests entirely on these three plus one test. Miss one and it leaks.
 
 ```sql
 create table <name> (
@@ -35,155 +42,159 @@ create table <name> (
 create index <name>_owner_id_idx on <name> (owner_id);                            -- ②
 ```
 
-**① 归属列非空 + 外键**：让「这行属于谁」成为数据库约束，而不是某个 service 记得填的字段。
-**② `owner_id` 索引**：每次读都按它过滤。
-**③ 归属收口的 repository**：见 [`../backend/index.md`](../backend/index.md) §2.1——不 extend `JpaRepository`，只声明带 `ownerId` 的方法。
+**① The ownership column is not-null with a foreign key**, making "who this row belongs to" a database constraint rather than a field some service remembers to fill.
+**② An index on `owner_id`**, because every read filters by it.
+**③ An owner-scoped repository**: see [`../backend/index.md`](../backend/index.md) §2.1 — it does not extend `JpaRepository`, and declares only methods that carry `ownerId`.
 
-**④ 加一条双账号负向测试**（[`../testing/index.md`](../testing/index.md)）。前三条是「写了」，第四条才是「生效」。
+**④ Add a two-account negative test** ([`../testing/index.md`](../testing/index.md)). The first three are "it was written"; the fourth is "it works".
 
-> **不是每用户的表**（字典、参考数据、静态配置）当然没有 `owner_id`。这是正常的例外，但要在两处都说出来，否则下一个人无法区分「有意的」和「忘了」：迁移里**写一行注释**，repository 接口上标 **`@OwnerlessTable("理由")`**（[`../backend/index.md`](../backend/index.md) §2.4）。
+> **A table that is not per-user** — a lookup table, reference data, static configuration — has no `owner_id`, naturally. That is a legitimate exception, but it has to be said out loud in two places, or the next person cannot tell "deliberate" from "forgotten": **write a comment** in the migration, and put **`@OwnerlessTable("reason")`** on the repository interface ([`../backend/index.md`](../backend/index.md) §2.4).
 >
-> **别拿 `@CrossUserQuery` 逐个方法凑**——那个注解是给「真的跨用户读」用的，混进一堆无害的字典查询之后，那份例外清单就没人会去审了。反过来也要小心：`app_user` 那种「行本身就是人」的表**不算**无归属，它继续走 `@CrossUserQuery`。
+> **Do not approximate it with `@CrossUserQuery` on each method** — that annotation is for genuine cross-user reads, and once the exception list is padded with harmless lookup queries, nobody reviews it. Watch the other direction too: a table like `app_user`, where the row **is** the person, does **not** count as ownerless; it keeps using `@CrossUserQuery`.
 
-## 3. Spring Session 的表是抄来的，不是写的
+## 3. The Spring Session tables are copied, not written
 
-会话表来自 spring-session-jdbc 的 jar，**逐字复制**进第一个迁移，不要凭记忆重写：
+The session tables come from the spring-session-jdbc jar and are copied **verbatim** into the first migration. Do not rewrite them from memory:
 
 ```bash
-unzip -p ~/.gradle/caches/**/spring-session-jdbc-<版本>.jar \
+unzip -p ~/.gradle/caches/**/spring-session-jdbc-<version>.jar \
   org/springframework/session/jdbc/schema-postgresql.sql
 ```
 
-配合 `spring.session.jdbc.initialize-schema: never`——建表的事只许 Flyway 做一份。
+Pair that with `spring.session.jdbc.initialize-schema: never` — table creation happens in exactly one place, Flyway.
 
-升级 Spring Session 时：把新 jar 里的 schema 与仓库里那份 diff 一下，有差异就**加一个新迁移**，不要去改老的那个。
+When upgrading Spring Session: diff the new jar's schema against the copy in the repository, and **add a new migration** for any difference rather than editing the old one.
 
-### 3.1 抄来的 schema 未必装得下你的数据
+### 3.1 A copied schema does not necessarily fit your data
 
-「不改抄来的迁移」不等于「抄来的尺寸都合适」。vendor schema 是按它自己的通用假设写的，而你往里塞的是**你的**数据。
+"Do not edit a copied migration" is not the same as "the copied sizes are right". A vendor schema is written against the vendor's own general assumptions, and what you put into it is **your** data.
 
-实战踩过的那条：`SPRING_SESSION.PRINCIPAL_NAME` 在 vendor schema 里是 `VARCHAR(100)`，而本轨的 principal name 就是邮箱，`app_user.email` 是无界 `text`。于是一个 100 字符以上的地址——
+The one already walked into: `SPRING_SESSION.PRINCIPAL_NAME` is `VARCHAR(100)` in the vendor schema, while this track's principal name is the email, and `app_user.email` is unbounded `text`. So an address longer than 100 characters means:
 
-1. 用户行**插入成功并提交**；
-2. 请求末尾写会话时，才撞上列宽炸掉。
+1. the user row **inserts and commits**;
+2. the request then hits the column width and explodes while writing the session.
 
-结果是一个**存在、但永远登不进去**的账号，之后每次登录都是同一个 500。它看起来像故障，其实是输入长度问题，而且已经把坏数据留在库里了。
+The result is an account that **exists and can never be signed into**, failing with the same 500 on every attempt. It looks like an outage, it is an input-length problem, and the bad data is already in the database.
 
-**处理方式**：
+**How to handle it:**
 
-- 加**一个新迁移**去 `alter column ... type`，不要动 V1。加宽而不是把输入截短——加宽能顺带救活已经建出来的账号，截短会把它们永久留在外面。
-- 在那个迁移里**写清楚这是对 vendor schema 的有意偏离**，以及升级 Spring Session 时要重新确认。否则下一个人 diff 出差异，会以为是自己抄错了。
-- **API 侧的长度校验和这个列宽是同一个决定**，一起改（[`../backend/index.md`](../backend/index.md) §4.6）。
+- Add **a new migration** with `alter column ... type`; do not touch V1. Widen rather than truncating the input — widening also rescues accounts that already exist, while truncating locks them out permanently.
+- **Write in that migration that this is a deliberate deviation from the vendor schema**, and that it needs re-confirming when Spring Session is upgraded. Otherwise the next person diffs, finds a difference, and assumes they copied it wrong.
+- **The API's length validation and this column width are one decision**, changed together ([`../backend/index.md`](../backend/index.md) §4.3).
 
-**顺带一条通用的**：接了任何第三方 schema（会话、任务队列、审计表）之后，把**你会往它每一列里塞什么**过一遍。这类不匹配的共同特征是——在写入链条的**后半段**才炸，前半段已经提交了。
+**And one general rule alongside it**: after adopting any third-party schema — sessions, a job queue, an audit table — walk through **what you will be putting into each of its columns**. What these mismatches have in common is that they explode in the **second half** of the write chain, after the first half has already committed.
 
-## 4. 时间与类型约定
+## 4. Time and type conventions
 
-- 时间列一律 `timestamptz`，应用侧 `Instant`，`spring.jpa.properties.hibernate.jdbc.time_zone: UTC`。
-- 主键 `uuid`，由 Hibernate 生成（`@GeneratedValue(strategy = GenerationType.UUID)`）——不用自增，避免 id 可枚举。
-- 大小写不敏感的唯一性（邮箱）用**表达式唯一索引**：`create unique index ... on app_user (lower(email))`，查询侧也走 `lower(...)`。只在应用层 `toLowerCase()` 挡不住并发插入。
+- Time columns are always `timestamptz`, `Instant` on the application side, with `spring.jpa.properties.hibernate.jdbc.time_zone: UTC`.
+- Primary keys are `uuid`, generated by Hibernate (`@GeneratedValue(strategy = GenerationType.UUID)`) — not auto-increment, so ids cannot be enumerated.
+- Case-insensitive uniqueness (email) uses an **expression unique index**: `create unique index ... on app_user (lower(email))`, with queries going through `lower(...)` too. A `toLowerCase()` in the application layer alone does not stop a concurrent insert.
 
-### 4.1 闭集枚举必须在数据库约束同一取值域
+### 4.1 A closed enum's value domain is constrained in the database too
 
-Java 那边写了 `enum`、字段标了 `@Enumerated(EnumType.STRING)`，很容易觉得取值域已经管住了。管住的只是**经过应用写入口的那一条路**。迁移脚本、人工 SQL、数据恢复、还没下线的旧版本实例，每一条都能往那一列里写进 enum 不认识的字符串。
+With an `enum` on the Java side and `@Enumerated(EnumType.STRING)` on the field, it is easy to feel the value domain is already under control. What is under control is **the one path that goes through the application's write entry point**. Migration scripts, manual SQL, data restores and instances of an older version still running can each write a string that enum does not know.
 
-而且它炸的位置不在写入侧：坏值当场落库、事务正常提交，直到某次查询把那一行读出来做 `Enum.valueOf`——**整页列表跟着挂掉**，不是那一行降级。一行脏数据放倒一屏，这是它比普通脏数据贵的地方。
+And it does not explode on the write side: the bad value lands, the transaction commits normally, and then some query reads that row and calls `Enum.valueOf` — **taking the whole list page down with it**, rather than degrading that one row. One dirty row flattens a whole screen, which is what makes it more expensive than ordinary dirty data.
 
-所以列上要有 CHECK，值集合与当前 Java enum 一致：
+So the column carries a CHECK whose value set matches the current Java enum:
 
 ```sql
--- 错：Java 拿它当闭集，数据库却收任意字符串
+-- Wrong: Java treats it as a closed set while the database accepts any string
 event_type varchar(64) not null
 
--- 对：两边共享同一个显式取值域
+-- Right: both sides share one explicit value domain
 event_type varchar(64) not null
     constraint audit_event_type_check
     check (event_type in ('LOGIN', 'LOGOUT'))
 ```
 
-**改取值域时顺序有讲究，而且两个方向不对称**：
+**Changing the value domain has an order, and the two directions are not symmetric:**
 
-- **加值**：先上扩 CHECK 的迁移，再让应用写新值。反过来写入直接失败（PostgreSQL `23514`）——那是发布顺序错了，**别临时把约束放宽过去**。
-- **删值**：存量行要在**同一个前向迁移**里裁决掉，再收紧 CHECK。存量没处理干净就让迁移失败，别让它带着一批读不出来的行通过。
+- **Adding a value**: ship the migration that widens the CHECK first, then let the application write the new value. The other order fails the write outright (PostgreSQL `23514`) — that is a release-ordering mistake, and **the fix is not to loosen the constraint on the spot**.
+- **Removing a value**: existing rows are adjudicated in **the same forward migration**, before the CHECK is tightened. If the existing rows have not been dealt with, let the migration fail rather than letting it through with a batch of rows that can no longer be read.
 
-两个方向都只加新迁移，不回改已执行的（§1）。
+Both directions add new migrations only, never editing one that has run (§1).
 
-**遇到不认识的值要 fail closed。** 尤其审计、任务状态这类正式记录——加个 `UNKNOWN` 兜底、或者把读不出来的行静默过滤掉，都是把「数据坏了」翻译成「数据没了」，跟 [`../frontend/index.md`](../frontend/index.md) §2.2 是同一类错误断言。什么情况才算真有兼容对象值得保留旧值，判据在 [`../guides/review-adjudication.md`](../guides/review-adjudication.md)。
+**Fail closed on an unrecognized value.** For formal records such as audits and job status especially: adding an `UNKNOWN` fallback, or silently filtering out rows that will not parse, both translate "the data is corrupt" into "the data is gone" — the same class of false claim as [`../frontend/index.md`](../frontend/index.md) §1.2. What counts as a real thing to stay compatible with, worth keeping an old value for, is in [`../guides/review-adjudication.md`](../guides/review-adjudication.md).
 
-**验它会红**：空库重放迁移后逐个插入 `Enum.values()`，必须全部成功；再插一个退役值和一个随机字符串，必须都被拒。摘掉 CHECK 之后那条负向测试必须变红（[`../testing/index.md`](../testing/index.md)）。
+**Prove it goes red**: after replaying the migrations on an empty database, insert every member of `Enum.values()` — all must succeed; then insert a retired value and a random string — both must be rejected. With the CHECK removed, that negative test must go red ([`../testing/index.md`](../testing/index.md)).
 
-## 5. 本地库的项目名陷阱
+## 5. The local development database
 
-新项目第一步跑 `scripts/init-project.sh <项目名>`。
+Three separate traps: which volume it uses, which interface it listens on, and which password it starts with.
 
-**compose 从项目名派生 volume 名。** 不改则所有从本模板生成的项目**共享同一个 Postgres 数据卷**——A 项目的 `docker compose down -v` 会静默清掉 B 项目的数据。
+### 5.1 The project-name trap
 
-同一个脚本还会改会话 cookie 名（默认 `JSESSIONID` 在 localhost 上被所有应用共享，两个项目同时开发会互相顶掉登录）。
+The first thing a new project runs is `scripts/init-project.sh <project-name>`.
 
-## 5.1 开发库只绑回环
+**Compose derives the volume name from the project name.** Skip this and every project generated from this template **shares one Postgres volume** — project A's `docker compose down -v` silently wipes project B's data.
 
-compose 里写 `"5432:5432"` 等于 `0.0.0.0:5432`——**把开发数据库发布到了所有网卡**。配上一个写在公开模板仓里的固定口令，在咖啡馆 wifi 或公司内网上就是一个人人可连的库。
+The same script also changes the session cookie name: the default `JSESSIONID` is shared by every application on localhost, so two projects in development sign each other out.
 
-一律写成 **`"127.0.0.1:5432:5432"`**。要连它的东西（应用、IDE、psql）都跑在这台机器上，没有一个需要它对外可见。
+### 5.2 The development database binds to loopback only
 
-## 5.2 数据库口令不许有默认值（连「看起来像开发值」的也不行）
+Writing `"5432:5432"` in compose means `0.0.0.0:5432` — **publishing the development database on every interface**. Combined with a fixed password committed to a public template repository, that is a database anybody can connect to from a café's wifi or a corporate network.
 
-`application.yml` 里**不许出现口令的默认值**，哪怕它叫 `dev-only-not-a-secret`。理由不是命名，是**静默回落**：任何漏配变量的启动路径（裸 `java -jar`、systemd unit、少写一条 env 的 k8s manifest）都会用那个公开已知的口令**成功启动**。
+Always write **`"127.0.0.1:5432:5432"`**. Everything that connects to it — the application, an IDE, psql — runs on this machine, and none of it needs the database visible from outside.
 
-口令的唯一来源是**未提交的 `.env`**（由 `.env.example` 播种），`bootRun` 读它，部署用环境变量。
+### 5.3 The database password has no default, not even one that looks like a development value
 
-### 但「没有默认值」并不等于「会失败」 —— 两个反直觉的坑
+`application.yml` **carries no default for the password**, not even one named `dev-only-not-a-secret`. The reason is not the naming, it is the **silent fallback**: any startup path with the variable unset — a bare `java -jar`, a systemd unit, a k8s manifest missing one env entry — **starts successfully** on that publicly known password.
 
-**坑一：变量名不能是属性的 relaxed-binding 形式。**
+The password's only source is an **uncommitted `.env`** (seeded from `.env.example`), which `bootRun` reads; deployments use environment variables.
+
+#### But "no default" does not mean "it will fail" — two counter-intuitive traps
+
+**Trap one: the variable name must not be the property's relaxed-binding form.**
 
 ```yaml
-password: ${SPRING_DATASOURCE_PASSWORD}   # ← 自引用
+password: ${SPRING_DATASOURCE_PASSWORD}   # ← self-referential
 ```
 
-`SPRING_DATASOURCE_PASSWORD` 正是 `spring.datasource.password` 的环境变量形式，所以这是拿属性自己解析自己。变量没设时它塌成空串，而不是报错。**用一个不是属性别名的名字**（如 `APP_DB_PASSWORD`）。
+`SPRING_DATASOURCE_PASSWORD` is precisely the environment-variable form of `spring.datasource.password`, so this asks the property to resolve itself. With the variable unset it collapses to an empty string instead of failing. **Use a name that is not an alias of the property**, such as `APP_DB_PASSWORD`.
 
-**坑二：占位符解析失败也不会中止启动。**
+**Trap two: a failed placeholder resolution does not abort startup either.**
 
-Spring Boot 绑定 `@ConfigurationProperties` 时**忽略无法解析的占位符**，把 `${APP_DB_PASSWORD}` 这串字面量原样交给驱动。多数服务器会回 `password authentication failed`——难懂但至少是致命的；而 Postgres 配了 `trust` 认证时**任何口令都通过**，应用就在一个没人设过的凭据上正常起来了。又是一个没有症状的。
+Spring Boot **ignores unresolvable placeholders** when binding `@ConfigurationProperties`, and hands the literal string `${APP_DB_PASSWORD}` to the driver. Most servers answer `password authentication failed` — cryptic, but at least fatal. With Postgres configured for `trust` authentication, **any password passes**, and the application comes up normally on a credential nobody ever set. Another one with no symptom.
 
-**所以要在 `main()` 里显式挡一道**，在 `SpringApplication.run` 之前检查环境变量与系统属性，缺失就抛异常。这条守卫要配单测（把环境查找做成参数——JVM 内改不了自己的环境变量）。
+**So `main()` blocks it explicitly**, checking environment variables and system properties before `SpringApplication.run` and throwing when they are missing. That guard needs a unit test, with the environment lookup passed in as a parameter — a JVM cannot change its own environment variables.
 
-> 这两条都是实测出来的：先以为「去掉默认值就会失败」，跑了才发现是 `password authentication failed`；再改名字，还是没失败。**「我以为它会报错」不算验证过。**
+> Both traps came out of running it: first the assumption that "removing the default will make it fail", which turned out to be `password authentication failed`; then a rename, which still did not fail. **"I assumed it would error" is not verification.**
 
-## 6. 迁移写完怎么验
+## 6. Verifying a migration you just wrote
 
 ```bash
-docker compose -f docker-compose.dev.yml down -v   # 丢掉本地数据
+docker compose -f docker-compose.dev.yml down -v   # discard local data
 docker compose -f docker-compose.dev.yml up -d
-./gradlew :backend:bootRun                          # Flyway 从零重放 + JPA validate
+./gradlew :backend:bootRun                          # Flyway replays from zero, then JPA validates
 ```
 
-能干净起来，才说明迁移在一个新环境里是成立的。**在有旧数据的库上「跑通了」什么都不证明**——那次可能只跑了增量的那一条。
+Only a clean start shows the migration holds in a fresh environment. **"It worked" against a database with existing data proves nothing** — that run may have applied only the incremental step.
 
-集成测试用 Testcontainers，每次都是全新库，所以 `./gradlew check` 天然覆盖了「迁移能重放」这件事。
+Integration tests use Testcontainers and get a fresh database every time, so `./gradlew check` covers "the migrations replay" naturally.
 
 ---
 
 ## Pre-Development Checklist
 
-- [ ] SQL 只写在 `db/migration/`，没有写进应用代码？
-- [ ] 新迁移是**新增文件**，没有改动任何已提交的迁移？
-- [ ] 每用户表带了 `owner_id not null references app_user(id)` + 索引？
-- [ ] 不是每用户表的，迁移里写了注释、repository 上标了 `@OwnerlessTable("理由")`？（不是给每个方法套 `@CrossUserQuery`）
-- [ ] 时间列是 `timestamptz`？大小写不敏感的唯一性用了表达式索引？
-- [ ] Java 用闭集 enum 读取字符串列吗？数据库有同值域 CHECK，新增值的前向迁移排在应用写入之前吗？
-- [ ] 新项目跑过 `scripts/init-project.sh <项目名>` 了吗？（不跑会共享本地数据卷，`down -v` 互相清库）
+- [ ] Is the SQL only in `db/migration/`, with none in application code?
+- [ ] Is the new migration a **new file**, leaving every committed migration untouched?
+- [ ] Does the per-user table carry `owner_id not null references app_user(id)` and an index?
+- [ ] For a table that is not per-user, is there a comment in the migration and `@OwnerlessTable("reason")` on the repository? (Not `@CrossUserQuery` on each method.)
+- [ ] Are time columns `timestamptz`? Does case-insensitive uniqueness use an expression index?
+- [ ] Does Java read a string column as a closed enum? Does the database have a CHECK over the same value domain, and does the forward migration for a new value ship before the application writes it?
+- [ ] Has the new project run `scripts/init-project.sh <project-name>`? (Skipping it shares the local data volume, so `down -v` wipes the other project.)
 
 ## Quality Check
 
 ```bash
 docker compose -f docker-compose.dev.yml down -v && docker compose -f docker-compose.dev.yml up -d
-./gradlew check     # Testcontainers 会在全新库上重放全部迁移
+./gradlew check     # Testcontainers replays every migration on a fresh database
 ```
 
-额外自检：
+Then check by hand:
 
-- [ ] 应用能在**空库**上从零起来（`validate` 没有报表结构不符）
-- [ ] 新表配了双账号负向测试，并且**验过它会红**（把归属谓词去掉试一次）
-- [ ] 闭集枚举约束逐个接受当前值，并拒绝退役值与随机未知值；摘掉 CHECK 后负向测试会红
-- [ ] 没有手改 `V*__spring_session.sql`
+- [ ] The application starts from zero on an **empty database** (`validate` reports no schema mismatch)
+- [ ] The new table has a two-account negative test, and **it has been proven to go red** — remove the ownership predicate once and watch
+- [ ] The closed-enum constraint accepts every current value and rejects both a retired value and a random unknown one; with the CHECK removed, the negative test goes red
+- [ ] `V*__spring_session.sql` has not been hand-edited

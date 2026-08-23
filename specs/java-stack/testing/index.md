@@ -1,175 +1,183 @@
-# 质量门与验证 · Java Stack 轨
+---
+name: testing
+description: The required checks, what to add per kind of change, how to verify behaviour and data, and how to prove each guard actually goes red
+paths:
+  - backend/src/test/**
+  - frontend/e2e/**
+---
 
-> 说「做完了」之前必须全绿。轨总览见 [`../README.md`](../README.md)。
+# Quality Gates and Verification · Java Stack
 
-## 命令门（每次都要）
+> Everything is green before you say it is done. The track overview is in [`../README.md`](../README.md).
+
+## Required checks (every time)
 
 ```bash
 ./gradlew spotlessCheck check
 pnpm -C frontend typecheck && pnpm -C frontend lint && pnpm -C frontend test && pnpm -C frontend build
 ```
 
-`./gradlew check` 里包含：Java 编译 + 单元/集成测试（Testcontainers 起真 Postgres）+ ArchUnit 归属收口 + 前端 Vitest。
+`./gradlew check` covers Java compilation, unit and integration tests (Testcontainers starts a real Postgres), the ArchUnit ownership rules, and the frontend's Vitest suite.
 
-> **Testcontainers 要 Docker 在跑。** 没开 Docker 时 `check` 的失败信息是连接错误，容易被当成环境坏了——先看一眼 `docker ps`。
+> **Testcontainers needs Docker running.** With Docker down, `check` fails with a connection error that is easily mistaken for a broken environment — glance at `docker ps` first.
 
-## 按改动类型追加
+## Add these, by kind of change
 
-| 动过什么 | 追加 |
+| What you touched | Also run |
 |---|---|
-| 格式 | `pnpm -C frontend format` · `./gradlew spotlessApply` |
-| 页面 / 路由 / 流程 | `./gradlew :backend:bootJar && pnpm -C frontend test:e2e` |
-| DB schema | 先 `docker compose -f docker-compose.dev.yml down -v && up -d`，确认能从空库重放 |
-| 持久化闭集枚举 | Testcontainers 逐个插入当前 enum 值，并断言退役值、随机未知值被 CHECK 拒绝 |
-| 后端 API 契约 | `pnpm -C frontend api:types` 重新生成，再 `pnpm -C frontend typecheck` 看哪里断了 |
-| 列表端点 | 后端覆盖分页、次级排序稳定性、**白名单里每个排序字段 × 两个方向**、越界参数被拒、搜索转义、双账号搜索隔离；前端覆盖 `dataProvider` 的参数夹取（[`../backend/index.md`](../backend/index.md) §9） |
+| Formatting | `pnpm -C frontend format` · `./gradlew spotlessApply` |
+| A page, route or flow | `./gradlew :backend:bootJar && pnpm -C frontend test:e2e` |
+| The DB schema | First `docker compose -f docker-compose.dev.yml down -v && up -d`, and confirm it replays from an empty database |
+| A persisted closed enum | Insert every current enum value through Testcontainers, and assert that a retired value and a random unknown one are both rejected by the CHECK |
+| The backend API contract | Regenerate with `pnpm -C frontend api:types`, then `pnpm -C frontend typecheck` to see what broke |
+| A list endpoint | Backend: pagination, secondary-sort stability, **every allow-listed sort field × both directions**, out-of-range parameters rejected, search escaping, two-account search isolation. Frontend: the provider's parameter clamping ([`../backend/index.md`](../backend/index.md) §10) |
 
-**`pnpm format` / `spotlessApply` 的收尾自检**：跑完用 `git status` 看一眼——**如果出现本次任务没编辑过的文件**，先确认原因，必要时回退或拆成单独的格式化变更。
+**After `pnpm format` or `spotlessApply`, check yourself**: run `git status`. **If files appear that this task never edited**, find out why first, and either revert them or split them into a separate formatting change.
 
-## E2E 必须跑在打包产物上
+## E2E runs against the packaged artifact
 
-`playwright.config.ts` 的 webServer 起的是 **`backend/build/libs/app.jar`**，不是 `vite dev`。这不是偏好：
+The webServer in `playwright.config.ts` starts **`backend/build/libs/app.jar`**, not `vite dev`. This is not a preference:
 
-- Vite dev server 自带 history fallback，**SPA 深链 404 这个坑在 dev 下永远是绿的**；
-- 它也不经过 Spring 的静态资源链路，所以 `SpaForwardConfig` 的排除列表根本没被执行到。
+- the Vite dev server ships its own history fallback, so **the SPA deep-link 404 is permanently green under dev**;
+- it also bypasses Spring's static-resource path, so `SpaForwardConfig`'s exclusion list is never executed at all.
 
-在 dev server 上跑 E2E，等于把这条轨最容易出、也最难自查的一类缺陷排除在测试之外。
+Running E2E against the dev server excludes the class of defect this track produces most easily and can self-check least.
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d   # Postgres
-./gradlew :backend:bootJar                        # SPA 打进 jar
+./gradlew :backend:bootJar                        # the SPA is packaged into the jar
 pnpm -C frontend test:e2e
 ```
 
-> `java -jar` 用的是**你 PATH 上的 JDK**，不是 Gradle toolchain 下载的那个。PATH 上低于 25 会报 `UnsupportedClassVersionError`——构建成功、运行失败，看起来像产物坏了。
+> `java -jar` uses **the JDK on your PATH**, not the one the Gradle toolchain downloaded. Anything below 25 on PATH reports `UnsupportedClassVersionError` — the build succeeded and the run failed, which looks like a broken artifact.
 
-## 测试分工
+## What tests which
 
-| 层 | 工具 | 位置 | 管什么 |
+| Level | Tool | Location | Covers |
 |---|---|---|---|
-| 架构约束 | **ArchUnit** | `src/test/java/**/architecture/` | 归属收口不被绕过 |
-| **守卫的守卫** | **纯 JUnit**（不起容器） | `src/test/java/**/architecture/` | 上面那些规则**还咬得动** |
-| 后端集成 | **JUnit 5 + Testcontainers** | `src/test/java/**/<模块>/` | 真 Postgres、真过滤器链、真会话 |
-| **并发不变量** | **纯 JUnit + 线程池** | 组件自己的包下 | 只在同时到达时才出现的性质（限流、上限） |
-| 前端逻辑 | **Vitest** | `frontend/src/**/*.test.ts` | 纯函数与逻辑 |
-| 端到端 | **Playwright** | `frontend/e2e/*.spec.ts` | 打包产物上的真实流程 |
+| Architecture constraints | **ArchUnit** | `src/test/java/**/architecture/` | That owner-scoped access is not bypassed |
+| **The guards' own tests** | **Plain JUnit** (no container) | `src/test/java/**/architecture/` | That the rules above **still bite** |
+| Backend integration | **JUnit 5 + Testcontainers** | `src/test/java/**/<module>/` | A real Postgres, a real filter chain, a real session |
+| **Concurrency invariants** | **Plain JUnit + a thread pool** | Beside the component itself | Properties that appear only when requests arrive together (rate limiting, caps) |
+| Frontend logic | **Vitest** | `frontend/src/**/*.test.ts` | Pure functions and logic |
+| End to end | **Playwright** | `frontend/e2e/*.spec.ts` | Real flows against the packaged artifact |
 
-后端集成测试用 cookie 携带会话（`ApiIntegrationTest` 基类），**不要用 `@WithMockUser` 之类绕过过滤器链的捷径**——那样 CSRF、会话、授权全都没被测到，而这三样正是最容易配错的。
+Backend integration tests carry the session in a cookie (the `ApiIntegrationTest` base class). **Do not take a shortcut past the filter chain with something like `@WithMockUser`** — that leaves CSRF, sessions and authorization all untested, and those three are the easiest to misconfigure.
 
-集成测试**不加 `@Transactional`**：测试事务回滚会掩盖只在真正提交时才暴露的问题。
+Integration tests do **not** carry `@Transactional`: rolling back the test transaction hides problems that only surface on a real commit.
 
-**限流是应用状态，不是测试状态**——这会以两种方式毁掉测试，都表现为「单跑绿、一起跑红」：
+**Rate limiting is application state, not test state.** This ruins tests in two ways, both of which look like "green alone, red together":
 
-- **同一个上下文里的测试互相消耗额度**。MockMvc 给每个请求报的客户端地址都是 `127.0.0.1`，所以在限流眼里全套测试是同一个调用方。让基类给**每个测试实例分配一个自己的地址**并盖在每个请求上——测试本来就是彼此独立的调用方，说出来而已。
-- **测试之间不复位桶**。要断言具体额度的测试，先把限流器清空（注入组件、调一个包级 `reset()`），否则它断言的是「前面跑了几个测试」。
+- **Tests in one context consume each other's budget.** MockMvc reports every request's client address as `127.0.0.1`, so to the rate limiter the whole suite is one caller. Have the base class **give each test instance its own address** and stamp it on every request — tests are independent callers already; this just says so.
+- **The buckets are not reset between tests.** A test that asserts a specific budget empties the limiter first (inject the component, call a package-private `reset()`), or it is asserting how many tests ran before it.
 
-**只在并发下成立的性质，必须用并发测试**。顺序循环对「先查后扣」这类实现是完全绿的——它一次只发一个请求，永远撞不上那个窗口。写法是：一个 `CountDownLatch` 让 N 个线程同时起跑，数**放行了几个**，断言它等于额度而不是等于 N。
+**A property that only holds under concurrency needs a concurrency test.** A sequential loop is completely green against a "check then charge" implementation — it issues one request at a time and never hits the window. The shape is: a `CountDownLatch` releasing N threads at once, counting **how many were admitted**, and asserting that equals the budget rather than N.
 
-## 写测试时的两条纪律
+## Two disciplines for writing tests
 
-两条都是实跑教训：命令门全绿的同一个仓库里，并存着一批真实缺陷。**「全绿」证明的是「写下来的检查通过了」**，不是「该检查的都检查了」。
+Both come from real runs: the same repository whose required checks were entirely green also held a batch of real defects. **"All green" proves that the checks somebody wrote passed**, not that everything worth checking was checked.
 
-**重写一个测试文件之前，先枚举旧文件覆盖了哪些不变量，再逐条确认新文件仍然覆盖。** 被删掉的测试不会让任何一条命令变红——它只是消失了。本轨最贵的归属隔离尤其要盯：一次 E2E 重写就曾把跨账号隔离和登出后的路由保护两条守卫一起丢掉，而门自始至终是绿的。
+**Before rewriting a test file, enumerate the invariants the old file covered, then confirm one by one that the new file still covers them.** A deleted test turns no command red — it simply disappears. This track's most expensive property, ownership isolation, deserves particular attention: one E2E rewrite once dropped both cross-account isolation and post-logout route protection, and the gates stayed green throughout.
 
-**新断言的期望值，必须和「被测的那个东西没生效时的结果」可区分。** 一条自称覆盖了全部排序字段的测试，若每条期望值恰好等于默认排序的结果，那么把排序整个写死它照样通过——它断言的是默认行为，不是被测行为。写完问一句：**我要测的东西如果根本没生效，这条断言会红吗？**
+**A new assertion's expected value must be distinguishable from the result when the thing under test does nothing.** A test claiming to cover every sort field, whose expected values happen to equal the default ordering, passes even with sorting hard-coded away — it is asserting the default behaviour, not the behaviour under test. Ask afterwards: **if the thing I am testing did not work at all, would this assertion go red?**
 
-## 怎么验证（功能 + 数据）
+## How to verify (behaviour and data)
 
-1. `./gradlew :backend:bootRun` → `localhost:8080`：注册 → 登录 → 对某业务模块走通新增/编辑/删除 → 登出
-2. **数据隔离（负向，本轨最贵的一条）**：用 A 账号建一条数据，拿它的 id 用 **B 账号的会话**去 `GET` / `PUT` / `DELETE`，**三个都必须 404**；B 的列表必须为空；**并且回头确认 A 的数据没被改动**——否则一个「返回 404 但其实删掉了」的实现也能骗过前面的断言
-3. **跨用户例外（有 admin 通道时才需要）**：用普通账号调那个 admin 端点，**必须被拒**
-4. **认证限流（负向）**：把按账号的额度用光，然后拿**正确**的密码登录——必须仍然是 **429**。这是「BCrypt 根本没跑」唯一能从外部观察到的证据；一个先验证、再把 401 改写成 429 的实现，在这里会回 200（[`../backend/index.md`](../backend/index.md) §4.5）
-5. **换账号不留残影**：一个浏览器开两个标签页，在其中一个登出 → 另一个必须自己去登录页且不再显示那份数据，而发起的那个**没有**被重新加载（[`../frontend/index.md`](../frontend/index.md) §3.1）
-6. **失败态与重试**：让列表、编辑、删除各失败一次，断言渲染的是分类错误 + 可用的 Retry，**且不同时显示空态**；弹层里的失败不关闭弹层
-7. **打包后深链**：`./gradlew :backend:bootJar && java -jar backend/build/libs/app.jar`，浏览器**直接粘**一个子路由 URL 并刷新 → 必须正常渲染
-8. 命令门全绿；空库能从零重放全部迁移
+1. `./gradlew :backend:bootRun` → `localhost:8080`: sign up → sign in → create, edit and delete in one business module → sign out
+2. **Data isolation (negative, the most expensive one on this track)**: create a record as account A, then `GET` / `PUT` / `DELETE` it **using account B's session** — **all three must answer 404**; B's list must be empty; **and confirm afterwards that A's data was not modified** — otherwise an implementation that answers 404 while actually deleting passes the earlier assertions
+3. **The cross-user exception (only when there is an admin path)**: call that admin endpoint with an ordinary account — **it must be refused**
+4. **Authentication rate limiting (negative)**: exhaust the per-account budget, then sign in with the **correct** password — it must still be **429**. That is the only externally observable evidence that BCrypt did not run; an implementation that verifies first and rewrites the 401 into a 429 answers 200 here ([`../backend/index.md`](../backend/index.md) §4.2)
+5. **Switching accounts leaves no afterimage**: open two tabs in one browser and sign out in one — the other must go to the login page by itself and stop showing that data, while the tab that initiated it was **not** reloaded ([`../frontend/index.md`](../frontend/index.md) §3.1)
+6. **Failure states and retry**: make the list, the edit and the delete each fail once, and assert that what renders is a classified error plus a working Retry, **without an empty state alongside it**; a failure inside an overlay does not close the overlay
+7. **Deep links after packaging**: `./gradlew :backend:bootJar && java -jar backend/build/libs/app.jar`, then **paste** a sub-route URL into the browser and reload — it must render
+8. Required checks all green; every migration replays from an empty database
 
-第 2、3、4、7 条是本轨最容易被跳过、也最贵的几条。**写了不等于生效。**
+Items 2, 3, 4 and 7 are the ones most often skipped and the most expensive to skip. **Written is not working.**
 
-第 2、3、4 条都是**负向测试**：证明「该拒的拒了」。正向用例全绿并不能证明这一点，因为它们从来没试过越权、也从来没打满过额度。所以它们必须单独存在，不能靠「功能跑通了」顺带覆盖。
+Items 2, 3 and 4 are all **negative tests**: they prove that what should be refused is refused. A fully green set of positive cases cannot prove that, because none of them ever crossed a boundary or exhausted a budget. So they have to exist separately, and cannot be picked up incidentally by "the feature works".
 
-## 验证测试本身有效（falsification）
+## Proving the tests themselves work (falsification)
 
-新加的守卫要确认它**会红**，否则你只是加了一个永远绿的装饰：
+Every new guard is confirmed to **go red**, or you have only added a decoration that is green forever:
 
-| 守卫 | 怎么证明它有效 |
+| Guard | How to prove it works |
 |---|---|
-| ArchUnit · 父接口白名单 | 把某个 repository 改成 `extends JpaRepository<T, ID>` → 必须红。再单独试 `PagingAndSortingRepository` 和混入 `JpaSpecificationExecutor`，**黑名单式的旧规则对这两个是绿的** |
-| ArchUnit · 方法按 owner 过滤 | 手写一个 `Optional<T> findById(UUID)` 挂在裸 `Repository` 上 → 必须红 |
-| ArchUnit · `@OwnerlessTable` 说的是真的 | 把 `@OwnerlessTable` 标到一个**带 `ownerId`** 的实体的 repository 上 → 规则三必须红。**只验放行那一半是不够的**——把规则三整个删掉，字典表用例照样全绿，而那条接口级豁免从此不受任何核对 |
-| 守卫的守卫 | 把 ArchUnit 规则改成恒真（比如条件永远不 `violated`）→ 反向测试必须红。**这条是唯一能发现「守卫失效」的东西**，因为失效的守卫本身是绿的 |
-| 双账号负向测试 | 把 service 里的 `findByIdAndOwnerId` 换成 `findById` → 必须红 |
-| 限流 · 拒绝点在验证之前 | 把额度检查挪到 `authenticate()` **之后** → 「额度耗尽时正确密码也拿不到 200」那条必须红 |
-| 限流 · 预留而非先查后扣 | 把原子 `tryConsume` 换成「先读余量、再扣」两步 → **并发**测试必须红（顺序测试仍然全绿，这正是要点） |
-| 限流 · 不是账号锁定 | 让被拒的请求也记一次失败 → 「额度会自己回填」那条必须红 |
-| 追踪表上限 | 把上限判断挪到锁外 → 并发插入测试必须红 |
-| 输入边界 · 密码 | 提交 73 字节的密码 → 必须 400；把校验换成 `@Size(max=72)`，再用 19 个 emoji（38 字符 / 76 字节）提交 → 必须红 |
-| 输入边界 · 邮箱 | 用一个 150 字符的邮箱注册，然后**用它拿到的会话再发一个请求、并重新登录一次** → 必须全绿；只断言注册返回 201 的话，列宽不够也照样通过 |
-| 换账号不留残影 | 把登录成功后的 `clear()` 换回 `invalidateQueries()` → 首帧仍显示前一个账号数据；把广播关掉 → 两标签页那条必须红 |
-| 深链 E2E | 摘掉 `SpaForwardConfig` 的 `@Configuration` → 必须红 |
-| 契约漂移 | 改一下 `schema.d.ts` 里的字段名 → `pnpm typecheck` 必须红 |
-| 闭集枚举取值域 | 摘掉数据库 CHECK，或只给 Java enum 加一个数据库不认识的新值 → 当前值/未知值迁移测试必须红 |
-| 凭据不进会话 | 把 `eraseCredentials()` 的方法体清空（**保留方法**，删掉会变成编译错误而不是测试变红）→ 必须红 |
-| 写响应时间戳 | 把 `saveAndFlush` 换回 `save` → 必须红 |
-| 口令守卫 | `env -u APP_DB_PASSWORD java -jar app.jar` → 必须在任何 Hikari/Flyway 日志之前就拒绝 |
+| ArchUnit · parent-interface allow-list | Change a repository to `extends JpaRepository<T, ID>` → must go red. Then try `PagingAndSortingRepository` and a mixed-in `JpaSpecificationExecutor` separately: **the old deny-list rule is green for both** |
+| ArchUnit · methods filter by owner | Hand-write an `Optional<T> findById(UUID)` on a bare `Repository` → must go red |
+| ArchUnit · `@OwnerlessTable` tells the truth | Put `@OwnerlessTable` on the repository of an entity that **does carry `ownerId`** → rule three must go red. **Proving the passing half is not enough** — delete rule three entirely and the lookup-table cases stay green, while that interface-level exemption stops being checked by anything |
+| The guards' own tests | Make an ArchUnit rule always true (never `violated`) → the negative test must go red. **This is the only thing that can detect a broken guard**, because a broken guard is itself green |
+| The two-account negative test | Swap `findByIdAndOwnerId` for `findById` in the service → must go red |
+| Rate limiting · rejection precedes verification | Move the budget check to **after** `authenticate()` → "even the correct password cannot get a 200 once the budget is gone" must go red |
+| Rate limiting · reservation, not check-then-charge | Replace the atomic `tryConsume` with a two-step "read the remainder, then decrement" → the **concurrency** test must go red (the sequential test stays green, which is the whole point) |
+| Rate limiting · not account lockout | Make rejected requests record a failure too → "the budget refills on its own" must go red |
+| The tracking table's cap | Move the cap check outside the lock → the concurrent-insert test must go red |
+| Input bounds · password | Submit a 73-byte password → must be 400. Then replace the validation with `@Size(max=72)` and submit 19 emoji (38 characters, 76 bytes) → must go red |
+| Input bounds · email | Sign up with a 150-character email, then **use the resulting session for another request and sign in again** → all must pass; asserting only that signup returned 201 passes even when the column is too narrow |
+| Switching accounts leaves no afterimage | Put `invalidateQueries()` back in place of `clear()` after a successful sign-in → the first frame still shows the previous account's data. Turn the broadcast off → the two-tab case must go red |
+| Deep-link E2E | Remove `@Configuration` from `SpaForwardConfig` → must go red |
+| Contract drift | Rename a field in `schema.d.ts` → `pnpm typecheck` must go red |
+| A closed enum's value domain | Remove the database CHECK, or add a new value to the Java enum only → the current-values and unknown-value migration tests must go red |
+| No credentials in the session | Empty the body of `eraseCredentials()` — **keep the method**; deleting it produces a compile error rather than a red test → must go red |
+| A write response's timestamp | Put `save` back in place of `saveAndFlush` → must go red |
+| The password guard | `env -u APP_DB_PASSWORD java -jar app.jar` → it must refuse before any Hikari or Flyway log line |
 
-> **改工作树的脚本（如 `scripts/init-project.sh`）另有一组 falsification 用例**——拒绝路径、零写入、祖先校验、幂等、父目录权限、清单完整性——它们跟着那个可执行工件走，写在 starter 仓的 `scripts/README.md` 与 `scripts/test-init-project.sh` 里，不在本页。本页只列产品代码的守卫。
+> **A script that modifies the working tree, such as `scripts/init-project.sh`, has its own set of falsification cases** — refusal paths, zero writes, ancestor validation, idempotence, parent-directory permissions, manifest completeness. They travel with that executable artifact, in the starter repository's `scripts/README.md` and `scripts/test-init-project.sh`, not on this page. This page lists guards on product code only.
 
-> **「凭据不进会话」那行的括号是实战教训**：删掉整个方法只会让类少实现一个接口方法，构建在**编译阶段**就挂了，看起来像测试红了，其实测试根本没跑。**falsification 要注入的是「行为错」，不是「编译错」。**
+> **The parenthesis on the "no credentials in the session" row is a real lesson**: deleting the whole method just leaves the class one interface method short, so the build fails at **compile time**. It looks like the test went red when the test never ran at all. **Falsification injects a behaviour error, never a compile error.**
 
-**做完记得改回来并复跑一次全绿。**
+**Change it back afterwards and re-run until everything is green.**
 
-## 本地依赖
+## Local dependencies
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d    # Postgres（Testcontainers 另起自己的）
+docker compose -f docker-compose.dev.yml up -d    # Postgres (Testcontainers starts its own)
 pnpm -C frontend install
 ```
 
-## 容器化与发版
+## Containers and releases
 
 ```bash
-cp .env.example .env                                  # A 至少填 POSTGRES_PASSWORD；B 填 APP_DB_*
+cp .env.example .env                                  # A needs at least POSTGRES_PASSWORD; B needs APP_DB_*
 
-# A) 自带数据库：不写 -f，compose 自动加载 docker-compose.override.yml
+# A) Bundled database: pass no -f, and compose loads docker-compose.override.yml automatically
 docker compose up -d --build
 
-# B) 外部 / 托管 Postgres：显式 -f 会连带抑制那个 override，自带库整个不参与
+# B) External or managed Postgres: passing -f explicitly also suppresses that override, so the bundled database is out entirely
 docker compose -f docker-compose.yml \
   -f docker-compose.external-db.yml up -d --build
 ```
 
-**两个 compose 的坑，都没有症状**：
+**Two compose traps, neither with a symptom:**
 
-- **`environment:` 块里没列的变量，容器根本收不到。** 它在 `.env` 里、compose 能读到它、然后就到此为止。表现是「我明明调了参数，容器还在用默认值」。**每加一个应用配置项，同时把它加进 compose 的 `environment:`。**
-- **compose 先逐文件插值、再合并**，所以基础文件里的 `${X:?...}` 会在**每一种**模式下触发，包括那些根本不启动对应服务的模式。把只属于某一种模式的必填变量放进那一种模式自己的文件里。`deploy: replicas: 0` 不解决问题——插值早在它生效之前就发生了。
+- **A variable not listed in the `environment:` block never reaches the container.** It is in `.env`, compose can read it, and that is where it stops. It shows up as "I set the parameter and the container is still using the default". **Every new application setting is added to compose's `environment:` at the same time.**
+- **Compose interpolates each file first, then merges**, so a `${X:?...}` in the base file fires in **every** mode, including modes that never start the service it belongs to. Put a variable that is mandatory for only one mode into that mode's own file. `deploy: replicas: 0` does not solve it — interpolation happens well before that takes effect.
 
-发版走 `vX.Y.Z` / `vX.Y.Z-rc.N` tag：
+Releases go through a `vX.Y.Z` or `vX.Y.Z-rc.N` tag:
 
-1. 先改 `gradle.properties` 的 `version` **和** `frontend/package.json` 的 `version`（两处必须一致）
+1. Update `version` in `gradle.properties` **and** in `frontend/package.json` (the two must match)
 2. `./gradlew validateReleaseTag -Ptag=vX.Y.Z`
-3. tag push 触发 `.github/workflows/release.yml` 的发布质量门 + 镜像元数据核验
+3. Pushing the tag triggers the release quality gates and image-metadata verification in `.github/workflows/release.yml`
 
-**镜像与环境无关**（前端只调相对 `/api`，没有构建期烤进去的地址），所以一次构建可以部署到任何环境。生产记得 `APP_API_DOCS_ENABLED=false`、TLS 后 `APP_COOKIE_SECURE=true`。
+**The image is environment-independent** — the frontend calls the relative `/api` only, with no address baked in at build time — so one build deploys to any environment. In production, set `APP_API_DOCS_ENABLED=false`, and `APP_COOKIE_SECURE=true` behind TLS.
 
 ---
 
 ## Pre-Development Checklist
 
-- [ ] 这次改动要补哪一类测试？逻辑 → Vitest；后端行为 → JUnit + Testcontainers；页面/流程 → Playwright
-- [ ] 改的是 bug 吗？**先写一个会失败的测试**，再修
-- [ ] 新增每用户表或新增读写它的接口了吗？**必须补双账号负向测试**
-- [ ] 新增路由了吗？E2E 补一条**冷加载 + 刷新**用例
-- [ ] 新增或删除持久化 enum 值吗？补当前全集正向、退役/随机未知值负向，以及先迁移后应用的演进断言
-- [ ] 这次的性质只在并发下才成立吗？（限流、上限、去重）顺序测试对它是绿的——补一条同时起跑的
-- [ ] 新加的守卫，验过它会红吗？改的是**守卫本身**的话，它的反向测试跟着更新了吗？
+- [ ] Which kind of test does this change need? Logic → Vitest; backend behaviour → JUnit + Testcontainers; a page or flow → Playwright
+- [ ] Is this a bug fix? **Write a failing test first**, then fix it
+- [ ] Adding a per-user table, or an endpoint that reads or writes one? **A two-account negative test is mandatory**
+- [ ] Adding a route? Add a **cold load and reload** case to E2E
+- [ ] Adding or removing a persisted enum value? Add the positive case over the full current set, the negative cases for retired and random unknown values, and the assertion that the migration ships before the application writes
+- [ ] Does this property hold only under concurrency (rate limiting, caps, de-duplication)? A sequential test is green against it — add one that starts together
+- [ ] For each new guard, have you proven it goes red? If you changed **a guard itself**, is its own negative test updated to match?
 
 ## Quality Check
 
-见本页「命令门」。说「做完了」之前两条必须全绿，按改动类型追加对应的那条。
+See "Required checks" on this page. Both must be green before you say it is done, plus whatever the kind of change adds.
 
-额外自检：
+Then check by hand:
 
-- [ ] Docker 是开着的（否则 Testcontainers 的失败会被误读成代码问题）
-- [ ] E2E 跑的是 `bootJar` 的产物，不是 dev server
-- [ ] 格式化没有顺手改到本次任务无关的文件
+- [ ] Docker is running (otherwise a Testcontainers failure reads as a code problem)
+- [ ] E2E ran against the `bootJar` artifact, not the dev server
+- [ ] Formatting did not incidentally touch files unrelated to this task
