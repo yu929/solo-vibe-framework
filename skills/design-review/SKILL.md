@@ -45,6 +45,8 @@ What a **track overlay** adds on top is that track's hard constraints — its da
 
 Paths follow the target repository's conventions: slice order is the slice table in `docs/discovery/slices.md`, and load-bearing decisions live wherever that repository puts them. **Trellis's `.trellis/spec/` holds coding rules only** — not load-bearing decisions, so do not look there.
 
+**The requirements basis depends on which occasion fired.** Occasion 1 runs before the first task exists, so there is no task `prd.md` yet — the basis is the full PRD. The checklist's input section carries the split; assemble the inputs from there rather than asking for a file the stage has not produced.
+
 ## The protocol
 
 ### Step 0 · Freeze the inputs, then read or create the log
@@ -79,7 +81,15 @@ All five, and admission is granted:
 4. New findings are only P2/P3, duplicates, unevidenced, or out of scope.
 5. At least one vertical slice can be implemented and verified end to end.
 
-**Two rounds of pure design review, maximum.** Past the budget, route feedback into slice implementation and tests.
+**Two rounds of pure design review, maximum.** The budget counts **rounds of the checklist**: Round 1 and Round 2 are the two, and **re-verifying a fix does not spend a round** — adjudicating a finding you already accepted is Step 3, not a new review.
+
+**What condition 3 means against a two-round budget.** The two rounds check different surfaces, so a P1 first raised in Round 2 leaves condition 3 unmet with the budget spent. That is the expected ending, not a failure — and it does **not** withhold admission:
+
+- **Every P0 still blocks.** Fix it, re-verify, and if the fix itself raises a new P0, that is the one case worth a further pass — say so explicitly in the report.
+- **A P1 the budget did not clear is closed by disposition, not by another round.** Record it as `ACCEPTED_RISK` or `DEFERRED` with a `reopen_condition`, name who carries it, and grant admission. Condition 2 is satisfied by an explicit disposition; condition 3 describes the ideal exit, not a gate.
+- **Say in the report which of the two exits this was** — converged, or budget-exhausted with N dispositions. A reader deciding whether to build needs to know which one they are being handed.
+
+Past the budget, route remaining feedback into slice implementation and tests, where the evidence is cheaper and more direct. **Opening a third round is the failure this skill exists to prevent**, and "the last round found something" is exactly the argument that makes a review never end.
 
 ## Output
 

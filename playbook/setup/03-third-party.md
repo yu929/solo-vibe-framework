@@ -1,6 +1,8 @@
 # 3 · 第三方 skill 与 MCP
 
 > 这里要处理三组工具：本仓分发的六个 skill 已随软链装好，完整 PRD skill 需要自行安装，shadcn skill 和 MCP 则按项目安装。
+>
+> **步骤 1 必需，步骤 2、3 可选。** `create-prd-skill` 在主线上被直接调用，没有它「写完整 PRD」那一步没有替代动作；shadcn 那两样缺了仍能开工，轨规范里给了替代动作；vendor 跟随平时根本不用做。
 
 ## 已经装好的六个
 
@@ -18,7 +20,9 @@ mattpocock 那六个都在本仓 `vendor/mattpocock-skills/`，[第 1 篇](01-tr
 
 > 「`prototype` 只用 LOGIC 分支」只是一句提示，不会被程序校验。它的第一步是 "Pick a branch"，仍可能选择 UI 分支，在真实项目路由中创建多个变体，与后续的全量高保真流程冲突。发现选错时立即改回 LOGIC，并把实际情况记进 `references/third-party.md`。
 
-## 步骤 1 · 装完整 PRD skill
+## 步骤 1 · 装完整 PRD skill（必需）
+
+[`../build/01-discovery.md`](../build/01-discovery.md) 步骤 2 直接用它产出 `docs/discovery/prd.md`，后面的高保真和切片都从这份完整 PRD 开始。这里没有降级路径：跳过后，AI 只能自行决定 PRD 结构，也不会按 L1–L4 调整深度。
 
 `create-prd-skill` 上游没有许可证（`license: null`），本仓不能把它放进 vendor 再分发，只能自行安装：
 
@@ -31,7 +35,9 @@ cd create-prd-skill && python scripts/install_skill.py
 
 产物落项目自己的 `docs/discovery/prd.md`，不进框架仓。
 
-## 步骤 2 · 装 shadcn skill 与 MCP
+装完确认一次：`ls ~/.claude/skills/create-prd-skill`。
+
+## 步骤 2 · 装 shadcn skill 与 MCP（可选）
 
 两条轨的前端都是 shadcn 系。官方 skill 和 MCP 都**装进项目仓**，不走全局软链那套，所以每开一个新项目都要再来一次。
 
@@ -76,7 +82,7 @@ AI 凭记忆写出的组件可能可以编译和渲染，却在组合方式或�
 
 具体用法由轨规范管理，见 `specs/<track>/frontend/index.md` 的复用顺序一节。没有安装也能开工，规范中给了替代动作；安装后的主要收益是减少 AI 猜测。
 
-## 步骤 3 · 跟随 vendor 上游（平时不用做）
+## 步骤 3 · 跟随 vendor 上游（可选，平时不用做）
 
 ```bash
 scripts/sync-vendor.sh --verify   # 只查本地有没有被改过，离线，秒回
@@ -86,7 +92,7 @@ scripts/sync-vendor.sh --pull     # 读完 diff、确认要跟随，才更新
 
 默认只读，避免上游改动在未经检查时直接改变本地工作流。
 
-日常不用手动运行。`.github/workflows/sync-vendor.yml` 每晚检查一次，内容变化时才开 PR（该流程已经连续成功运行，并实际开过 PR）。只有想立即确认上游是否变化时，才需要手动执行。
+日常不用手动运行。`.github/workflows/sync-vendor.yml` 每晚检查一次，内容变化时才开 PR。该流程已连续成功运行，也真开过跟随上游的 PR，运行记录和三条设计取舍见 [`../../references/third-party.md`](../../references/third-party.md)。只有想立即确认上游是否变化时，才需要手动执行。
 
 ## 常见卡点
 

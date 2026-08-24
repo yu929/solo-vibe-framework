@@ -67,7 +67,8 @@
 - *Applies:* text inputs that hold structured values.
 - *Default:* `type="text"` with the format rule in the form's validation, plus `inputMode="email"` and `autoComplete="email"`.
 - *Why the hints stay:* the rule's target is one validation path and one announcement path. Dropping the mobile keyboard and the password-manager hint buys nothing toward that.
-- *✗* `type="email"`, which hands the check to the browser's own bubble, in the browser's language, outside the live region that announces every other error.
+- *Why, given that `noValidate` is already mandatory:* `noValidate` only suppresses **interactive** validation — the bubble at submit. Constraint validation still runs, so `type="email"` keeps a **second validity state** that nothing on this page controls: `:invalid` matches, and `validity.typeMismatch` is set, **from the third character typed**. Any stylesheet reaching for `:invalid` — the kit's own, or one added later — then marks the field failed while React Hook Form, in `mode="onSubmit"`, still reports nothing. That is the behaviour §2's first rule forbids, arriving through CSS instead of through a message, and it is invisible until somebody writes the selector.
+- *✗* `type="email"` on a field whose format the form already validates.
 
 ## 3. Dialog, drawer, or route
 

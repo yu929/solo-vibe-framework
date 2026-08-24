@@ -14,7 +14,7 @@ Phase 1 Plan ──── brainstorm 一问一答 → prd.md / design.md / imple
   ══════════ 从这里往后它一路自己跑 ══════════
   │
 Phase 2 Execute ─ 派 implement 子 agent → 派 check 子 agent
-  │                                   ★ 人工验收 ← 流程里没有，你得手动插
+  │                                   ★ 人工验收 ← Trellis 没有，靠一段提示唤起
   │
 Phase 3 Finish ── update-spec → 提交计划（唯一的自动停顿）→ 归档 + journal
                                       ★ 看它改了哪几条 spec
@@ -22,7 +22,7 @@ Phase 3 Finish ── update-spec → 提交计划（唯一的自动停顿）→
 
 Phase 2 会直接接着跑进 Phase 3，中间步骤都被 Trellis 标为 `[required]`。AI 会自行推进，直到 Phase 3 的提交计划才停下来：它会列出提交批次、自己改过的文件和无法识别的文件，等你回复「ok」。
 
-人工验收不在这条自动流程里，需要你自己插入。
+人工验收不在这条自动流程里。[`../setup/04-workflow-prompts.md`](../setup/04-workflow-prompts.md) 步骤 3 会注入一段提示，要求它在 check 之后停下来列验收结果。提示不是门禁，hook 拦不住工具调用；如果它没有停，立即中断，验收后再用 `/trellis:continue` 接着执行。
 
 中断后接着干：`/trellis:continue`。
 
@@ -69,6 +69,8 @@ Phase 2 会直接接着跑进 Phase 3，中间步骤都被 Trellis 标为 `[requ
 
 Trellis 没有人工验收这一步。check 只能核对代码是否符合规范和 `prd.md`，不能替你确认成品是否真是你想要的。
 
+装好 [`../setup/04-workflow-prompts.md`](../setup/04-workflow-prompts.md) 步骤 3 后，AI 应在 check 之后停下来，按 `prd.md` 的验收标准列出可观测结果，并点名没有亲自跑过的条目。提示可能被忽略，是否通过仍由你判断。
+
 把验收放在 check 全绿之后、`update-spec` 之前：
 
 - check 已经先清掉不合规范的问题，此时更适合看实际行为
@@ -112,7 +114,13 @@ AI 在实现或调试时可能发现约定不对，或者 spec 漏了某种情�
 |---|---|
 | 值不值得记 | 别的 session 会不会**因为 spec 没写**而重犯同一个错？大部分 bug 不需要记，bug 说明代码没做到已有约定，约定本身没变 |
 | 升到哪一层 | 换一个同轨的**别的项目**还成立吗？成立 → 框架仓的源真；不成立但本项目后面还要用 → 本项目 `.trellis/spec/`；一次性 → 留在 `findings/` |
-| 什么时候升 | 后两类当场升。**第一类攒到阶段末批量做**，见 [`05-checkpoint.md`](05-checkpoint.md) |
+| 什么时候升 | 见下表，三类各不相同 |
+
+| 升到哪一层 | 什么时候 |
+|---|---|
+| 框架仓的源真 | **攒到阶段末批量做**，见 [`05-checkpoint.md`](05-checkpoint.md)。一条只出现过一次的经验，分不清是通用规律还是当前情境的特例 |
+| 本项目 `.trellis/spec/` | 当场升，走 `update-spec` |
+| 留在 `findings/` | **不升**。一次性的东西哪也不进，记录本身就是它的终点 |
 
 不要在 task 内修改框架仓。`trellis-update-spec` 不知道 spec 来自 registry，只会写项目里的拷贝。把经验带回框架仓再重新安装属于跨仓操作，需要由人处理。
 

@@ -35,19 +35,22 @@ registry 装不了 skill。`trellis init --registry` 只认 `type: spec`，遇�
 |---|---|---|
 | [`01-trellis-skills.md`](01-trellis-skills.md) | Trellis 本体 + 全局 skill 软链 | slash 列表里没有本仓的 skill |
 | [`02-track-spec.md`](02-track-spec.md) | 项目里的一条轨 spec | agent 按 Trellis 的占位脚手架干活 |
-| [`03-third-party.md`](03-third-party.md) | 完整 PRD skill、shadcn skill 与 MCP、vendor 跟随 | 需求那一步没有 skill 接，前端组件靠 AI 记忆写 |
-| [`04-workflow-prompts.md`](04-workflow-prompts.md) | 两段粘进 `.trellis/workflow.md` 的提示 | 提醒不在你做决定的那一刻出现 |
+| [`03-third-party.md`](03-third-party.md) | **步骤 1 必需**：完整 PRD skill。步骤 2、3 可选：shadcn skill 与 MCP、vendor 跟随 | 跳过步骤 1，写完整 PRD 那一步没有 skill 接，主线断在这里；跳过步骤 2，前端组件靠 AI 记忆写 |
+| [`04-workflow-prompts.md`](04-workflow-prompts.md) | 三段粘进 `.trellis/workflow.md` 的提示 | 提醒不在你做决定的那一刻出现，人工验收那一处尤其没有 |
 
-前两篇必须完成。后两篇是增强项，跳过不会阻塞开发，但 AI 会少一些项目上下文。
+前两篇和第三篇的**步骤 1**必须完成。`create-prd-skill` 被 [`../build/01-discovery.md`](../build/01-discovery.md) 步骤 2 直接调用；没有它，主线的「写完整 PRD」没有替代动作。
 
-## 装完检查这四条
+其余是增强项：第三篇的步骤 2、3 和整个第四篇跳过都不阻塞开发，但 AI 会少一些项目上下文，你也会在做决定的那一刻少一些提醒。
+
+## 装完检查这五条
 
 | # | 检查什么 | 漏了会怎样 |
 |---|---|---|
 | 1 | `scripts/install-skills.sh --check` 全绿 | 旧 PRD skill 残留会抢走需求，走上已废弃的流程 |
-| 2 | `.trellis/spec/` 里轨规范和 `guides/` 都在 | 缺一半，agent 工作时就少一半约束 |
-| 3 | 只装了**一个**模板 | 装了两个，`trellis update` 只刷新后装的那个，而且不报错 |
-| 4 | `.trellis/spec/guides/` 里有 `task-artifacts.md` 和 `source-of-truth.md` | 少了这两份，`design.md` 与 `implement.md` 没有固定形状，四个源真也没人管 |
+| 2 | `~/.claude/skills/create-prd-skill/` 在 | 写完整 PRD 那一步没有 skill 接，AI 会自己编一份结构 |
+| 3 | `.trellis/spec/` 里轨规范和 `guides/` 都在 | 缺一半，agent 工作时就少一半约束 |
+| 4 | 只装了**一个**模板 | 装了两个，`trellis update` 只刷新后装的那个，而且不报错 |
+| 5 | `.trellis/spec/guides/` 里有 `task-artifacts.md` 和 `source-of-truth.md` | 少了这两份，`design.md` 与 `implement.md` 没有固定形状，四个源真也没人管 |
 
 各篇都给出了对应的确认命令。
 

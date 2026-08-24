@@ -46,7 +46,7 @@ Keep the same sequence, but give those tickets a **shared integration branch**, 
 
 ## How it looks in slices.md
 
-A wide refactor's tickets still fill four columns, but the third one states a **technically observable result** rather than a user capability:
+**The refactor itself is not a slice; its tickets are still rows.** Keeping them out of the table would leave the expand–contract sequence's blocking edges with no host — and those edges are the entire discipline. So they go in, filling the same four columns, with the third one stating a **technically observable result** rather than a user capability:
 
 | Slice | Blocking edges | What it verifies end to end | Screens in the approved hi-fi |
 |---|---|---|---|

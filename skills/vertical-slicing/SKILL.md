@@ -64,7 +64,7 @@ Three signals you can apply on the spot:
 
 **Write only the blocking edges that genuinely block.** Order is not dependency — writing "happens to come earlier" into the blocking edges makes every later slice look serial when some could start at any time.
 
-**A wide refactor does not go in this table.** Changing a shared symbol's type, renaming a field used everywhere — the blast radius covers the repository, and forcing it into vertical slices makes every slice red. It goes through expand–contract; see [`references/wide-refactor.md`](references/wide-refactor.md).
+**A wide refactor is not cut into vertical slices, but its tickets still go in this table.** Changing a shared symbol's type, renaming a field used everywhere — the blast radius covers the repository, and forcing it into vertical slices makes every slice red, because the intermediate state does not compile. It goes through expand–contract instead, and **those tickets are listed here**: the blocking edges are the whole point of the sequence, and this table is the only host for them. Their third column states a technically observable result rather than a user capability, and their fourth is normally empty. The sequence, the batching rule and a worked table are in [`references/wide-refactor.md`](references/wide-refactor.md).
 
 ## Settle it with the user
 
@@ -86,7 +86,7 @@ Follow `assets/slices-template.md` (it is in Chinese, matching its output) for t
 
 **Compute the frontier; do not copy the order.** The frontier is every slice whose blocking edges are all complete. It answers "what comes next"; counting down the table from the top misses the slices that could have started long ago.
 
-**Fill in the fourth column.** An empty cell means this slice has no matching structure in the hi-fi — either go back and complete the hi-fi, or this slice is cut wrong. It is not decoration: it is the value range for the jsonl step below.
+**Fill in the fourth column.** An empty cell means this slice has no matching structure in the hi-fi — either go back and complete the hi-fi, or this slice is cut wrong. It is not decoration: it is the value range for the jsonl step below. **The one exception is a wide-refactor ticket**, which changes no interface and therefore maps to no screen.
 
 **As each slice becomes a task, its screens go into `implement.jsonl`.** That rule and its failure mode belong to `specs/universal/guides/task-artifacts.md`, which Trellis injects when task files are edited; the fourth column exists to give that step an accurate value range. **List only this slice's screens** — the full hi-fi overflows the sub-agent's context.
 

@@ -106,12 +106,15 @@ Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality
 
 **A colocated unit test belongs to the layer it sits in, not to the testing spec.** `src/lib/utils.test.ts` is governed by the backend spec and `src/components/x.test.ts` by the frontend spec; only `e2e/**` reaches the testing spec by path. The same grammar limit applies — nothing distinguishes `utils.ts` from `utils.test.ts` — so a testing glob over `**/*.test.ts` would match every layer at once and cost the loser its tail. Each layer's Pre-Development Checklist therefore carries a line pointing at [`testing/index.md`](testing/index.md) for the two rules a unit test actually needs. The java track assigns ownership the same way, globs and checklist line alike.
 
+**Configuration is a layer, not an afterthought.** The four source-tree layers cover source files only, so `docker-compose*.yml`, `Dockerfile`, `package.json`, `next.config.*`, `supabase/config.toml` and `.github/workflows/**` used to match no spec at all — while the rules governing them sat inside [`backend/index.md`](backend/index.md) and [`database/index.md`](database/index.md), reachable only by someone already reading those layers. [`ops/index.md`](ops/index.md) owns those paths and routes each setting back to the file that owns its other half. The java track carries the same layer, for the same reason.
+
 | File | Covers | Read it when |
 |---|---|---|
 | [`frontend/index.md`](frontend/index.md) | The Server/Client boundary, forms and overlays, hooks, theme and visuals, accessibility | Adding a component, writing a form, touching theme tokens |
 | [`backend/index.md`](backend/index.md) | How data is read and written, auth and sessions, the auth cookie, the signup toggle | Writing a server action, touching auth or the proxy |
 | [`database/index.md`](database/index.md) | RLS, the three parts of a new table, migrations, type generation | Adding a table, writing a migration |
 | [`testing/index.md`](testing/index.md) | Required checks, how to verify behaviour and data (including two negative tests) | Before saying it is done |
+| [`ops/index.md`](ops/index.md) | Project configuration, the local stack, compose, the image and the release tag | Changing a setting, a compose file, `next.config.*` or a workflow, or cutting a release |
 
 **The longest sections sit beside their core**, in files that carry no `paths:` — they are reached from the core's "Where the rest of it lives" table, never injected. Section numbers are shared with the core they came from.
 

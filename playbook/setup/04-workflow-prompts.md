@@ -1,8 +1,8 @@
-# 4 · 两段粘进 `.trellis/workflow.md` 的提示
+# 4 · 三段粘进 `.trellis/workflow.md` 的提示
 
 > 这是推荐的可选配置。跳过不会阻塞流程，但你在做决定时收不到对应提醒。
 >
-> 这两段只是提示，不会被程序校验。Trellis 的 hook 是 parser-only，只负责把文字原样注入对话。它不能阻止操作，作用在于及时提醒。
+> 这三段只是提示，不会被程序校验。Trellis 的 hook 是 parser-only，只负责把文字原样注入对话。它不能阻止操作，作用在于及时提醒。
 
 ## 步骤 1 · 让 `no_task` 状态先看切片地图
 
@@ -40,6 +40,26 @@ Trellis 要求复杂 task 在 `task.py start` 前具备 `design.md` 和 `impleme
 第二条来自实跑结论。漏掉时不会报错：定稿已经画好，`prd.md` 也有引用，实现结构却仍与定稿不同，看起来像执行不认真。
 
 第三条尚未实跑验证，依据如下。
+
+## 步骤 3 · 让 check 之后停一下等验收
+
+Trellis 从 `task.py start` 到归档一路自跑，唯一的自动停顿在 Phase 3.4 的提交计划。人工验收该发生在 check 全绿之后、`update-spec` 之前，那个位置上没有任何东西会来找你。
+
+打开 `.trellis/workflow.md`，找到 `[workflow-state:in_progress]` 块，在末尾加这几行：
+
+```md
+trellis-check 全绿之后先停下，等人工验收通过，再进 trellis-update-spec。
+停下时按 prd.md 的验收标准逐条列出可观测结果，指明哪几条你没有亲自跑过。
+在用户明确回复通过之前，不要开始 update-spec，也不要起草提交计划。
+```
+
+> 未实跑验证。
+
+`[workflow-state:in_progress]` 的作用域从 Phase 2 延续到 Phase 3.4，Trellis `workflow.md` 在这个块的注释里写明了这一点。因此 check 结束时，这段提醒仍在上下文中。
+
+这段提示不是门禁。hook 只往对话里放文字，不能阻断工具调用；全流程真正能停住 `task.py start` 的只有 planning summary。这里给 AI 一个停下来列验收结果的时机。如果它继续执行，立即中断，按 [`../build/04-slice-loop.md`](../build/04-slice-loop.md) 的拍板 5 验收，再用 `/trellis:continue` 接着执行。
+
+第二句要求它点名没有亲自跑过的条目，避免把「代码写了」说成「已经验证」。
 
 ## 为什么还要加这层提醒
 

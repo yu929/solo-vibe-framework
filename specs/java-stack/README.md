@@ -195,12 +195,15 @@ Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality
 
 **A colocated unit test belongs to the layer it sits in, not to the testing spec.** Only `backend/src/test/**` and `frontend/e2e/**` reach [`testing/index.md`](testing/index.md) by path; `frontend/src/**/*.test.ts` sits inside the frontend spec's own tree, and the glob grammar has no exclusion syntax — a testing glob over it would match alongside the frontend catch-all, and the loser of that pair is truncated rather than dropped. So [`frontend/index.md`](frontend/index.md)'s Pre-Development Checklist carries a line pointing at the testing spec for the two rules a unit test actually needs.
 
+**Configuration is a layer, not an afterthought.** The four source-tree layers cover source files only, so `application.yml`, the compose files, `Dockerfile`, the Gradle build and `.github/workflows/**` used to match no spec at all — while the rules governing them sat inside [`backend/platform.md`](backend/platform.md) and [`database/local-database.md`](database/local-database.md), reachable only by someone already reading those layers. [`ops/index.md`](ops/index.md) owns those paths and routes each setting back to the file that owns its other half.
+
 | Layer core (injected) | Read it when |
 |---|---|
 | [`backend/index.md`](backend/index.md) | Writing a repository, controller or service, or touching Spring Security |
 | [`database/index.md`](database/index.md) | Adding a table, writing a migration, changing a column type |
 | [`frontend/index.md`](frontend/index.md) | Calling the backend, building a screen, touching theme tokens |
 | [`testing/index.md`](testing/index.md) | Before saying it is done |
+| [`ops/index.md`](ops/index.md) | Changing an application setting, a compose file, the build or a workflow, or cutting a release |
 
 **The full text sits beside each core**, in files that carry no `paths:` — they are reached from the core's "Where the rest of it lives" table, never injected. Open the one your change touches:
 
@@ -218,7 +221,6 @@ Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality
 | [`frontend/silent-failures.md`](frontend/silent-failures.md) | The six frontend mistakes that produce no error, no failing test and no visible defect |
 | [`testing/test-matrix.md`](testing/test-matrix.md) | Which level uses which tool, and the application state that leaks between tests |
 | [`testing/falsification.md`](testing/falsification.md) | Proving each guard actually goes red |
-| [`testing/containers-and-releases.md`](testing/containers-and-releases.md) | What must be running locally, and how the artifact is built and shipped |
 
 **Track-independent** (holds on any stack; ships with this template):
 

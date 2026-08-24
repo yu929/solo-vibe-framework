@@ -10,7 +10,15 @@ Read-only review for `design-review`. Find problems against this checklist and s
 
 - **The frozen input set**: requirements version, load-bearing decisions version, engineering baseline version, in scope, out of scope.
 - **The issue log** (required reading): a `REJECTED_*`, `DEFERRED` or `ACCEPTED_RISK` entry stays closed unless its `reopen_condition` is met.
-- **The material under review**: the load-bearing decisions document (its path follows the target repository's own convention — `docs/adr/`, `docs/architecture/`, or elsewhere; **not `.trellis/spec/`, which holds coding rules only**). Where there is none, report that there was nothing to review rather than inferring one. Plus the slice order (the slice table in `docs/discovery/slices.md`), the requirements basis (the current task's `prd.md`), and the target repository's `AGENTS.md`.
+- **The material under review**: the load-bearing decisions document (its path follows the target repository's own convention — `docs/adr/`, `docs/architecture/`, or elsewhere; **not `.trellis/spec/`, which holds coding rules only**). Where there is none, report that there was nothing to review rather than inferring one. Plus the slice order (the slice table in `docs/discovery/slices.md`) and the target repository's `AGENTS.md`.
+- **The requirements basis, which differs by when the review fires.** The most common trigger is occasion 1 — load-bearing decisions just settled, **before the first task exists** — and at that point there is no task `prd.md` to read, by design: the slicing step is forbidden to write one. Take the basis from wherever the stage actually keeps it:
+
+  | Review fires | Requirements basis |
+  |---|---|
+  | Before the first task exists (occasion 1) | The **full PRD**, plus `docs/adr/` and the slice table in `docs/discovery/slices.md` |
+  | Inside or after a task (occasions 2–4) | That task's `prd.md`, with the full PRD as background |
+
+  **Do not ask for an artifact the current stage has not produced**, and do not treat its absence as a finding. Missing the artifact the stage *should* have — no full PRD before slicing, no slice table — is a finding.
 - **The track overlay**, if there is one. It carries that track's hard constraints — its data isolation mechanism, data-access paths, credential boundaries, build and migration conventions. **Use only the overlay you were given**; another track's rules do not apply. Without one, run the generic surface and say so in the report.
 
 Where the context is not enough to judge something, mark it **"for the main agent to verify"** and state what context is missing.
@@ -20,7 +28,7 @@ Where the context is not enough to judge something, mark it **"for the main agen
 **Reviewer B — implementability and process:**
 
 - **Requirement coverage**: every agreed capability and screen is covered by some slice, and nothing is invented — no feature, module or table the requirements do not carry.
-- **Slices are independently deliverable**: self-contained, dependencies acyclic and ordered, sized to one session's context, each with a goal (DoD), artifacts, a task list and acceptance.
+- **Slices are independently deliverable**: self-contained, dependencies acyclic and ordered, and sized to one fresh context window. Check each against the four columns the slice table actually carries — a title, the blocking edges, **one end-to-end result a user can verify**, and the approved screens it maps to. A slice whose third column states a layer built rather than something a user can do is cut horizontally. **The per-slice goal, task list and acceptance are written later, by the task's own planning step** — their absence here is correct, not a gap.
 - **Dependency order is explicit**: precedence between slices is written into the artifacts, not implied by a parent/child structure.
 - **Interfaces and contracts line up**: entry points ↔ capabilities ↔ internal contracts ↔ external contracts agree; numbering, naming and terminology are consistent across documents (a `CONTEXT.md` glossary, where it exists, governs).
 - **Repository conventions hold**: nothing violates the target repository's `AGENTS.md` or the overlay's hard constraints.

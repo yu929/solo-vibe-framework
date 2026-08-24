@@ -24,22 +24,17 @@ Four subjects, one host each, no overlap:
 
 ## By stage
 
-The same artifact carries different authority at different stages:
+A stage never moves a subject to a different host. What it changes is **which version of that subject's host is authoritative**, and which side yields on a conflict:
 
-```
-Requirements discovery → before the hi-fi is approved
-    Source of truth = the full PRD
-    The prototype is a spike; on a conflict, change the prototype
+| Stage | Requirements and acceptance | Interface and interaction structure |
+|---|---|---|
+| Requirements discovery, before the hi-fi is approved | The full PRD | Not settled. The prototype is a spike — on a conflict, change the prototype |
+| Hi-fi approved, before slicing starts | Still the full PRD, now carrying the one formal write-back: the fields, states and edge cases the prototype exposed | The approved hi-fi plus `design-system/MASTER.md` |
+| After slice implementation starts | That slice's task `prd.md`; the full PRD is frozen as background, updated by delta as each slice finishes | This slice's approved screens |
 
-Hi-fi approved → before slicing starts
-    Source of truth = the hi-fi plus design-system/MASTER.md
-    The one formal write-back: fold the fields, states and edge cases the
-    prototype exposed back into the PRD
+Terminology and trade-offs are not in this table because **no stage moves them**: `CONTEXT.md` and `docs/adr/` are authoritative throughout.
 
-After slice implementation starts
-    Source of truth = that slice's task prd.md plus this slice's approved screens
-    The full PRD is frozen as background, updated by delta as each slice finishes
-```
+**Approving the hi-fi does not make it authoritative over requirements.** It becomes authoritative over structure — which screens exist, what is on each, how they connect — and over nothing else. A screen implying a rule the PRD does not carry is a **finding against the hi-fi**, not a new requirement: take it back to the PRD, decide it there, and let the change flow outward. Reading a requirement off a mockup is how a drawing decision silently becomes a product decision.
 
 **The write-back happens once, at a stage boundary.** Editing the PRD every time a spike finishes turns it into a transcript of the conversation — and then finding the current state means reading it from the top.
 
@@ -72,6 +67,6 @@ What they have in common is that **an append was used where a MODIFIED or a REMO
 
 ## Resolving a conflict
 
-Find the current source of truth in the stage table above, and change the other side.
+Name the subject in dispute first, then read the stage table's row for where you are and its column for that subject. Change the other side.
 
 **If the change belongs on the authoritative side**, you have found a real problem. Make the change — but say why, and check whether it drags in anything already approved. It is two orders of magnitude cheaper here than after implementation.

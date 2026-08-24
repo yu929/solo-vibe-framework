@@ -11,7 +11,7 @@
 
 ## 开始之前
 
-- [ ] [setup](../setup/README.md) 那四条检查全绿
+- [ ] [setup](../setup/README.md) 那五条检查全绿
 - [ ] 仓库已建，`trellis init` 跑过
 - [ ] 你能用一段话说出自己的想法。暂时没想清楚也没关系，后面就是用来收敛它的
 
@@ -38,7 +38,7 @@
                       │           本片定稿屏进 implement.jsonl
                       │                       ★ 批准 planning summary 才 start
                       ├─ Execute  实现 → check
-                      │                       ★ 人工验收（流程里没有，你得插）
+                      │                       ★ 人工验收（Trellis 没有，靠一段提示唤起）
                       └─ Finish   update-spec → commit → 归档
                                               ★ 看它改了哪几条 spec
 
@@ -73,7 +73,7 @@
 
 第 1 和第 3 处最值得多花时间：范围或切法错了，后面的实现都会跟着偏。
 
-第 5 处最容易漏。其余六处都会有产物来找你确认：方案、summary 或提交计划；Trellis 的流程里没有人工验收这一步，不会主动提醒。
+第 5 处最容易漏。其余六处都会有方案、summary 或提交计划来找你确认；Trellis 的流程里没有人工验收。[`../setup/04-workflow-prompts.md`](../setup/04-workflow-prompts.md) 步骤 3 会加一段提示，要求 AI 在 check 之后停下。hook 只能注入文字，拦不住工具调用，所以这一处仍要自己盯住。
 
 第 4 项是流程里的硬门禁，由 Trellis 提供。本仓产物不加 frontmatter 或 approved 字段，因为没有程序读取或维护这些字段。理由见 [`../../references/decisions.md`](../../references/decisions.md)。
 

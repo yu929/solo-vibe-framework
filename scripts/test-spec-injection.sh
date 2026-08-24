@@ -49,6 +49,14 @@
 #      注意这个注入下第二份拿到的是**被截断的正文**而不是索引行——这正是把断言写成
 #      「只命中一份」而不是「都拿到正文」的原因，后者会放过它。
 #   ④ 往任一 `<layer>/index.md` 尾部塞 200 字符 → 它越过 9,000 边际，但 ② 仍然是绿的。
+#
+# ops 层那批样本的两次注入（2026-08-24 实跑验证）：
+#   删掉 ops/index.md 的 `backend/src/main/resources/*.yml`
+#     → application.yml 那条报「没有任何 spec 命中」，退出码 1。这正是加 ops 之前的原状。
+#   给 testing/index.md 的 paths 加一条 `.github/workflows/**`
+#     → release.yml 命中 2 份，③ 变红并指名 testing/index.md 拿到**被截断的正文**，退出码 1。
+#     ops 的 glob 与四条源码树 glob 必须互不重叠，靠的就是这一条。
+#
 #   基线：把一条已经全绿的样本加进 KNOWN_RED → 报「基线已过期」并失败。
 #         基线当前为空（2026-08-24 web-fullstack 两份拆完后清掉），反向那半——删掉一行
 #         让那条样本的失败重新计入退出码——要等下次真记欠账时才跑得动。
@@ -124,12 +132,24 @@ print(f"Trellis {pin} · 每份 {MAX_SPEC} 字符 / 每次 {MAX_TOTAL} 字符")
 # 理由写在 specs/web-fullstack/README.md 的 Spec index）。下面那条 src/lib/utils.test.ts
 # 就是锁这个决定的——谁把 **/*.test.ts 加回 testing 的 paths，它立刻红（2026-08-24 注入
 # 验证过：退出码 1，③ 掉到 20/21，并指名 testing/index.md 拿到被截断的正文）。
+#
+# 配置、编排与发布归 ops 层（2026-08-24 补上）。在此之前 application.yml、compose、
+# Dockerfile、构建配置和发布 workflow **一份 spec 都命中不到**，而管着它们的规则
+# 就写在 backend/platform.md 与 database/local-database.md 里——只有已经在读那两层的人
+# 才够得着。下面这些样本锁的就是「配置文件也有归属」；ops 的 glob 与四条源码树 glob
+# 互不重叠，所以它们同时也在验断言 ③。
 SAMPLES = {
     "java-stack": [
         ("backend/src/main/java/com/example/app/notes/NoteRepository.java", "backend/index.md"),
         ("backend/src/main/java/com/example/app/notes/NoteService.java", "backend/index.md"),
         ("backend/src/main/java/com/example/app/config/SecurityConfig.java", "backend/index.md"),
         ("backend/src/main/resources/db/migration/V2__notes.sql", "database/index.md"),
+        ("backend/src/main/resources/application.yml", "ops/index.md"),
+        ("docker-compose.yml", "ops/index.md"),
+        ("Dockerfile", "ops/index.md"),
+        ("gradle.properties", "ops/index.md"),
+        (".github/workflows/release.yml", "ops/index.md"),
+        ("frontend/package.json", "ops/index.md"),
         ("backend/src/test/java/com/example/app/NoteIT.java", "testing/index.md"),
         ("frontend/src/components/NoteList.tsx", "frontend/index.md"),
         ("frontend/src/routes/notes.tsx", "frontend/index.md"),
@@ -146,6 +166,11 @@ SAMPLES = {
         ("src/app/notes/page.tsx", "frontend/index.md"),
         ("src/app/globals.css", "frontend/index.md"),
         ("supabase/migrations/001_init.sql", "database/index.md"),
+        ("supabase/config.toml", "ops/index.md"),
+        ("docker-compose.yml", "ops/index.md"),
+        ("next.config.ts", "ops/index.md"),
+        (".github/workflows/release.yml", "ops/index.md"),
+        ("package.json", "ops/index.md"),
         ("e2e/notes.spec.ts", "testing/index.md"),
         (".trellis/tasks/t-01/design.md", "guides/task-artifacts.md"),
         ("docs/discovery/slices.md", "guides/source-of-truth.md"),

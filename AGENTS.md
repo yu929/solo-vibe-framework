@@ -27,6 +27,7 @@ Specs and process both belong here. One project's product content does not: its 
 A project installs **exactly one** template: `registry.spec.template` is single-valued, a second `init` replaces it, and nothing reports the loss. Hence the generated `guides/` per track.
 
 - **Declare `paths:` so that any one edited file matches exactly one spec.** For a layer governing a single source tree that means the globs live on its `index.md` alone; where globs genuinely cannot overlap, as in `guides/`, separate files may each carry their own. Two specs matched by one edit share a single per-event budget, and the loser is truncated rather than dropped.
+- **Give every track an `ops/` layer.** Source-tree globs leave `application.yml`, compose, `Dockerfile`, build config and release workflows matching no spec, while the rules governing them sit inside other layers — reachable only by someone already reading those. `ops/index.md` owns those paths and points back at each rule's other half.
 - **Give a sibling that declares no `paths:` no frontmatter at all.** Trellis skips a spec without `paths`, so a `name`/`description`-only block does nothing while looking like it does.
 - **Keep every `index.md` under 9,000 characters.** Injection budgets by character, and an over-budget spec is head-truncated: the checklists at its end never arrive, and nothing errors.
 - **Extract the largest section first and stop when the core fits.** Going further buys a pointer and a jump for nothing.

@@ -296,7 +296,13 @@ This upstream skill has two branches, and **its first step is "Pick a branch"**:
 
 **This discipline is prompt text, not an enforcement.** The skill is installed whole, and no mechanism stops it choosing the UI branch. When it does, pull it back on the spot and record how it actually behaved here.
 
-**Its rule 1 and rule 6 once collided with this repository's exploration discipline** (*"Locate the prototype code close to where it will actually be used"* and *"commit it to a throwaway branch"*, against "never in `src/`, delete it once verified"). **Under the current flow that conflict is gone**: field verification happens at step 3 of the 0-to-1 flow, before step 6 picks the backend track — at which point there is no `src/` yet.
+**Its rule 1 and rule 6 collide with this repository's exploration discipline, and the collision is live** — *"Locate the prototype code close to where it will actually be used"* and *"commit it to a throwaway branch"*, against this repository's "never in `src/`, delete it once verified".
+
+An earlier record here claimed the conflict had dissolved because field verification ran before a track was picked, so there was no `src/` to land in. **That reasoning described a 0-to-1 flow that no longer exists.** Under the current order, `setup` completes first — the repository is created, one track template is installed, and the starter skeleton is on disk — and only then does `build` reach field verification. There is a `src/` (or a `frontend/`) by then; the measured note in step 2 of [`../playbook/setup/03-third-party.md`](../playbook/setup/03-third-party.md) is about that very skeleton.
+
+**The resolution is the same kind as the LOGIC-branch one: this repository overrides those two rules by prompt, and nothing enforces it.** The prompt in step 3 of [`../playbook/build/01-discovery.md`](../playbook/build/01-discovery.md) states all three boundaries in one line — no task, not in `src/`, LOGIC branch — and the skill is installed whole, so it can still ignore them. Editing the vendor original to say otherwise stays rejected for the same reason as before: it violates vendor read-only and makes the upstream diff meaningless.
+
+**Why the override rather than upstream's rule**: upstream's rule 6 optimizes for a team that needs the spike recoverable months later. Here the artifact that must survive is the **write-back into the PRD**, not the spike, and a throwaway branch full of prototypes is a second place to look for requirements. When the prototype does land somewhere real, pull it back on the spot and record how it actually behaved.
 
 ## spec-anchor — not installed at all
 
@@ -323,7 +329,7 @@ These skills from the old `~/Developer/skills` repository are retired. **A lefto
 | Retired | Where its capability went |
 |---|---|
 | `product-brief` | Downgraded to [`skills/vertical-slicing/assets/slices-template.md`](../skills/vertical-slicing/assets/slices-template.md), a template rather than a skill. It has three sections left: the phase goal, the slice list and the frontier |
-| `prd-generator` / `-noweb` | Field-level requirements are no longer enumerated up front; they are defined near the work, in each task's `prd.md`. Trellis's `task.py create` ships that template, and this repository **no longer provides** a task-level PRD template |
+| `prd-generator` / `-noweb` | The full PRD, converged to field level **before the hi-fi is approved**, is produced by `create-prd-skill` instead — see step 1 of [`../playbook/setup/03-third-party.md`](../playbook/setup/03-third-party.md). A task's `prd.md` scopes one slice on top of that, from Trellis's own `task.py create` template. This repository provides **neither** template |
 | `system-design` / `design-system-java` | Load-bearing decisions go to `docs/adr/` (maintained by `domain-modeling`); slice ordering goes to `docs/discovery/slices.md` |
 | **`lofi-prototype`** (this repository's own, retired 2026-08-21) | Under the current flow the full hi-fi is approved **before** slicing, so producing lo-fi again inside a task creates a second structural source of truth beside the approved one. The measured conclusion it carried — **the approved screens must go into `implement.jsonl`** — is now carried by `vertical-slicing` (the fourth column of the slice list in `slices.md`, filled into the jsonl as each slice becomes a task). Its fidelity red lines and walkthrough round caps are void with it |
 
@@ -375,7 +381,7 @@ Three design trade-offs, none of them casual:
 
 Two runtime notes: GitHub's scheduled jobs are **delayed** at peak times on the hour, so do not treat it as a punctual alarm; and **60 consecutive days without commit activity makes GitHub disable the schedule automatically**, after which it needs a manual `workflow_dispatch` or a re-enable from the Actions page.
 
-**⚠️ Not yet verified by a real run**: this workflow was written before the repository had a GitHub remote, and has never executed. After the first push, trigger it once with `workflow_dispatch` and fix whatever does not line up.
+**Verified by real runs.** The scheduled job has been running nightly and succeeding since 2026-08-15, and it has opened its follow-upstream PR on `chore/sync-vendor` for real — twice by 2026-08-24. Both halves of the design are therefore confirmed in practice, not just on paper: the nightly schedule fires, and a genuine content change produces a PR rather than a commit. `gh run list --workflow sync-vendor` is the current record; read it rather than trusting this paragraph's dates.
 
 ### Trellis itself — still not built (deliberately)
 

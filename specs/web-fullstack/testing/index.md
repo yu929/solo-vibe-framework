@@ -1,6 +1,6 @@
 ---
 name: testing
-description: The required checks, what to add per kind of change, how to verify behaviour and data, and the local backend, container and release commands
+description: The required checks, what to add per kind of change, and how to verify behaviour and data — including the two negative tests
 paths:
   - e2e/**
 ---
@@ -47,28 +47,11 @@ Items 2 and 3 are the two most often skipped and the most expensive to skip. **W
 
 Both are **negative tests**: they prove that what should be refused is refused, which a fully green set of positive cases cannot show. So they have to exist separately, and cannot be picked up incidentally by "the feature works".
 
-## The local backend
+## Where the rest of it lives
 
-```bash
-pnpm db:start        # Docker or OrbStack must be running
-supabase status      # check status and keys
-```
-
-## Containers and releases
-
-```bash
-docker compose up -d --build                          # personal or cloud
-docker compose -f docker-compose.yml \
-  -f docker-compose.selfhost.yml up -d --build        # self-hosted on an internal network
-```
-
-Releases go through a `vX.Y.Z` or `vX.Y.Z-rc.N` tag:
-
-1. Update the version in `package.json` first, including `services/*/pyproject.toml` where those exist
-2. `pnpm release:validate <tag>`
-3. Pushing the tag triggers the release quality gates in `.github/workflows/release.yml`
-
-The image's environment conventions are in `.env.example`: `NEXT_DEPLOYMENT_ID` changes on every release, while `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` must stay stable across rebuilds.
+| File | Covers | Open it when |
+|---|---|---|
+| [`../ops/index.md`](../ops/index.md) | Bringing the local Supabase stack up, project configuration, compose, the image and the release tag | You run the stack locally, change a setting, or cut a release |
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: testing
-description: The required checks, what to add per kind of change, how to verify behaviour and data, and where the test matrix, falsification and release steps live
+description: The required checks, what to add per kind of change, how to verify behaviour and data, and where the test matrix and falsification rules live
 paths:
   - backend/src/test/**
   - frontend/e2e/**
@@ -8,7 +8,7 @@ paths:
 
 # Quality Gates and Verification · Java Stack
 
-> Everything is green before you say it is done. **The level-to-tool matrix, proving the guards still bite, and the container and release steps are in the three sibling files below** — open the one your change touches.
+> Everything is green before you say it is done. **The level-to-tool matrix and proving the guards still bite are in the two sibling files below** — open the one your change touches.
 >
 > Track overview: [`../README.md`](../README.md).
 
@@ -82,7 +82,7 @@ Items 2, 3 and 4 are all **negative tests**: they prove that what should be refu
 |---|---|---|
 | [`test-matrix.md`](test-matrix.md) | Which level uses which tool and where it lives, plus the application state that leaks between tests | You are unsure where a new test belongs, or tests pass alone and fail together |
 | [`falsification.md`](falsification.md) | Proving each guard actually goes red — a guard that stopped biting looks exactly like one with nothing to catch | You wrote or changed a guard, an ArchUnit rule, or a negative test |
-| [`containers-and-releases.md`](containers-and-releases.md) | What must be running locally, and how the packaged artifact is built and shipped | You run the stack locally, or cut a release |
+| [`../ops/index.md`](../ops/index.md) | Application settings, compose, the packaged image and the release tag | You run the stack locally, change a setting, or cut a release |
 
 ## Pre-Development Checklist
 
