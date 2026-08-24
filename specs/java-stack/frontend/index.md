@@ -3,6 +3,7 @@ name: frontend
 description: The one way to do each frontend thing, what decides what when sources disagree, the two checklists, and where the full text of each lives
 paths:
   - frontend/src/**
+  - frontend/components.json
 ---
 
 # Frontend Rules · Java Stack

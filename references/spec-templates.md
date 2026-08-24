@@ -2,6 +2,16 @@
 
 Why the registry is shaped the way it is, and the mechanics behind each rule in `AGENTS.md`. Every claim here was measured against **Trellis v0.7.0-beta.3**; the version is pinned in `scripts/test-spec-injection.sh` and in `checks.yml`.
 
+
+## Which §N numbering a layer uses
+
+A layer picks one and says so in its `index.md`; the two are not interchangeable, and a reader who guesses wrong lands in the wrong section.
+
+- **Sections split out of one `index.md` keep that layer's numbering.** `java-stack/backend/` runs §1–§10 across five files, so §7 means the same thing whichever of the five cites it.
+- **Files that were always separate number from §1 each.** `java-stack/frontend/`'s three siblings do, so a bare §2 in one of them is that file's §2.
+
+Either way, **a reference that crosses a file names the file**; a bare `§N` resolves to its own file, and `scripts/test-spec-templates.sh` case 4 resolves it exactly that way.
+
 ## A project installs exactly one template
 
 `.trellis/config.yaml`'s `registry.spec.template` is a **single-valued** field. A second `init` replaces the whole line (`dist/utils/registry-config.js:121-126`), and from then on `trellis update` only refreshes whichever template was installed last (`dist/commands/update.js:469`).

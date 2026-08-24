@@ -1,9 +1,13 @@
-# 本仓自己的五条不变量检查。改任何脚本、spec 或 skill 之后都会跑。
+# 本仓自己的六条不变量检查。改任何脚本、spec 或 skill 之后都会跑。
 #
-# 为什么要 CI 而不是「记得手动跑」：这五个测试守的都是**没有症状的缺陷**——
+# 为什么要 CI 而不是「记得手动跑」：这六个测试守的都是**没有症状的缺陷**——
 # 装两个模板不报错、vendor 被改过 SHA 不变、安装后断链在源码树里查不出来、
 # spec 被截断成一半也不报错、skill 里的跨目录引用要装到别处才断。
 # 靠人记得跑，等于没有守。
+#
+# bash 3.2 那条方向相反：它守的是**这个 runner 看不见**的缺陷。runner 是 bash 5，
+# 而这些脚本真正运行的地方是 macOS 自带的 3.2，两者行为不同的写法在这里永远绿。
+# 所以那条检查是词法扫描，不依赖 runner 的 bash 版本。
 
 name: checks
 
@@ -17,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # bash 3.2 基线：AGENTS.md 立的规矩，这里是它的机器判据。放第一条，因为它纯词法、
+      # 零依赖、秒回，而它抓的正是「其余几条脚本在本机根本跑不起来」这种失效。
+      - name: bash 3.2 基线
+        run: scripts/test-shell-baseline.sh
 
       # 安装脚本：退役项只删软链、不删真目录；只动能证明是本框架装的链接。
       # 测试在临时目录里跑（CLAUDE_SKILLS_DIR 覆盖），不碰 runner 的 ~/.claude。

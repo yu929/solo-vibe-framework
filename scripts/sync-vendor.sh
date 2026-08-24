@@ -98,7 +98,7 @@ verify_local() {
   while read -r want_sum rel; do
     [[ -n "${rel:-}" ]] || continue
     if [[ ! -f "$vendor/$rel" ]]; then
-      echo "  ✗ 清单里有、本地没有：$rel（被删了？）"; drift=1; continue
+      echo "  ✗ 清单里有、本地没有：${rel}（被删了？）"; drift=1; continue
     fi
     have_sum="$( cd "$vendor" && shasum -a 256 "$rel" | cut -d' ' -f1 )"
     if [[ "$have_sum" != "$want_sum" ]]; then

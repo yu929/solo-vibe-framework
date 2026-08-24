@@ -27,11 +27,11 @@ Specs and process both belong here. One project's product content does not: its 
 A project installs **exactly one** template: `registry.spec.template` is single-valued, a second `init` replaces it, and nothing reports the loss. Hence the generated `guides/` per track.
 
 - **Declare `paths:` so that any one edited file matches exactly one spec.** For a layer governing a single source tree that means the globs live on its `index.md` alone; where globs genuinely cannot overlap, as in `guides/`, separate files may each carry their own. Two specs matched by one edit share a single per-event budget, and the loser is truncated rather than dropped.
-- **Give every track an `ops/` layer.** Source-tree globs leave `application.yml`, compose, `Dockerfile`, build config and release workflows matching no spec, while the rules governing them sit inside other layers — reachable only by someone already reading those. `ops/index.md` owns those paths and points back at each rule's other half.
+- **Give every track an `ops/` layer.** Source-tree globs leave config, compose, build and release files matching no spec at all, while their rules sit inside other layers. `ops/index.md` owns those paths and points back at each rule's other half.
 - **Give a sibling that declares no `paths:` no frontmatter at all.** Trellis skips a spec without `paths`, so a `name`/`description`-only block does nothing while looking like it does.
 - **Keep every `index.md` under 9,000 characters.** Injection budgets by character, and an over-budget spec is head-truncated: the checklists at its end never arrive, and nothing errors.
 - **Extract the largest section first and stop when the core fits.** Going further buys a pointer and a jump for nothing.
-- **Name the file in every reference that crosses a file** — a bare `§N` resolves to its own file. Sections split out of one `index.md` keep that layer's numbering (`backend/` runs §1–§10 across five files); files that were always separate number from §1 each (`frontend/`'s three do). Say which one the layer uses, in its `index.md`.
+- **Name the file in every reference that crosses a file** — a bare `§N` resolves to its own file. A layer either shares one numbering across its files or numbers each from §1; say which, in its `index.md`.
 - **Link only within a template.** `](../../` breaks on install: `specs/<id>/` is flattened away.
 - **Register `type: spec` and nothing else.** Trellis fails outright on other types.
 
@@ -75,7 +75,8 @@ Adding a track: create `specs/<track>/`, register one entry, run `scripts/sync-s
 | `test-spec-templates.sh` | Install-tree links, guides match source, `§N` hits a real section, frontmatter has `paths` or nothing |
 | `test-spec-injection.sh` | What an edit delivers: the expected core ranks first, whole and alone |
 | `test-skill-links.sh` | No `](../../` inside a skill, and every relative link resolves |
+| `test-shell-baseline.sh` | Shell stays runnable on bash 3.2 — no unbraced expansion before a multi-byte character, no bash 4+ construct |
 
 **Add a check alongside any new cross-file rule, inject a matching bug to prove it goes red, and wire the script into `checks.yml`** — a green run against the real repo proves nothing on its own, and a check nobody runs is the defect it was written to prevent. Traps, and the two checks still to build: [`references/check-design.md`](references/check-design.md).
 
-**Write shell for bash 3.2**: no `readarray`, `mapfile`, `declare -A`. Reach for `python3` on multi-byte text, where BSD and GNU `grep` disagree.
+**Write shell for bash 3.2**: no `readarray`, `mapfile`, `declare -A`, and **brace any expansion followed by a CJK character** — `${x}，`, never `$x，`, which 3.2 reads as a name ending in the punctuation's first byte. Reach for `python3` on multi-byte text, where BSD and GNU `grep` disagree.

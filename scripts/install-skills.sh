@@ -85,14 +85,14 @@ install_one() { # <源绝对路径> <链接名>
   local src="$1" name="$2" link="$dest/$2"
 
   if [[ ! -f "$src/SKILL.md" ]]; then
-    echo "  ✗ $name：源不存在或缺 SKILL.md（$src）"; fail=1; return
+    echo "  ✗ ${name}：源不存在或缺 SKILL.md（${src}）"; fail=1; return
   fi
 
   if [[ -L "$link" ]]; then
     local cur; cur="$(readlink "$link")"
     if [[ "$cur" == "$src" ]]; then echo "  = $name 已正确"; record "$name" "$src"; return; fi
     if ! owned_link "$link" "$name"; then reject_foreign "$name" "$link"; return; fi
-    $check_only && { echo "  ✗ $name 指向 $cur，应为 $src"; fail=1; return; }
+    $check_only && { echo "  ✗ $name 指向 ${cur}，应为 $src"; fail=1; return; }
     rm "$link"
   elif [[ -e "$link" ]]; then
     # 普通文件/目录：可能是用户自己装的第三方，不敢动。
@@ -127,8 +127,8 @@ for s in "${RETIRED[@]}"; do
   if [[ -L "$link" ]]; then
     target="$(readlink "$link")"
     if ! owned_link "$link" "$s"; then reject_foreign "$s" "$link"; continue; fi
-    $check_only && { echo "  ✗ $s 软链仍存在（→ $target）"; fail=1; continue; }
-    rm "$link"; echo "  ✓ $s 软链已删除（原指向 $target，目标未动）"
+    $check_only && { echo "  ✗ $s 软链仍存在（→ ${target}）"; fail=1; continue; }
+    rm "$link"; echo "  ✓ $s 软链已删除（原指向 ${target}，目标未动）"
   elif [[ -e "$link" ]]; then
     # 真文件/真目录：可能是用户自己的同名 skill。删了不可恢复，所以只报告。
     echo "  ✗ $s 是普通文件/目录不是软链，未处理——请自行确认后移走"; fail=1

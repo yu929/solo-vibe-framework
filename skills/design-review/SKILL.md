@@ -73,23 +73,26 @@ Merge and de-duplicate what the rounds or reviewers produced. The main agent **r
 
 ### Step 4 · Decide whether to stop
 
-All five, and admission is granted:
+**Three conditions grant admission. All three are hard:**
 
 1. Every Accepted P0 is closed.
-2. Every Accepted P1 is closed or has an explicit disposition.
-3. **One full round has produced no new Accepted P0/P1.**
-4. New findings are only P2/P3, duplicates, unevidenced, or out of scope.
-5. At least one vertical slice can be implemented and verified end to end.
+2. Every Accepted P1 has an explicit disposition — fixed, `DEFERRED` with a `reopen_condition`, or `ACCEPTED_RISK` with the reason and who carries it. **No choice is not a disposition.**
+3. At least one vertical slice can be implemented and verified end to end.
 
-**Two rounds of pure design review, maximum.** The budget counts **rounds of the checklist**: Round 1 and Round 2 are the two, and **re-verifying a fix does not spend a round** — adjudicating a finding you already accepted is Step 3, not a new review.
+**The budget is two rounds of the checklist**, Round 1 and Round 2 being the two. **Re-verifying a fix does not spend a round** — adjudicating a finding already accepted is Step 3, not a new review.
 
-**What condition 3 means against a two-round budget.** The two rounds check different surfaces, so a P1 first raised in Round 2 leaves condition 3 unmet with the budget spent. That is the expected ending, not a failure — and it does **not** withhold admission:
+Admission is then reached by one of **two exits, and the report must name which**:
 
-- **Every P0 still blocks.** Fix it, re-verify, and if the fix itself raises a new P0, that is the one case worth a further pass — say so explicitly in the report.
-- **A P1 the budget did not clear is closed by disposition, not by another round.** Record it as `ACCEPTED_RISK` or `DEFERRED` with a `reopen_condition`, name who carries it, and grant admission. Condition 2 is satisfied by an explicit disposition; condition 3 describes the ideal exit, not a gate.
-- **Say in the report which of the two exits this was** — converged, or budget-exhausted with N dispositions. A reader deciding whether to build needs to know which one they are being handed.
+| Exit | When | What it means |
+|---|---|---|
+| **Converged** | The last full round produced no new Accepted P0/P1, and everything new was P2/P3, a duplicate, unevidenced, or out of scope | The design stopped producing blocking problems. The better ending, and the only one that can say so |
+| **Budget exhausted** | The second round still produced Accepted P1s | Dispose of each under condition 2 and admit. Report it as "budget-exhausted, N dispositions" — the reader is being handed risk that was decided, not risk that was cleared |
 
-Past the budget, route remaining feedback into slice implementation and tests, where the evidence is cheaper and more direct. **Opening a third round is the failure this skill exists to prevent**, and "the last round found something" is exactly the argument that makes a review never end.
+**A P1 first raised in Round 2 is the normal case, not a failure.** The two rounds check different surfaces, so the second one finding something is expected — and "the last round found something" is precisely the argument that would justify a third round, then a fourth. It does not. A disposition closes it; another round does not.
+
+**Only an open P0 withholds admission past the budget.** Fix it, re-verify, and if the fix itself raises a new P0, say so explicitly — that is the one case worth a further pass.
+
+Past the budget, route remaining feedback into slice implementation and tests, where the evidence is cheaper and more direct.
 
 ## Output
 

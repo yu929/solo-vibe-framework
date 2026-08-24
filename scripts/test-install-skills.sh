@@ -48,7 +48,7 @@ teardown() {
   [[ -n "$sandbox" ]] && rm -rf "$sandbox"
   sandbox=""
 }
-run() { # 跑被测脚本，输出留到 $out，返回它的退出码
+run() { # 跑被测脚本，输出留到 ${out}，返回它的退出码
   "$target" "$@" > "$out" 2>&1
 }
 
@@ -71,7 +71,7 @@ assert_absent() { # <路径> <描述>
 assert_symlink_to() { # <链接> <期望目标> <描述>
   if [[ ! -L "$1" ]]; then bad "$3：$1 不是软链"; return; fi
   local cur; cur="$(readlink "$1")"
-  if [[ "$cur" == "$2" ]]; then ok "$3"; else bad "$3：指向 $cur，期望 $2"; fi
+  if [[ "$cur" == "$2" ]]; then ok "$3"; else bad "$3：指向 ${cur}，期望 $2"; fi
 }
 report_case() { # <用例名>
   if [[ $case_fail -ne 0 ]]; then

@@ -7,8 +7,11 @@ paths:
   - .env.example
   - package.json
   - next.config.*
+  - tsconfig*.json
+  - eslint.config.*
   - supabase/config.toml
   - services/*/pyproject.toml
+  - scripts/**
   - .github/workflows/**
 ---
 
@@ -71,7 +74,7 @@ A configuration file is one end of a rule whose other end is code. Open the file
 | [`../backend/index.md`](../backend/index.md) | The auth cookie name and what breaks without it (§3), which Supabase key goes where (§1), the signup toggle (§4) | Changing an auth, key or cookie setting |
 | [`../database/index.md`](../database/index.md) | `project_id`, the local stack's shared-volume trap, and what `pnpm init:project` clears (§5) | Touching `supabase/config.toml` or the local stack |
 | [`../backend/sub-services.md`](../backend/sub-services.md) | The trust boundary a service-role worker must respect, and the shared Bearer token (§6.1) | Adding or configuring a service under `services/` |
-| [`../testing/index.md`](../testing/index.md) | The required checks the release gates run | Changing what a workflow runs |
+| [`../testing/index.md`](../testing/index.md) | The required checks the release gates run | Changing what a workflow runs, or `playwright.config.*` |
 
 ## Pre-Development Checklist
 

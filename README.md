@@ -26,7 +26,7 @@ trellis init --claude --registry https://github.com/yu929/solo-vibe-framework \
              --template web-fullstack
 ```
 
-装完先确认两件事：`scripts/install-skills.sh --check` 全绿，`.trellis/spec/` 下同时有轨规范和 `guides/`。完整步骤与四条验收见 [`playbook/setup/`](playbook/setup/README.md)。
+装完先确认两件事：`scripts/install-skills.sh --check` 全绿，`.trellis/spec/` 下同时有轨规范和 `guides/`。完整步骤与五条验收见 [`playbook/setup/`](playbook/setup/README.md)。
 
 ### 现有的轨
 
@@ -82,7 +82,7 @@ skills/                     自有 skill：vertical-slicing · design-review
 vendor/mattpocock-skills/   六个第三方 skill 的只读拷贝（含 LICENSE 与校验清单）
 playbook/setup/             操作手册：装起来
 playbook/build/             操作手册：做产品
-scripts/                    install-skills · sync-vendor · sync-spec-guides + 五个 test-*
+scripts/                    install-skills · sync-vendor · sync-spec-guides + 六个 test-*
 references/                 规则带不动的背景：第三方判定 · 安装机制 · 既定取舍 · 仓库约定 · 检查设计
 index.json                  registry manifest（只登记 type: spec）
 ```
@@ -107,9 +107,11 @@ index.json                  registry manifest（只登记 type: spec）
 | `scripts/install-skills.sh` | 软链 skill、清退役软链。`--check` 只检查不改 |
 | `scripts/sync-vendor.sh` | 查 vendor 本地漂移与上游变化，默认只报告，`--pull` 才更新 |
 | `scripts/sync-spec-guides.sh` | 从权威源分发 guides 到各轨。`--check` 只校验 |
-| `scripts/test-*.sh`（五个） | 五条不变量回归，CI 每次 push 都跑 |
+| `scripts/test-*.sh`（六个） | 六条不变量回归，CI 每次 push 都跑 |
 
-五条检查针对的都是不容易当场发现的缺陷：装两个模板不报错；vendor 内容变了但 `.upstream-sha` 不变；链接只在安装后才断；spec 超预算后被静默截断；skill 的跨目录引用换个安装位置才失效。这些问题靠人工很难及时发现。
+前五条检查分别盯住退役软链、vendor 漂移、模板安装后的链接、spec 注入和 skill 链接。这些缺陷通常不会当场报错，等人发现时已经离改动很远。
+
+第六条检查 Bash 3.2 兼容性。CI runner 使用 Bash 5，而这些脚本也会在 macOS 自带的 3.2 上运行。只在 3.2 出错的写法能通过 CI，所以需要单独做静态扫描。
 
 `.github/workflows/sync-vendor.yml` 每晚检查一次上游 vendor，内容有变化才开 PR，不自动合并。这样可以先读 diff，再决定是否让上游改动进入工作流。
 

@@ -4,6 +4,7 @@ description: The required checks, what to add per kind of change, how to verify 
 paths:
   - backend/src/test/**
   - frontend/e2e/**
+  - frontend/playwright.config.*
 ---
 
 # Quality Gates and Verification · Java Stack

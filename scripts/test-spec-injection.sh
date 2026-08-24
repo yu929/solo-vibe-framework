@@ -138,6 +138,13 @@ print(f"Trellis {pin} · 每份 {MAX_SPEC} 字符 / 每次 {MAX_TOTAL} 字符")
 # 就写在 backend/platform.md 与 database/local-database.md 里——只有已经在读那两层的人
 # 才够得着。下面这些样本锁的就是「配置文件也有归属」；ops 的 glob 与四条源码树 glob
 # 互不重叠，所以它们同时也在验断言 ③。
+#
+# 但 ops **不是配置文件的统一收容所**。判据是「管这份配置的规则写在哪一层」：
+#   components.json      → frontend（内核锁 Radix/new-york、base-nova 写在那）
+#   playwright.config.*  → testing（E2E 必须打包件跑，规则写在那）
+#   其余构建/编排/发布配置 → ops
+# 这条判据没有机器判据可言，只能靠样本钉住。加一份配置文件时先问它的规则在哪一层，
+# 再决定 glob 加到哪份 index.md 上——加错了不报错，只是换一份 spec 来接。
 SAMPLES = {
     "java-stack": [
         ("backend/src/main/java/com/example/app/notes/NoteRepository.java", "backend/index.md"),
@@ -149,7 +156,14 @@ SAMPLES = {
         ("Dockerfile", "ops/index.md"),
         ("gradle.properties", "ops/index.md"),
         (".github/workflows/release.yml", "ops/index.md"),
+        ("gradle/libs.versions.toml", "ops/index.md"),
+        ("gradle/wrapper/gradle-wrapper.properties", "ops/index.md"),
+        ("scripts/init-project.sh", "ops/index.md"),
         ("frontend/package.json", "ops/index.md"),
+        ("frontend/vite.config.ts", "ops/index.md"),
+        ("frontend/tsconfig.app.json", "ops/index.md"),
+        ("frontend/components.json", "frontend/index.md"),
+        ("frontend/playwright.config.ts", "testing/index.md"),
         ("backend/src/test/java/com/example/app/NoteIT.java", "testing/index.md"),
         ("frontend/src/components/NoteList.tsx", "frontend/index.md"),
         ("frontend/src/routes/notes.tsx", "frontend/index.md"),
@@ -171,6 +185,9 @@ SAMPLES = {
         ("next.config.ts", "ops/index.md"),
         (".github/workflows/release.yml", "ops/index.md"),
         ("package.json", "ops/index.md"),
+        ("tsconfig.json", "ops/index.md"),
+        ("components.json", "frontend/index.md"),
+        ("playwright.config.ts", "testing/index.md"),
         ("e2e/notes.spec.ts", "testing/index.md"),
         (".trellis/tasks/t-01/design.md", "guides/task-artifacts.md"),
         ("docs/discovery/slices.md", "guides/source-of-truth.md"),

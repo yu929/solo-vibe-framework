@@ -5,6 +5,7 @@ paths:
   - src/components/**
   - src/app/**/*.tsx
   - src/app/**/*.css
+  - components.json
 ---
 
 # Frontend Rules · Web Fullstack

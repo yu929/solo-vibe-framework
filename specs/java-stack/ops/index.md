@@ -9,7 +9,12 @@ paths:
   - gradle.properties
   - build.gradle*
   - settings.gradle*
+  - gradle/**
+  - scripts/**
   - frontend/package.json
+  - frontend/vite.config.*
+  - frontend/tsconfig*.json
+  - frontend/eslint.config.*
   - .github/workflows/**
 ---
 
@@ -29,6 +34,10 @@ paths:
 | A database password default | There is none, not even a development-looking one ([`../database/local-database.md`](../database/local-database.md) §5.3) |
 | `ddl-auto` | Always `validate`; schema changes are Flyway migrations ([`../backend/platform.md`](../backend/platform.md) §7) |
 | `open-in-view` | Always `false` ([`../backend/platform.md`](../backend/platform.md) §7) |
+| Pinning a backend version | `gradle/libs.versions.toml`, the only place. **Flyway, Testcontainers, the Postgres driver and Spring Session are deliberately absent** — the Boot BOM manages them, and adding them to the catalog silently detaches them from the Boot version you are on ([`../README.md`](../README.md), "Locked stack") |
+| `react-router` and `react-router-dom` | Both direct dependencies at **exactly** the same version. Pin one and pnpm resolves the other differently; two Router contexts then fail to recognize each other **while typecheck and build stay green** |
+| Renaming a new project | `scripts/init-project.sh <name>` **before anything else** — it sets the compose project name and the session cookie name in one pass ([`../database/local-database.md`](../database/local-database.md) §5.1) |
+| A script that modifies the tree | Preflight, bash 3.2, permission bits — the project's own `scripts/README.md` is the host, and this spec does not restate it |
 | Cutting a release | A `vX.Y.Z` tag, with `gradle.properties` and `frontend/package.json` already matching |
 | Production settings | `APP_API_DOCS_ENABLED=false`, and `APP_COOKIE_SECURE=true` behind TLS |
 
@@ -77,7 +86,8 @@ A configuration file is one end of a rule whose other end is code. Open the file
 | [`../backend/platform.md`](../backend/platform.md) | `ddl-auto`, `open-in-view` and the rest of the JPA prohibitions (§7); the backend path prefixes the SPA fallback must exclude (§6) | Changing a JPA setting, or adding a backend path |
 | [`../database/local-database.md`](../database/local-database.md) | The compose project name and its shared-volume trap, the loopback bind, the password with no default (§5) | Touching the development database's compose service or its credentials |
 | [`../backend/auth-sessions.md`](../backend/auth-sessions.md) | What `APP_COOKIE_SECURE` and the session settings are protecting (§4) | Changing a cookie or session setting |
-| [`../testing/index.md`](../testing/index.md) | The required checks the release gates run, and why E2E runs against the packaged jar | Changing what a workflow runs |
+| [`../testing/index.md`](../testing/index.md) | The required checks the release gates run, and why E2E runs against the packaged jar | Changing what a workflow runs, or `frontend/playwright.config.*` |
+| [`../README.md`](../README.md) | The locked stack, the five version decisions intuition gets wrong, and the initial-chunk gzip bar the Vite build is measured against | Bumping a version, or changing `vite.config.*` chunking |
 
 ## Pre-Development Checklist
 
@@ -86,6 +96,8 @@ A configuration file is one end of a rule whose other end is code. Open the file
 - [ ] Publishing a port? Is it bound to `127.0.0.1` unless it genuinely has to be reachable from another machine?
 - [ ] Adding a credential? Does it have **no default at all**, and is its only local source an uncommitted `.env`?
 - [ ] Bumping the version? Are `gradle.properties` and `frontend/package.json` both changed?
+- [ ] Adding a backend dependency? Is it in `gradle/libs.versions.toml` — and is it one the Boot BOM already manages, in which case it must **not** be?
+- [ ] Splitting a chunk in `vite.config.*`? Is the initial chunk actually over the **gzip** bar, or only over Vite's uncompressed warning?
 
 ## Quality Check
 

@@ -27,7 +27,7 @@ The previous version of this repository shipped two invariant scripts with 28 ch
 - **The keyword is not the criterion; the qualifier in front of it is.** Measured during one refactor: `grep '全量屏|全部屏'` returned 16 hits, and reading all of them showed every one was legitimate. "This slice's full set of screens" is correct; "the MVP's full set of screens" is drift — and the two share a keyword. What works is taking a window of context before the match and sorting by qualifier: slice-scoped qualifiers pass, product-scoped qualifiers fail, and no qualifier goes to a human.
 - **Sentences describing history always trip the check, so leave a human-review exit.** "The old version read this as 'covers the whole MVP'" and "that shortcut has been deleted" cannot be written without the forbidden phrase. Do not add an exemption pattern — it will exempt real drift too. Report them, flagged for review, outside the pass/fail count.
 
-## The current five
+## The current six
 
 | Script | Guards | How it was proven able to fail |
 |---|---|---|
@@ -36,6 +36,7 @@ The previous version of this repository shipped two invariant scripts with 28 ch
 | `test-spec-templates.sh` | Install-tree links, guides matching source, `§N` resolution, frontmatter carrying `paths` or nothing | Restore a `](../../` link, or point a `§N` at a section that does not exist |
 | `test-spec-injection.sh` | The expected core ranks first, arrives whole, and is the only spec matched | Three injections, one per assertion; the recipes are in the script's header |
 | `test-skill-links.sh` | No `](../../` inside a skill, and every relative link resolves | Two injections plus a negative case; the recipes are in the script's header |
+| `test-shell-baseline.sh` | Shell stays runnable on bash 3.2: no unbraced expansion before a multi-byte character, no bash 4+ construct | Three injections; the recipes are in the script's header |
 
 ## Still to build
 
@@ -47,3 +48,5 @@ Both are known to be needed. Neither is built, because a rule that has never sur
 | **The pasted prompts and what they duplicate still agree** | Three prompt blocks are pasted by hand into a project's own `workflow.md`, and each restates a rule that also lives elsewhere: step 2's `implement.jsonl` rule against `task-artifacts.md`, step 3's acceptance stop against `04-slice-loop.md`'s decision 5. Drift is silent — the pasted copy keeps working while the shipped one moves on | Delete the spec-index lines from step 2's prompt block in [`../playbook/setup/04-workflow-prompts.md`](../playbook/setup/04-workflow-prompts.md); the check must fail |
 
 **Add a check with any new cross-file rule.** A text convention has no mechanism at all for noticing drift; that is the lesson every entry above is an instance of.
+
+**The bash 3.2 check is the one whose failure CI structurally cannot see.** The runner is bash 5; these scripts run on macOS's own 3.2. Under a UTF-8 locale 3.2 reads identifier bytes through `isalnum()`, which reports the high bytes of `，` and `（` as alphanumeric — so `$src_vendor（` resolves the name `src_vendor` plus that punctuation's first byte. With `set -u` the script dies; without it the value vanishes into half a mojibake glyph. Eleven such lines had accumulated, and one of them was `test-sync-vendor.sh`'s opening banner: that check was unrunnable on a normal Mac while CI reported it green on every push. **A check that only ever runs where the defect cannot occur is not a check** — which is why this one is lexical rather than a `bash -n`, and why it runs first.

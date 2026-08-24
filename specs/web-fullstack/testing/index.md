@@ -3,6 +3,7 @@ name: testing
 description: The required checks, what to add per kind of change, and how to verify behaviour and data — including the two negative tests
 paths:
   - e2e/**
+  - playwright.config.*
 ---
 
 # Quality Gates and Verification · Web Fullstack
