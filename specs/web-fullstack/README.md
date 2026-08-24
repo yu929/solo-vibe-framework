@@ -81,6 +81,7 @@ src/
     utils.ts                    # cn()
   proxy.ts                      # the Next 16 proxy (formerly middleware); calls updateSession
 design-system/MASTER.md         # the authority on the product's visual design
+design-system/screens/          # the approved hi-fi screens; the fourth column of slices.md points here
 supabase/
   config.toml  migrations/*.sql # the database schema (the only place SQL is written)
 e2e/*.spec.ts                   # Playwright E2E, including RLS isolation

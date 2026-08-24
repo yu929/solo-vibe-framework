@@ -16,7 +16,7 @@ Specs and process both belong here. One project's product content does not: its 
 | `specs/<track>/` | agent, injected | That track's coding rules, plus its generated `guides/` |
 | `skills/` | agent | This repo's own skills |
 | `vendor/` | agent | Read-only third-party skill copies |
-| `playbook/` | **people** | Checklists to follow; templates ship with their skill |
+| `playbook/` | **people** | Two scenarios — `setup/` and `build/` — as checklists to follow; templates ship with their skill |
 | `references/` | people, agents via pointer | Background a rule cannot carry |
 | `scripts/` | people | Install, sync, guides distribution, five `test-*.sh` |
 | `.github/workflows/` | CI | The five checks, plus the nightly vendor-drift PR |
@@ -40,7 +40,8 @@ Adding a track: create `specs/<track>/`, register one entry, run `scripts/sync-s
 
 - **Keep each file in one language throughout.** Chinese for product requirements, business rules, manuals and the root `README.md`; English for agent instructions, specs, workflows and conventions. A whole-file switch is a decision; one paragraph in the other language is drift. **A template follows the language of the document it produces, not of the skill it sits in** — so a Chinese asset inside an English skill is correct.
 - **Name `writing-for-agents` explicitly when editing an English spec** — no writing skill triggers there by itself.
-- **Write the playbook as a checklist a person follows**, in its six fixed sections, with only prompts that have actually been run. Those sections, the skill layout and the Chinese linter's false positives: [`references/repo-conventions.md`](references/repo-conventions.md).
+- **Write the playbook as a checklist a person follows**, in two layers: a scenario `README.md` carries when to use it, what must exist first, and the whole picture; each numbered file carries steps, decision points and traps. **Mark every prompt as run or not run** — an invented prompt is the thing this framework exists to prevent. That layering, the skill layout and the Chinese linter's false positives: [`references/repo-conventions.md`](references/repo-conventions.md).
+- **Keep install mechanics out of the playbook** — measured installer output and the source lines behind it go to [`references/install-mechanics.md`](references/install-mechanics.md); `playbook/setup/` keeps what to do and what the failure looks like.
 
 ## Third-party code
 
@@ -56,7 +57,7 @@ Adding a track: create `specs/<track>/`, register one entry, run `scripts/sync-s
 | Requirements and acceptance | the complete PRD, then the slice's `prd.md` |
 | Terminology | `CONTEXT.md` |
 | Decisions with a trade-off | `docs/adr/` |
-| Interface and interaction structure | the approved hi-fi and `master.md` |
+| Interface and interaction structure | the approved hi-fi in `design-system/screens/`, plus `design-system/MASTER.md` |
 
 - **Write back at a phase boundary only, as a delta** — ADDED / MODIFIED / REMOVED, edited into the prose. Appending "the section above is obsolete" turns a description into a changelog.
 - **Keep track vocabulary out of the track-independent layer.** RLS, Server Actions, Maven and DDD belong in `specs/<track>/`; `playbook/`, `skills/` and `specs/universal/` hold on any stack.

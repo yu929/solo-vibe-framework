@@ -18,7 +18,7 @@ Four subjects, one host each, no overlap:
 | Requirements and acceptance | The full PRD; once slicing starts, that slice's task `prd.md` |
 | Terminology | `CONTEXT.md` |
 | Decisions with a trade-off | `docs/adr/` |
-| Interface and interaction structure | The approved hi-fi plus `master.md` |
+| Interface and interaction structure | The approved hi-fi in `design-system/screens/`, plus `design-system/MASTER.md` |
 
 **Do not keep a convenience copy anywhere else.** When the PRD needs to talk about terminology, point at `CONTEXT.md`; when it needs to say why something was decided, point at the ADR.
 
@@ -32,7 +32,7 @@ Requirements discovery → before the hi-fi is approved
     The prototype is a spike; on a conflict, change the prototype
 
 Hi-fi approved → before slicing starts
-    Source of truth = the hi-fi plus master.md
+    Source of truth = the hi-fi plus design-system/MASTER.md
     The one formal write-back: fold the fields, states and edge cases the
     prototype exposed back into the PRD
 

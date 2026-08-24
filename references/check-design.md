@@ -44,6 +44,6 @@ Both are known to be needed. Neither is built, because a rule that has never sur
 | Check | Why | Bug to inject |
 |---|---|---|
 | **The four sources of truth hold no copies of each other** | Requirements, terminology, decisions and interface structure each have one home. A copy diverges, and the divergence shows nothing for months | Put a glossary into the PRD template — the check must fail. Write "terminology is in `CONTEXT.md`" — the check must **not** fire |
-| **The pasted planning prompt and `task-artifacts.md` still agree** | The `implement.jsonl` rule lives in two files by design: one ships with the registry, one a person pastes into their own `workflow.md`. Drift is silent — the pasted copy keeps working while the shipped one moves on | Delete the spec-index lines from the prompt block in [`../playbook/00-setup.md`](../playbook/00-setup.md) step 6; the check must fail |
+| **The pasted planning prompt and `task-artifacts.md` still agree** | The `implement.jsonl` rule lives in two files by design: one ships with the registry, one a person pastes into their own `workflow.md`. Drift is silent — the pasted copy keeps working while the shipped one moves on | Delete the spec-index lines from the prompt block in [`../playbook/setup/04-workflow-prompts.md`](../playbook/setup/04-workflow-prompts.md) step 2; the check must fail |
 
 **Add a check with any new cross-file rule.** A text convention has no mechanism at all for noticing drift; that is the lesson every entry above is an instance of.

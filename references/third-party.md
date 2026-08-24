@@ -50,7 +50,7 @@ So the only mechanism for "a custom flow during requirements discovery" is layer
 
 When the brief stage genuinely needs extra rules for the agent, **reach for the two much lighter things below** before touching the workflow.
 
-Until then, the needed prompt text is pasted by hand into `[workflow-state:no_task]` — see step 5 of [`../playbook/00-setup.md`](../playbook/00-setup.md).
+Until then, the needed prompt text is pasted by hand into `[workflow-state:no_task]` — see step 1 of [`../playbook/setup/04-workflow-prompts.md`](../playbook/setup/04-workflow-prompts.md).
 
 ### Measured: what it provides, and what it does not
 
@@ -66,7 +66,7 @@ Until then, the needed prompt text is pasted by hand into `[workflow-state:no_ta
 | `finish-work` is four steps: `get_context.py --mode record` → `git status` → `task.py archive` → `add_session.py` | `.agents/skills/trellis-finish-work/SKILL.md` | Archiving plus a journal, **zero product questions**, and task-scoped |
 | The workflow-state hook is **parser-only** (*"reads whatever you put in the block"*) | `trellis-meta/references/customize-local/change-workflow.md` | Any "gate" of your own is only prompt text |
 | **`--registry` accepts `type: spec` only and returns failure for anything else** | `dist/utils/template-fetcher.js:828` | `index.json` registers that type alone |
-| **`no-trellis` is a built-in escape hatch**: a prompt containing that standalone word (word-boundary match, so `no-trellisfoo` does not count) suppresses that turn's breadcrumb entirely; SessionStart and sub-agent injection are unaffected | `prompt_injection.skip_keyword` in `config.yaml`, **measured: injection was empty** | The right answer when writing a brief and being asked repeatedly whether to create a task — see the pitfalls in [`../playbook/01-new-product.md`](../playbook/01-new-product.md) |
+| **`no-trellis` is a built-in escape hatch**: a prompt containing that standalone word (word-boundary match, so `no-trellisfoo` does not count) suppresses that turn's breadcrumb entirely; SessionStart and sub-agent injection are unaffected | `prompt_injection.skip_keyword` in `config.yaml`, **measured: injection was empty** | The right answer when converging requirements and being asked repeatedly whether to create a task — see the pitfalls in [`../playbook/setup/04-workflow-prompts.md`](../playbook/setup/04-workflow-prompts.md) |
 | **Spec injection is triggered by the frontmatter `paths:` globs, and a glob is not restricted to code paths** | Measured: a spec with `paths: ["docs/discovery/**"]` is matched by `get_context.py --mode spec --file docs/discovery/slices.md`; the control case `src/a.ts` is not | For adding rules to requirements discovery, this is **an order of magnitude lighter than a workflow variant**: one file, distributed with the registry, shared across projects |
 | **`paths: [".trellis/tasks/**"]` matches too** — a glob can point at Trellis's own artifact directory | Measured 2026-08-21: in a temporary project, after `task.py create`, `get_context.py --mode spec --file .trellis/tasks/08-21-probe/prd.md` matched that spec; `src/a.ts` did not | This is how `specs/universal/guides/task-artifacts.md` is injected automatically when an agent touches task artifacts |
 | **A spec with no `paths:` does not take part in path routing** — it is reached through the `guides/index.md` pointer instead | `scripts/common/spec_match.py` accepts only files whose first line is `---`; `spec_inject.py` handles only a `SpecMatch` | Two delivery channels coexist: **what must appear at a specific moment** gets `paths:`, **what is consulted on demand** stays in the index |
@@ -327,7 +327,7 @@ These skills from the old `~/Developer/skills` repository are retired. **A lefto
 | `system-design` / `design-system-java` | Load-bearing decisions go to `docs/adr/` (maintained by `domain-modeling`); slice ordering goes to `docs/discovery/slices.md` |
 | **`lofi-prototype`** (this repository's own, retired 2026-08-21) | Under the current flow the full hi-fi is approved **before** slicing, so producing lo-fi again inside a task creates a second structural source of truth beside the approved one. The measured conclusion it carried — **the approved screens must go into `implement.jsonl`** — is now carried by `vertical-slicing` (the fourth column of the slice list in `slices.md`, filled into the jsonl as each slice becomes a task). Its fidelity red lines and walkthrough round caps are void with it |
 
-The cleanup commands are in step 2 of [`../playbook/00-setup.md`](../playbook/00-setup.md). **The script removes symlinks only**: when a retired name is a real directory under `~/.claude/skills/` — possibly your own skill of the same name — it errors out rather than deleting. Case 1 of `scripts/test-install-skills.sh` holds this.
+The cleanup commands are in step 2 of [`../playbook/setup/01-trellis-skills.md`](../playbook/setup/01-trellis-skills.md). **The script removes symlinks only**: when a retired name is a real directory under `~/.claude/skills/` — possibly your own skill of the same name — it errors out rather than deleting. Case 1 of `scripts/test-install-skills.sh` holds this.
 
 ## Other third parties still in use
 
@@ -349,7 +349,7 @@ Both are installed **per project**, so neither of this repository's two distribu
 
 `index.json` cannot hold them either — the registry accepts `type: spec` only.
 
-So this repository does exactly one thing: **each track's `frontend/index.md` states how to use them, and what to do instead when they are not installed**. The installation steps are in step 4.2 of [`../playbook/00-setup.md`](../playbook/00-setup.md).
+So this repository does exactly one thing: **each track's `frontend/index.md` states how to use them, and what to do instead when they are not installed**. The installation steps are in step 2 of [`../playbook/setup/03-third-party.md`](../playbook/setup/03-third-party.md).
 
 **Why it is worth wiring up**: the web-fullstack track's `components.json` is `style: base-nova`, the Base UI kernel, while almost every shadcn example in public material is from the Radix era. The track rules banned `@radix-ui/*` long ago, but that is a prohibition — it says what may not be written, not where correct usage comes from. The official skill reads `components.json`, so it knows which kernel this is, and that is the half it supplies.
 

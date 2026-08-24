@@ -145,6 +145,7 @@ frontend/src/                  # load-bearing entries only; anything not listed 
   styles/globals.css           # the single source for visuals: values in :root, mapped by @theme inline
   assets/fonts/                # fonts are vendored; no CDN
 design-system/MASTER.md        # the authority on the product's visual design
+design-system/screens/         # the approved hi-fi screens; the fourth column of slices.md points here
 THIRD_PARTY_NOTICES.md         # third-party notices, plus the ledger of local changes to the frozen snapshot
 CONTEXT.md                     # glossary (maintained by domain-modeling; the only host)
 docs/

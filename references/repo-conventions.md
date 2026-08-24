@@ -10,22 +10,35 @@ The playbook's reader is **somebody still learning this workflow**, and its prod
 
 The reason is sequence, not taste. A command's reader is an AI; a manual's reader is a person learning the process. They are not two forms of one thing — they are two **steps**: the manual records what you actually did, and only the parts that survive a real run are worth freezing into a command. Writing the command first freezes a process nobody has run.
 
-Every scenario file has the same six sections:
+## Two scenarios, two layers
+
+`playbook/` holds exactly two scenarios, one directory each: **`setup/`** (one-off installation) and **`build/`** (everything after it). There is no separate scenario for adding a feature or fixing a bug — both walk the same path as a new product and differ only in where they enter, so they are entries in `build/06-off-path.md` rather than scenarios of their own.
+
+The sections are split across two layers, so nothing is written twice:
 
 ```
-## 什么时候用这个场景   criteria, not description
-## 开始之前             what must already exist
-## 步骤                 per step: what I type / what the AI produces / how I know it worked
-## 我该在哪停下来看     the decision points
-## 常见卡点             traps, and how to get around them
-## 对 AI 说什么 · 速查  prompts, verbatim and copyable
+<scenario>/README.md
+  ## 什么时候用这个场景   criteria, not description
+  ## 开始之前             what must already exist
+  ## <the whole picture>  the flow, the decision points, the things that recur
+
+<scenario>/NN-*.md
+  ## 步骤                 per step: what to type, what comes back, how you know it worked
+  ## 我该在哪停下来看     the decision points of this step
+  ## 常见卡点             traps, and how to get around them
 ```
 
-**The last section holds only prompts that have actually been run.** Inventing a prompt for a step nobody has done is precisely what this framework exists to prevent; mark it "fill in after a real run" instead. A gap is honest.
+**Use the sections a file actually needs; do not write an empty heading to complete the set.** Installation has no product decisions, so `setup/`'s numbered files carry steps and traps and skip the middle section.
+
+**The full flow diagram and the table of decision points exist exactly once**, in `build/README.md`. The root `README.md` carries a one-line summary and a pointer — two diagrams at the same level of detail is how the previous version came to hold two mutually contradictory flows.
+
+**Prompts sit inline, at the step that uses them, and every one is marked run or not run.** There is no separate cheat-sheet section: the same sentence stored twice drifts, and an empty "fill in after a real run" table carries no information the inline marker does not already carry. Inventing a prompt for a step nobody has done is precisely what this framework exists to prevent.
 
 **Scope**: the playbook explains the *difference* between the Trellis default flow and what this framework adds. It does not restate Trellis. Day to day you just use Trellis; the manual covers only when you cannot go straight into Trellis, how to answer when Trellis asks whether to create a task, and where the decision points are.
 
-**Stack commands stay out of it** — `pnpm`, `supabase`, `docker` and deploy commands belong in `specs/<track>/` and in each starter's own manual. The one exception is [`playbook/00-setup.md`](../playbook/00-setup.md), whose whole subject is installing this thing, so `npm`, `trellis` and `ln -s` are its topic.
+**Stack commands stay out of it** — `pnpm`, `supabase`, `docker` and deploy commands belong in `specs/<track>/` and in each starter's own manual. The one exception is [`playbook/setup/`](../playbook/setup/README.md), whose whole subject is installing this thing, so `npm`, `trellis` and `ln -s` are its topic.
+
+**Measured installer output and the source lines behind it belong in [`install-mechanics.md`](install-mechanics.md)**, not in `setup/`. The manual says what to do and what the failure looks like; the reference says why the machine behaves that way. Mixing them means re-reading a whole file to re-verify one line.
 
 **Whenever you have to stop and ask "what am I supposed to do at this step?", that is a bug in the manual.** Add it to that file's 常见卡点 section while you still remember.
 
@@ -92,10 +105,11 @@ Chinese documents use `「」` for quotation. English documents use `"`, and a C
 
 `~/.claude/skills/tech-doc-style-chinese/scripts/lint_copy_rules.py` has **no language detection**: it reports every visible `"` as needing a corner bracket. On an English file the output is entirely noise, so feed it Chinese Markdown only.
 
-Three known false positives on Chinese files — **reported, and correct as they stand**:
+Four known false positives on Chinese files — **reported, and correct as they stand**:
 
 | Reported | Why it is correct |
 |---|---|
 | `id` → `ID` | It is a field name; changing it changes code |
 | Addressing the reader as 你 | Specs address the developer directly on purpose, and the skill says a project convention may override this |
 | Quotes inside a bash fence nested in a blockquote | Its fence detection misses fences prefixed with `>` and reads the command line as prose |
+| ASCII double quotes around an English verbatim quotation | A Chinese document quoting English keeps the original punctuation — Trellis's own wording, an upstream README, a spec's section name |
