@@ -1,18 +1,18 @@
 # Solo Vibe Framework
 
-> 个人用的 vibe coding 工程框架：编码规范 + skill + 操作手册。
+> 个人用的 vibe coding 工程框架：编码规范、skill 和操作手册。
 
-底座是 [Trellis](https://github.com/mindfold-ai/Trellis)（`@mindfoldhq/trellis`，AGPL-3.0），它提供 task 生命周期、需求收敛和跨 session 记忆。本仓只放 Trellis 没有、而这套工作流需要的东西。它已经有的一律不重造。
+底座是 [Trellis](https://github.com/mindfold-ai/Trellis)（`@mindfoldhq/trellis`，AGPL-3.0），负责 task 生命周期、需求收敛和跨 session 记忆。本仓补上这套工作流还缺的部分，不重复实现 Trellis 已有的能力。
 
-解决什么问题：Trellis 管得住单个 task，管不住「这产品整体是什么」「下一片该做谁」「当初为什么否掉了那个方案」。跑五十个 task 也没有一处回答这三个问题。
+Trellis 能管好单个 task，却不回答三个跨 task 的问题：产品现在是什么，下一片做什么，当初为什么否掉另一个方案。即使跑完五十个 task，这些答案也不会自动出现。
 
-给谁用：一个人做产品、把需求讨论和实现大量交给 AI、需要跨 session 保持结构一致的开发者。
+这套框架适合一个人做产品、把大量需求讨论和实现交给 AI，同时又需要跨 session 保持结构一致的开发者。
 
-从哪开始读：装东西看 [`playbook/setup/`](playbook/setup/README.md)，走一遍流程看 [`playbook/build/`](playbook/build/README.md)，想知道规则为什么长这样看 [`AGENTS.md`](AGENTS.md)。
+准备安装看 [`playbook/setup/`](playbook/setup/README.md)，要走流程看 [`playbook/build/`](playbook/build/README.md)。
 
 ## 快速开始
 
-**环境要求**：Node ≥ 18、Python ≥ 3.9（Trellis 自己的要求）。各轨技术栈另有更高要求，装完看 `.trellis/spec/README.md` 的栈锁定表。
+环境要求：Node ≥ 18、Python ≥ 3.9，这是 Trellis 的要求。各轨技术栈可能要求更高，安装后以 `.trellis/spec/README.md` 的栈锁定表为准。
 
 ```bash
 # 1. 装底座
@@ -26,7 +26,7 @@ trellis init --claude --registry https://github.com/yu929/solo-vibe-framework \
              --template web-fullstack
 ```
 
-确认装成了：`scripts/install-skills.sh --check` 全绿，且 `.trellis/spec/` 下轨规范与 `guides/` 同时存在。完整步骤和四条验收在 [`playbook/setup/`](playbook/setup/README.md)。
+装完先确认两件事：`scripts/install-skills.sh --check` 全绿，`.trellis/spec/` 下同时有轨规范和 `guides/`。完整步骤与四条验收见 [`playbook/setup/`](playbook/setup/README.md)。
 
 ### 现有的轨
 
@@ -40,7 +40,7 @@ trellis init --claude --registry https://github.com/yu929/solo-vibe-framework \
 
 ### 四套机制落点不同，别搞混
 
-最容易踩的一处：**registry 装不了 skill**，它只认 `type: spec`。
+先记住：registry 装不了 skill，只认 `type: spec`。
 
 | 装什么 | 用什么装 | 落到哪 |
 |---|---|---|
@@ -58,18 +58,18 @@ trellis init --claude --registry https://github.com/yu929/solo-vibe-framework \
            → 垂直切片 → 逐片进 Trellis → 每 3–5 片一次项目级检查点
 ```
 
-切片需要一个已收敛的东西才切得动，所以需求与原型这一轮本来就要做全。实现做全则意味着几个月拿不到任何可验证的东西。
+切片只能从已经收敛的需求里切，所以需求和原型要先做全。实现不能等到全部完成才验证，否则几个月里都拿不到可检查的结果。
 
-代价是一条前提：高保真定稿之前，PRD 必须已经收敛到字段级。抵消它的是「抛原型验字段」和「反写 PRD」那两步。这两步走过场，高保真就是在替未收敛的需求猜结构，而那时候没有任何机制会告诉你。
+这要求 PRD 在高保真定稿前收敛到字段级。「抛原型验字段」和「反写 PRD」就是用来补齐这一步的；如果只是走过场，高保真会替尚未收敛的需求猜结构，而且流程不会报警。
 
-完整流程图、七处拍板点、五件反复出现的事，都在 [`playbook/build/`](playbook/build/README.md)，全仓只有那一份。
+完整流程图、七处拍板点和五条贯穿全程的规则，都在 [`playbook/build/`](playbook/build/README.md)。
 
-有两件事机制管不了，只能靠人：
+还有两件事只能由人盯住：
 
-1. **本片的定稿屏必须进 `implement.jsonl`**，取值来自 `slices.md` 切片清单第四列，只填这一片的那几屏。实现期子 agent 在全新 context 里只看得到 jsonl 列出的文件，`prd.md` 里写一行路径不算。漏了没有任何症状。实现出来结构不对，看起来像执行不认真。
-2. **每 3–5 片走一次项目级检查点。** 高保真定稿只保证结构一致，不保证实现没有偏离它。漏了会在十几片之后才发作。
+1. 本片的定稿屏要写进 `implement.jsonl`。路径来自 `slices.md` 切片清单第四列，只列这一片的几张屏。实现期子 agent 用的是全新 context，只能看到 jsonl 中列出的文件；`prd.md` 里出现路径还不够。漏掉时不会报错，最后只会看到实现结构和定稿不一致。
+2. 每完成 3–5 片做一次项目级检查点。高保真定稿保证的是起点一致，不能保证实现一直没有偏离。跳过检查点，偏差往往要到十几片后才看出来。
 
-这条链上唯一的硬门禁是 Trellis 自带的 planning summary 批准。本仓的产物一律没有 frontmatter、没有 approved 字段：没有任何东西读它们，加了只会造出一个跟现实永远对不上的假状态。
+流程里的硬门禁只有 Trellis 自带的 planning summary 批准。本仓产物不加 frontmatter 或 approved 字段，因为没有程序读取这些字段；加上反而会留下无法自动维护的假状态。
 
 ## 仓库结构
 
@@ -87,7 +87,7 @@ references/                 规则带不动的背景：第三方判定 · 安装
 index.json                  registry manifest（只登记 type: spec）
 ```
 
-轨无关 guides 六份：`index` · `code-reuse` · `cross-layer` · `review-adjudication` · `source-of-truth` · `task-artifacts`。权威源只有 `specs/universal/guides/` 一处。 各轨目录下的同名文件是 `scripts/sync-spec-guides.sh` 产出的生成副本，改了下次同步就被覆盖。
+轨无关 guides 有六份：`index` · `code-reuse` · `cross-layer` · `review-adjudication` · `source-of-truth` · `task-artifacts`。权威源在 `specs/universal/guides/`。各轨目录下的同名文件由 `scripts/sync-spec-guides.sh` 生成，直接修改会在下次同步时被覆盖。
 
 ### 什么该进本仓
 
@@ -109,30 +109,32 @@ index.json                  registry manifest（只登记 type: spec）
 | `scripts/sync-spec-guides.sh` | 从权威源分发 guides 到各轨。`--check` 只校验 |
 | `scripts/test-*.sh`（五个） | 五条不变量回归，CI 每次 push 都跑 |
 
-五条不变量守的都是**没有症状的缺陷**：装两个模板不报错、vendor 被改过 `.upstream-sha` 一个字不变、安装后才断的链接在源码树里怎么查都是绿的、spec 超预算被截断也不报错、skill 里的跨目录引用要装到别处才断。这类东西必须靠机器发现。
+五条检查针对的都是不容易当场发现的缺陷：装两个模板不报错；vendor 内容变了但 `.upstream-sha` 不变；链接只在安装后才断；spec 超预算后被静默截断；skill 的跨目录引用换个安装位置才失效。这些问题靠人工很难及时发现。
 
-`.github/workflows/sync-vendor.yml` 每晚 diff 上游 vendor，内容真变了才开 PR，**绝不自动 merge**。自动跟随上游等于让别人的改动在你不知情时改变你的工作流。
+`.github/workflows/sync-vendor.yml` 每晚检查一次上游 vendor，内容有变化才开 PR，不自动合并。这样可以先读 diff，再决定是否让上游改动进入工作流。
 
 新增一条轨：建 `specs/<track>/` 写规范正文 → 在 `index.json` 登记一条 `type: spec` → 跑 `sync-spec-guides.sh` → 跑 `test-spec-templates.sh` 验收。脚本自己推导轨列表，不用回来改。
 
 ## 当前状态
 
-**流程 2026-08-21 换过一次，新流程一次都没实跑过。** 旧流程（一页简报 + task 内逐片低保真）完整跑过一次，结论已回写。现在这套「完整 PRD → 全量高保真 → 切片」是在那之后定的。规则的权威源是 [`AGENTS.md`](AGENTS.md) 与 [`specs/universal/guides/`](specs/universal/guides/)。
+流程在 2026-08-21 调整过，目前还没有按这套新流程完整跑过一次。旧流程（一页简报 + task 内逐片低保真）跑过一遍，得到的结论已经回写；现在的「完整 PRD → 全量高保真 → 切片」是在那之后定下的。规则以 [`AGENTS.md`](AGENTS.md) 和 [`specs/universal/guides/`](specs/universal/guides/) 为准。
 
 两处已知的不确定：
 
-- `playbook/` 里每一句 prompt 都标了「已实跑」或「未实跑」，绝大多数是后者。跑过之后把实际有效的那句替换进去，这是手册变准的唯一途径。
+- `playbook/` 里的每一句 prompt 都标了「已实跑」或「未实跑」，目前绝大多数是后者。实际跑过后，用当时有效的说法替换原文。
 - `references/third-party.md` 里标着「未实跑验证」的条目，以实际输出为准，对不上的地方当场改那份文件。
 
 CI 两条都在跑：`checks` 每次 push 触发，`sync-vendor` 每晚定时，都已成功执行，后者也真开过跟随上游的 PR。
 
-照着做的时候，凡是需要停下来问「这步到底该干嘛」的地方，就是手册的 bug。当场记进对应文件的「常见卡点」。
+照着做时，如果某一步让你停下来琢磨「到底该干嘛」，就把它当作文档缺陷，趁还记得写进对应文件的「常见卡点」。
 
 ## 致谢
 
-这套框架是在别人做好的东西上面加一层，不是从零造的。下面每一条都实际影响了本仓的形态。
+这套框架建立在现有工具和方法之上。下面列出的项目都直接影响了本仓的设计。
 
-**直接用到的**（`vendor/` 那六个随本仓分发，其余自己装，见 [`playbook/setup/03-third-party.md`](playbook/setup/03-third-party.md)）：
+### 直接使用
+
+`vendor/` 中的六个 skill 随本仓分发，其余工具自行安装，见 [`playbook/setup/03-third-party.md`](playbook/setup/03-third-party.md)。
 
 | 项目 | 许可 | 本仓怎么用它 |
 |---|---|---|
@@ -145,14 +147,14 @@ CI 两条都在跑：`checks` 每次 push 触发，`sync-vendor` 每晚定时，
 | `skill-creator` | Anthropic 官方 | 改完 skill 校验 frontmatter 与相对链接 |
 | [shadcn/ui 官方 skill + MCP](https://ui.shadcn.com/docs/skills) | MIT © shadcn | 两条轨前端都是 shadcn 系，用它保证组件 API 用对。per-project 装，本仓不分发，只在两条轨的 `frontend/index.md` 规定怎么用 |
 
-**只借了想法，整体不装**：
+### 只借想法
 
 | 项目 | 借了什么 |
 |---|---|
 | [spec-anchor](https://github.com/linziyanleo/spec-anchor) | **findings 分层**：编码期发现先落 finding，确认后才升级进 spec，不允许 AI 直接改 spec。落点 `specs/universal/guides/review-adjudication.md`，字段从 11 个压到 4 个。它本身比 Trellis 严谨，但海拔是为多人多模块设计的 |
 | [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills) | 一条零成本判据：标题里出现「和 / 与 / and」就是两个任务。它的尺寸表不借，粒度锚在文件数上会诱导往横切走 |
 
-判定过程、每条「不装」的理由，以及被明确排除的那些，都在 [`references/third-party.md`](references/third-party.md)。**装什么和不装什么同样重要。**
+判定过程、每条「不装」的理由，以及明确排除的项目，都记录在 [`references/third-party.md`](references/third-party.md)。
 
 ## 许可
 
@@ -163,6 +165,6 @@ CI 两条都在跑：`checks` 每次 push 触发，`sync-vendor` 每晚定时，
 | [`LICENSE`](LICENSE) | 本仓自有内容：`specs/` `skills/` `playbook/` `scripts/` `references/` | MIT © 2026 Adrian |
 | [`vendor/mattpocock-skills/LICENSE`](vendor/mattpocock-skills/LICENSE) | 只覆盖 `vendor/` 里那份第三方拷贝 | MIT © 2026 Matt Pocock |
 
-两份都是 MIT 但版权人不同。vendor 那份是[上游](https://github.com/mattpocock/skills)原件，**再分发时必须随拷贝保留**。这是 MIT 的条件，不是礼节，`scripts/sync-vendor.sh` 会硬断言它存在。
+两份都是 MIT，但版权人不同。vendor 中的是[上游](https://github.com/mattpocock/skills)原件，再分发时必须随拷贝保留；`scripts/sync-vendor.sh` 也会检查它是否存在。
 
 底座 [Trellis](https://github.com/mindfold-ai/Trellis) 是 AGPL-3.0，但本仓不含也不分发它的代码，只是依赖它，所以 AGPL 的传染性不及于此。

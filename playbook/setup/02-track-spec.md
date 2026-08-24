@@ -1,6 +1,6 @@
 # 2 · 在项目里装一条轨的 spec
 
-> 这一步在**项目仓库**里做，不是在框架仓。每开一个新项目重来一次。
+> 这一步要在项目仓库中执行，不是在框架仓。每个新项目都要做一次。
 
 ## 步骤
 
@@ -19,7 +19,7 @@ trellis init --claude --registry https://github.com/yu929/solo-vibe-framework \
 | `java-stack` | Spring Boot 4 + Postgres/Flyway + React 19/Vite + shadcn-admin-kit(ra-core)，单容器部署 | 没有 RLS。查询按归属过滤，加 ArchUnit 约束和双账号负向测试 |
 | `universal-guides` | 不锁定 | 不涉及。它只有轨无关 guides，给还没有轨规范的项目用 |
 
-**怎么确认这步成了**：
+确认安装结果：
 
 ```bash
 ls .trellis/spec/            # 应有 README.md frontend/ backend/ database/ testing/ guides/
@@ -27,41 +27,41 @@ ls .trellis/spec/guides/     # 应有 index.md code-reuse.md cross-layer.md
                              #      review-adjudication.md task-artifacts.md source-of-truth.md
 ```
 
-轨规范和 guides **一次就都在**，因为轨模板自带 guides。
+轨模板自带 guides，因此一次安装后两者都应存在。
 
 ### 已经跑过裸 `trellis init` 的项目：多带 `--overwrite`
 
-先跑过不带 `--template` 的 `trellis init` 的话，`.trellis/spec/` 里已经躺着 Trellis 自带的占位脚手架。这时候要多一个 `--overwrite`：
+如果已经运行过不带 `--template` 的 `trellis init`，`.trellis/spec/` 中会有 Trellis 自带的占位脚手架。这时需要加上 `--overwrite`：
 
 ```bash
 trellis init --claude --yes --registry https://github.com/yu929/solo-vibe-framework \
              --template java-stack --overwrite
 ```
 
-占位模板本来就是等着被填的空壳，没什么可保的。真在里面写过东西的话，先提交再 `--overwrite`，这样一条 `git diff` 就能看清换掉了什么。
+占位模板本身没有需要保留的项目规则。如果你已经在里面写过内容，先提交，再运行 `--overwrite`，这样可以通过 `git diff` 看清替换了什么。
 
 ### 想在合并进 `main` 之前先验一把
 
-`--registry` 默认拉的是**写死的字面量 `main`**，不是「这个仓库的默认分支」。所以在框架仓改完轨规范，正常路径是先合进 `main` 再装。要提前验证，用 `gh:` 前缀指过去：
+`--registry` 默认拉取字面量 `main`，并不会读取仓库的默认分支设置。因此，框架仓修改轨规范后，通常要先合进 `main` 再安装。需要提前验证时，用 `gh:` 前缀指定分支：
 
 ```bash
 trellis init --claude --yes --registry gh:yu929/solo-vibe-framework#<分支名> \
              --template java-stack --overwrite
 ```
 
-**必须用 `gh:` 这种前缀写法。** 浏览器地址那种形式它也认，但那条路径解析分支名时会在斜杠处切断，带斜杠的分支名会被切错，然后报一个跟分支毫无关系的错。详见 [`../../references/install-mechanics.md`](../../references/install-mechanics.md)。
+这里要使用 `gh:` 前缀。浏览器 URL 虽然也能识别，但解析分支名时会在斜杠处截断；分支名含斜杠时，最后报出的错误还与分支无关。详见 [`../../references/install-mechanics.md`](../../references/install-mechanics.md)。
 
 ## 我该在哪停下来看
 
-### ⚠️ 千万别装两个模板
+### 不要安装两个模板
 
-`.trellis/config.yaml` 里 `registry.spec.template` 是**单数**字段。第二次 init 会把它整行替换掉，此后 `trellis update` 只刷新第二个模板，**你的轨规范再也收不到修复**，包括那些安全规则。
+`.trellis/config.yaml` 中的 `registry.spec.template` 是单值字段。第二次 init 会整行替换它，此后 `trellis update` 只刷新后装的模板，原来的轨规范也就收不到后续修复，包括安全规则。
 
-最坏的地方是它不报错：update 照常成功、照常打绿字，只是少刷了一半。**没有任何症状**，直到某天你发现本地规范和框架仓的对不上。
+这个问题不会报错。update 仍会成功并显示绿字，只是少更新一部分文件，通常要到对比本地规范与框架仓时才会发现。
 
 源码依据在 [`../../references/third-party.md`](../../references/third-party.md) 的 "Four distribution mechanisms" 一节。
 
-### ⚠️ 漏了 `--overwrite` 也不报错
+### 漏掉 `--overwrite` 也不会报错
 
 实测输出是这样的：
 
@@ -71,38 +71,38 @@ trellis init --claude --yes --registry gh:yu929/solo-vibe-framework#<分支名> 
 📋 Tracking 35 template files for updates
 ```
 
-**它跳过了，然后照常打绿字、正常退出。** 你会以为装好了，实际 `.trellis/spec/` 一个字没变，直到某天发现 AI 一直在按占位模板干活。
+命令跳过写入后仍会正常退出并显示绿字，看起来像安装成功，实际 `.trellis/spec/` 没有变化，AI 仍按占位模板工作。
 
-所以上面「怎么确认这步成了」那两条 `ls` 不能省。
+因此，上面的两条 `ls` 检查不能省。
 
 ### 别用 `--append`
 
-名字听起来更安全，实际是「只补缺失的文件」：`database/` 和 `testing/` 装进来了，而 `backend/` 和 `frontend/` 还是占位模板。半套轨规范加半套脚手架，比全没装更难查。
+`--append` 只补缺失文件。结果可能是 `database/` 和 `testing/` 来自轨规范，`backend/` 和 `frontend/` 仍是占位模板。这种混合状态比完全没装更难排查。
 
 ## 常见卡点
 
 ### 「`.trellis/spec/` 里只有 guides，没有轨规范」
 
-装成 `universal-guides` 了。删掉 `.trellis/spec/`，用轨 id 重装一次，轨模板自带 guides。
+这说明安装了 `universal-guides`。删除 `.trellis/spec/` 后，用轨 id 重装；轨模板本身已经包含 guides。
 
-**别再补一次 init 去追加**：装第二个模板会把 `registry.spec.template` 顶掉。
+不要再运行一次 init 试图追加，第二个模板会覆盖 `registry.spec.template`。
 
 ### 「已经装了两个模板，现在怎么办」
 
 打开项目的 `.trellis/config.yaml`，看 `registry.spec.template` 那一行：
 
-- 值是轨 id（如 `web-fullstack`）→ **不用管**。轨模板自带 guides，`trellis update` 刷新它就够了
+- 值是轨 id（如 `web-fullstack`）→ 不用处理。轨模板自带 guides，运行 `trellis update` 即可
 - 值是 `universal-guides` → 改成轨 id。改完 `trellis update` 才会重新开始刷新轨规范
 
 `.trellis/spec/` 里已有的文件不用动。它们内容是对的，只是更新来源被指错了地方。
 
 ### 「`.trellis/spec/universal/guides/` 不存在」
 
-对的，**不应该存在**。模板的 `<id>/` 那一层会被抹平，guides 直接落在 `.trellis/spec/guides/`。
+这是正常的。安装时会去掉模板的 `<id>/` 这一层，guides 直接写到 `.trellis/spec/guides/`。
 
 ### 「带 `--template` 之后，Trellis 自带的 spec 没了」
 
-这是对的，实测如此：带 `--template` 时 `.trellis/spec/` 里只有模板的内容。轨规范就该取代默认的，这也正是轨模板**必须自带 guides** 的另一半理由。
+这是正常结果。实测带 `--template` 时，`.trellis/spec/` 只保留模板内容；轨规范会取代默认 spec，所以轨模板必须自带 guides。
 
 ### 「改了 `.trellis/spec/` 里的文件，`trellis update` 会覆盖吗」
 

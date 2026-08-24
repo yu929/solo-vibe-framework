@@ -1,6 +1,6 @@
 # 1 · 装 Trellis 与全局 skill
 
-> 两条命令。它们是全局的，跟具体项目无关，换项目不用重来。
+> 这里只运行两条全局命令。以后换项目，不用重复这一步。
 
 ## 步骤
 
@@ -10,7 +10,7 @@
 npm install -g @mindfoldhq/trellis@latest
 ```
 
-**怎么确认这步成了**：
+确认安装结果：
 
 ```bash
 trellis --version
@@ -22,41 +22,41 @@ trellis --version
 scripts/install-skills.sh
 ```
 
-它做四件事，幂等，可以反复跑：
+脚本可以反复运行，每次会处理四件事：
 
 1. 建 `~/.claude/skills/`，不存在时才建
 2. 软链本仓的 `vertical-slicing` 与 `design-review`
 3. 软链 vendor 的 `grilling`、`grill-me`、`grill-with-docs`、`domain-modeling`、`prototype`、`writing-for-agents`
 4. 删掉已退役的软链：`product-brief`、`prd-generator`、`prd-generator-noweb`、`system-design`、`design-system-java`、`lofi-prototype`
 
-**怎么确认这步成了**：
+确认软链状态：
 
 ```bash
 scripts/install-skills.sh --check
 ```
 
-全 `=` 且退出码为 0 就对了。出现 `✗` 按它的提示处理。
+所有项目都显示 `=` 且退出码为 0，即为正常。出现 `✗` 时按脚本提示处理。
 
 ## 为什么是脚本，不是几行 `ln -s`
 
-升级场景下目标总是已存在，指向的是旧仓。裸 `ln -s` 会报 `File exists` 然后什么也不做。看起来装完了，实际还在跑旧实现。
+升级时，目标位置往往已经有一个指向旧仓的软链。直接运行 `ln -s` 只会报 `File exists`，不会更新指向；表面上完成了安装，实际仍在使用旧实现。
 
-脚本会核对已存在软链的指向、替换指错的那些，并对「不是软链而是真目录」的情况**中止并报告**，而不是硬覆盖。
+脚本会核对现有软链并替换错误指向。遇到真文件或真目录时，它会中止并报告，不会强行覆盖。
 
 ## 它删什么，不删什么
 
-退役名（`system-design`、`product-brief` 这些）都很通用，你完全可能有同名的自有 skill。所以删除动作卡两层，缺一不可：
+`system-design`、`product-brief` 这类退役名称很通用，可能与你自己的 skill 重名。脚本只有在下面两个条件都满足时才会删除：
 
-- **真文件和真目录一律不碰**，只报告并退出，等你自己确认
-- **指向陌生位置的软链也不碰**，那可能是你自己装的同名 skill
+- 目标确实是软链，而不是真文件或真目录
+- 软链指向本仓或本框架旧版仓库根，而不是陌生位置
 
-只有「确实是软链、且指向本仓或本框架旧版仓库根」的才删。删软链是无损的，指向的目标原样保留。这条由 `scripts/test-install-skills.sh` 卡住，它在临时目录里跑，碰不到你真正的 `~/.claude/skills/`。
+删除的只是软链，目标内容会原样保留。`scripts/test-install-skills.sh` 在临时目录中验证这条规则，不会碰你实际的 `~/.claude/skills/`。
 
 ## 退役清单里为什么有 `lofi-prototype`
 
-这不是笔误。新流程里全量高保真在切片**之前**就定稿了，task 内再出一次低保真，等于跟定稿构成两个互相冲突的结构源真。
+这不是笔误。新流程会在切片前完成全量高保真，task 内再画一份低保真，会产生两个相互冲突的结构来源。
 
-它承接的那条实跑结论是定稿必须进 `implement.jsonl`，已改由 `vertical-slicing` 接住。
+旧流程验证过的结论是：定稿必须进入 `implement.jsonl`。现在这条要求由 `vertical-slicing` 承接。
 
 `product-brief` 同理已降级成模板 [`../../skills/vertical-slicing/assets/slices-template.md`](../../skills/vertical-slicing/assets/slices-template.md)，不再是 skill。
 
@@ -64,9 +64,9 @@ scripts/install-skills.sh --check
 
 ### 「init 完了，但 slash 列表里没有 `/vertical-slicing`」
 
-九成是软链没做。registry **不装 skill**，见[场景首页](README.md)那张四机制表。
+通常是软链没有装好。registry 不负责安装 skill，见[场景首页](README.md)的四机制表。
 
-本仓两个 skill 都是手工触发（`disable-model-invocation`），所以判据是**它在不在你的 slash 列表里**，不是 AI 会不会自己想起来用。
+本仓两个 skill 都要手工触发（`disable-model-invocation`）。检查它们是否出现在 slash 列表里，不要等 AI 自动调用。
 
 ```bash
 scripts/install-skills.sh --check

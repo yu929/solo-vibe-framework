@@ -1,12 +1,12 @@
 # 4 · 两段粘进 `.trellis/workflow.md` 的提示
 
-> 可选，但推荐。缺了不阻塞，只是提醒不会出现在你做决定的那一刻。
+> 这是推荐的可选配置。跳过不会阻塞流程，但你在做决定时收不到对应提醒。
 >
-> **这两段都是提示语，不是判定。** Trellis 的 hook 是 parser-only，把这段原样注入对话，不做任何检查。它挡不住任何事，价值全在出现的时机。
+> 这两段只是提示，不会被程序校验。Trellis 的 hook 是 parser-only，只负责把文字原样注入对话。它不能阻止操作，作用在于及时提醒。
 
 ## 步骤 1 · 让 `no_task` 状态先看切片地图
 
-Trellis 在没有活跃 task 时每轮都会问「要不要建 task」。默认它不知道你有切片地图这回事。
+没有活跃 task 时，Trellis 每轮都会询问是否新建 task。默认情况下，它不知道项目里还有一份切片地图。
 
 打开项目里的 `.trellis/workflow.md`，找到 `[workflow-state:no_task]` 块，替换成：
 
@@ -21,11 +21,11 @@ Trellis 在没有活跃 task 时每轮都会问「要不要建 task」。默认�
 [/workflow-state:no_task]
 ```
 
-**⚠️ 未实跑验证。** 第一次用的时候看它实际效果，不对就当场改。改的是你自己项目里的文件，`.trellis/.template-hashes.json` 会保护本地修改不被升级覆盖。
+> 未实跑验证。第一次使用时检查实际效果，不合适就当场调整。修改的是项目自己的文件，`.trellis/.template-hashes.json` 会保护本地内容，不让升级直接覆盖。
 
 ## 步骤 2 · 让 planning 阶段先读固定小节
 
-Trellis 规定复杂 task 在 `task.py start` 之前必须有 `design.md` 和 `implement.md`，但**只给 `prd.md` 生成骨架**，另外两份靠 agent 自由发挥。模板已经随 registry 装进 `.trellis/spec/guides/task-artifacts.md`，这一段是让它在**写之前**被读到。
+Trellis 要求复杂 task 在 `task.py start` 前具备 `design.md` 和 `implement.md`，但只为 `prd.md` 生成骨架，另外两份由 agent 自行组织。registry 已把模板安装到 `.trellis/spec/guides/task-artifacts.md`，下面这段提示让 agent 在动笔前先读模板。
 
 打开 `.trellis/workflow.md`，找到 `[workflow-state:planning]` 块，在末尾加这几行：
 
@@ -37,17 +37,17 @@ Trellis 规定复杂 task 在 `task.py start` 之前必须有 `design.md` 和 `i
 同样必须进 implement.jsonl，规范和定稿屏走的是同一条通路。
 ```
 
-**第二条是实跑得出的，漏了没有症状**：定稿画了、`prd.md` 也引用了，实现出来照样不是定稿的结构，看起来像是执行不认真。
+第二条来自实跑结论。漏掉时不会报错：定稿已经画好，`prd.md` 也有引用，实现结构却仍与定稿不同，看起来像执行不认真。
 
-**第三条未实跑验证**，推理依据在下面。
+第三条尚未实跑验证，依据如下。
 
-## 为什么这一步是保险，不是唯一通路
+## 为什么还要加这层提醒
 
-`task-artifacts.md` 自带 `paths: [".trellis/tasks/"]`，动 task 目录里的文件时会自动注入。这条已实测**：在临时项目里建 task，`get_context.py --mode spec --file <task>/prd.md` 命中该文件，反向对照 `src/a.ts` 不命中。
+`task-artifacts.md` 自带 `paths: [".trellis/tasks/"]`，操作 task 目录中的文件时会自动注入。实测在临时项目中建 task 后，`get_context.py --mode spec --file <task>/prd.md` 会命中该文件，而 `src/a.ts` 不会命中。
 
-但注入在 Claude Code 那侧挂在 **PostToolUse**，matcher 是 `Read|Edit|Write|MultiEdit`。先读一个受管路径下的文件也能触发，真正来不及的是**凭空建新文件**那种。
+不过，Claude Code 侧的注入挂在 PostToolUse，matcher 是 `Read|Edit|Write|MultiEdit`。先读取受管路径中的文件可以触发注入；直接从空白创建新文件时，提示可能来得太晚。
 
-子 agent 更彻底：它的 context 在 PreToolUse 时由 `implement.jsonl` 内联组装，dispatch prompt 还明说「需要的都给你备好了」。jsonl 没列的规范，在它开工前等于不存在。上面第二、三条都由此而来。
+子 agent 的 context 则在 PreToolUse 阶段由 `implement.jsonl` 内联组装。dispatch prompt 还明确说所需材料已经备好，因此 jsonl 没列出的规范在开工时不会进入它的视野。上面的第二、三条都基于这一点。
 
 源码依据在 [`../../references/third-party.md`](../../references/third-party.md) 的 "Measured: what it provides, and what it does not"。
 
@@ -55,14 +55,14 @@ Trellis 规定复杂 task 在 `task.py start` 之前必须有 `design.md` 和 `i
 
 ### 「Trellis 一直问要不要建 task，很烦」
 
-它在没有活跃 task 时每轮都问。需求还没收敛之前答**否**。Trellis 自己就允许这样，它的原话是用户说不就 *"skip Trellis for this session"*。`no_task` 是设计内的合法状态，不是你在绕过什么。
+没有活跃 task 时，它每轮都会询问。需求尚未收敛就回答「否」。Trellis 明确允许这样做，原话是用户拒绝后 *"skip Trellis for this session"*；`no_task` 本来就是合法状态。
 
-**要它这一轮彻底闭嘴**，消息里带上 `no-trellis` 这个词（独立成词，`no-trellisfoo` 不算），那一轮的提示完全不注入：
+如果想在当前一轮关闭提示，在消息中加入独立成词的 `no-trellis`（`no-trellisfoo` 不算）：
 
 ```
 no-trellis 我们先把 PRD 第 3 节聊完
 ```
 
-这是 Trellis 自带的逃生舱，开关在 `.trellis/config.yaml` 的 `prompt_injection.skip_keyword`，默认就是 `no-trellis`。**已实测**：带这个词跑，注入内容为空。
+这是 Trellis 自带的临时开关，配置项是 `.trellis/config.yaml` 中的 `prompt_injection.skip_keyword`，默认值为 `no-trellis`。已实测：消息中带这个词时，注入内容为空。
 
-它和本篇步骤 1 那段粘贴**不是一回事，别互相替代**：粘贴是给 `no_task` 状态**加**一段提醒，长期生效；`no-trellis` 是**关掉**当轮全部提醒，一次性。写 PRD 那几轮嫌吵就用后者，平时靠前者。
+它与步骤 1 的配置用途相反，不能互相替代：步骤 1 为 `no_task` 状态长期增加提醒，`no-trellis` 则只关闭当前一轮的全部提醒。写 PRD 时临时觉得干扰，可以使用后者。
