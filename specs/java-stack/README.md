@@ -192,6 +192,8 @@ Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality
 
 **Track-specific.** Each layer has exactly one `index.md`, and that one file declares `paths:` — it is what arrives automatically when you touch the source files that layer governs. It carries the one way to do each thing, the rules that fail silently, and the two checklists, sized to fit the injection budget whole.
 
+**A colocated unit test belongs to the layer it sits in, not to the testing spec.** Only `backend/src/test/**` and `frontend/e2e/**` reach [`testing/index.md`](testing/index.md) by path; `frontend/src/**/*.test.ts` sits inside the frontend spec's own tree, and the glob grammar has no exclusion syntax — a testing glob over it would match alongside the frontend catch-all, and the loser of that pair is truncated rather than dropped. So [`frontend/index.md`](frontend/index.md)'s Pre-Development Checklist carries a line pointing at the testing spec for the two rules a unit test actually needs.
+
 | Layer core (injected) | Read it when |
 |---|---|
 | [`backend/index.md`](backend/index.md) | Writing a repository, controller or service, or touching Spring Security |
@@ -212,6 +214,7 @@ Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality
 | [`frontend/data-layer.md`](frontend/data-layer.md) | The provider as the only path to the backend, generated types, the cache across tabs, reuse order, hooks, theme tokens, deep links |
 | [`frontend/ui-structure.md`](frontend/ui-structure.md) | Page skeletons, button hierarchy, filters, tables, empty states, what the admin kit switches on, accessibility invariants |
 | [`frontend/ui-interaction.md`](frontend/ui-interaction.md) | Forms, validation, dialog vs route, feedback, loading, destructive actions |
+| [`frontend/silent-failures.md`](frontend/silent-failures.md) | The six frontend mistakes that produce no error, no failing test and no visible defect |
 | [`testing/test-matrix.md`](testing/test-matrix.md) | Which level uses which tool, and the application state that leaks between tests |
 | [`testing/falsification.md`](testing/falsification.md) | Proving each guard actually goes red |
 | [`testing/containers-and-releases.md`](testing/containers-and-releases.md) | What must be running locally, and how the artifact is built and shipped |

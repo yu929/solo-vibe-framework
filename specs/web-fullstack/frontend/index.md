@@ -1,14 +1,17 @@
 ---
 name: frontend
-description: Server/Client boundary, component reuse order, forms and overlays, hooks, theme tokens and accessibility for the Next.js App Router track
+description: Server/Client boundary, forms and overlays, hooks, theme tokens and accessibility for the Next.js App Router track
 paths:
   - src/components/**
-  - src/app/**
+  - src/app/**/*.tsx
+  - src/app/**/*.css
 ---
 
 # Frontend Rules · Web Fullstack
 
 > One way to do each thing. The track overview and the Never list are in [`../README.md`](../README.md).
+>
+> Section numbers are shared with the sibling file listed below, so a section reference means the same thing wherever it is cited.
 
 ## Quick reference
 
@@ -16,8 +19,8 @@ paths:
 |---|---|
 | A new component defaults to | A Server Component; `"use client"` only for state, effects, refs, browser APIs or event handlers |
 | Adding a UI component | `pnpm dlx shadcn@latest add <name>`; never hand-edit `src/components/ui/*` |
-| Where component APIs come from | shadcn skill / MCP first; without it, the official component pages. **Never from memory** — this track runs the Base UI kernel, not Radix |
-| Reuse order | `ui/*` → `{data,forms,app}/*` → build new only when neither fits |
+| Where component APIs come from | shadcn skill / MCP first; without it, the official component pages. **Never from memory** — this track runs the Base UI kernel, not Radix (`components.md` §2) |
+| Reuse order | `ui/*` → `{data,forms,app}/*` → build new only when neither fits (`components.md` §2) |
 | Forms | `useActionState` with a server action, and `<form noValidate>` |
 | List keys | A stable id — **never the array index** |
 | Memoization | No `useMemo` / `useCallback` / `memo` by default; add one when a profile proves a cost |
@@ -29,27 +32,6 @@ A new component is **a Server Component by default**. Add `"use client"` — on 
 **Never** import a DB client, a secret or a server-only module into a client component.
 
 **The reverse direction is equally dangerous**: do not export a constant or a pure function from a `"use client"` file for the server to import. It becomes a client reference and fails silently — a `.limit(N)` receives something that is not a number — and **neither typecheck nor build reports anything; only the runtime does.** Shared constants and pure functions live in `src/lib/`.
-
-## 2. Component reuse order
-
-New UI looks in this order:
-
-1. `components/ui/*` — shadcn primitives
-2. `components/{data,forms,app}/*` — the pattern layer: `DataTable` for lists, `FilterBar` for filters, `EmptyState`, `StatusBadge`, `ConfirmDialog` for deletions and other dangerous confirmations
-3. Build something new only when neither fits
-
-**Never reimplement a component that already exists.** Delete confirmations use `ConfirmDialog`, **never `window.confirm`**. The fixed page structure is in `design-system/MASTER.md`.
-
-**The authority on how a component is written is upstream, not your memory.** Before deciding which component to `add`, or how to compose `components/ui/*`:
-
-- If `shadcn` is registered in the project's root `.mcp.json`, or a shadcn skill is installed under the project's `.claude/skills/`, **consult it before writing**. It can read `components.json`, so it knows this project's kernel, its aliases and what is already installed.
-- With neither, **read the matching component page at <https://ui.shadcn.com/docs/components> before writing**, and mention once that this project is not wired up. Once is enough — not every round.
-
-**Memory is especially unreliable on this track**: `components.json` says `style: base-nova`, which is the **Base UI kernel**, while almost every public example and almost everything a model remembers is from the Radix era. A component written from memory compiles and renders; what it gets wrong is composition and accessibility attributes. The "no `@radix-ui/*`" entry in [`../README.md`](../README.md)'s Never list says what you may not write; this rule says where to get what is correct.
-
-**Never copy component APIs into this spec.** They follow upstream versions, so a copy is guaranteed to go stale, and the stale copy will outrank upstream.
-
-**Division of labour with `ui-ux-pro-max`:** visual design, typography, colour and the design system are its job; component selection, composition and props belong to the shadcn skill / MCP. Its bundled shadcn data is a static snapshot and **is not an authority on component APIs**.
 
 ## 3. Forms
 
@@ -106,16 +88,23 @@ Purely navigational overlays, menus, popovers, tooltips and read-only previews *
 
 ---
 
+## Where the rest of it lives
+
+| File | Covers | Open it when |
+|---|---|---|
+| [`components.md`](components.md) | §2 — the order to look in before building something new, why memory is unreliable about component APIs on this kernel, and the division of labour with `ui-ux-pro-max` | You add a UI component, or compose anything out of `components/ui/*` |
+
 ## Pre-Development Checklist
 
 Work through this before writing frontend code.
 
 - [ ] Is this component a **Server Component** by default? If it carries `"use client"`, can you state the reason (state, effect, ref, browser API, event handler)?
-- [ ] Does `components/ui/*` or `components/{data,forms,app}/*` already have what you need? (Reuse order in §2.)
+- [ ] Does `components/ui/*` or `components/{data,forms,app}/*` already have what you need? (Reuse order in `components.md` §2.)
 - [ ] **Are this slice's approved hi-fi screens in `implement.jsonl`?** (Their paths are in the fourth column of the slice list in `docs/discovery/slices.md`; missing them has no symptom — an implementation sub-agent in a fresh context sees only the files that jsonl lists.)
 - [ ] Adding a colour, shadow or type size? **Not allowed** — read `design-system/MASTER.md` first; the tokens live in `@theme` in `globals.css`
 - [ ] Does anything export a constant or a pure function from a `"use client"` file to the server? (It fails silently, and typecheck says nothing.)
 - [ ] What is this screen's primary action? Not being able to say means the information architecture is not settled.
+- [ ] Writing a test, or fixing a bug? [`../testing/index.md`](../testing/index.md) says which kind to write and what to do first
 
 ## Quality Check
 

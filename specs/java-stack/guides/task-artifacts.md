@@ -56,7 +56,7 @@ A lightweight task needs only `prd.md`. **The test is not the size of the change
 
 **Risky files and rollback points**: which files, when touched, tend to drag in others, and at which step the cost of rolling back jumps.
 
-**Pre-start review**: what to confirm before `task.py start`. **Are this slice's structural references — the approved screens, the contract files — in `implement.jsonl`?** This is the one most often missed, and missing it has no symptom: a sub-agent in a fresh context sees only the files that jsonl lists, and a path written into `prd.md` does not count.
+**Pre-start review**: what to confirm before `task.py start`. **Are this slice's structural references — the approved screens, the contract files — in `implement.jsonl`?** This is the one most often missed, and missing it has no symptom: a sub-agent in a fresh context sees only the files that jsonl lists, and a path written into `prd.md` does not count. **List the governing rules the same way**: the `index.md` of every layer this slice touches, plus the sibling files that index's own table sends you to for this change. A sub-agent's context is assembled from the jsonl *before* it starts, while path-glob injection reaches it only after it has already written something.
 
 ## Two rules that apply to both
 

@@ -262,19 +262,21 @@ Trellis 在没有活跃 task 时每轮都会问「要不要建 task」。默认�
 
 Trellis 规定复杂 task 在 `task.py start` 之前必须有 `design.md` + `implement.md`，但**只给 `prd.md` 生成骨架**，另外两份靠 agent 自由发挥。模板已经随 registry 装进 `.trellis/spec/guides/task-artifacts.md`，这一段是让它在**写之前**被读到。
 
-打开 `.trellis/workflow.md`，找到 `[workflow-state:planning]` 块，在末尾加两行：
+打开 `.trellis/workflow.md`，找到 `[workflow-state:planning]` 块，在末尾加这几行：
 
 ```md
 写 design.md / implement.md 前先读 .trellis/spec/guides/task-artifacts.md 的固定小节。
 本片对应的高保真定稿屏（slices.md 切片清单第四列）必须进 implement.jsonl——
 实现期子 agent 在全新 context 里只看得到 jsonl 列出的文件，prd.md 里写一行路径不算。
+本片碰到的每一层，它的 .trellis/spec/<层>/index.md 和那份 index 指向的同层文件，
+同样必须进 implement.jsonl——规范和定稿屏走的是同一条通路。
 ```
 
 **第二条是实跑得出的，漏了没有症状**：定稿画了、`prd.md` 也引用了，实现出来照样不是定稿的结构，看起来像是执行不认真。
 
 > **`task-artifacts.md` 自带 `paths: [".trellis/tasks/**"]`**，动 task 目录里的文件时会自动注入——**这条已实测**（在临时项目里建 task，`get_context.py --mode spec --file <task>/prd.md` 命中该文件，反向对照 `src/a.ts` 不命中）。所以这一步是加一道保险，不是唯一通路。
 >
-> 但注入在 Claude Code 那侧是 **PostToolUse**（写完才触发），所以「在动手写之前读到」仍然靠这段提示语。**这一半未实跑验证。**
+> 但注入在 Claude Code 那侧挂在 **PostToolUse**，matcher 是 `Read|Edit|Write|MultiEdit`——先读一个受管路径下的文件也能触发，真正来不及的是**凭空建新文件**那种。子 agent 更彻底：它的 context 在 PreToolUse 时由 `implement.jsonl` 内联组装（`shared-hooks/inject-subagent-context.py`），dispatch prompt 还明说「需要的都给你备好了」——jsonl 没列的规范，在它开工前等于不存在。**第三条据此而来，未实跑验证。**
 
 ## 我该在哪停下来看
 

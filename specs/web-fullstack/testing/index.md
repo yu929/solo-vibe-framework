@@ -3,7 +3,6 @@ name: testing
 description: The required checks, what to add per kind of change, how to verify behaviour and data, and the local backend, container and release commands
 paths:
   - e2e/**
-  - "**/*.test.ts"
 ---
 
 # Quality Gates and Verification · Web Fullstack
@@ -40,7 +39,7 @@ pnpm build       # next build (type-checks again, and produces the artifact)
 
 1. `pnpm dev` → `localhost:3000`: sign up → sign in → create, edit and delete in one business module → sign out
 2. **Data isolation**: switch to a second account and confirm it can neither see nor modify the first account's data (RLS is working)
-3. **Cross-tenant access through a sub-service (only when there is one)**: create a job as account A, then use **that job** to reach account B's resource key — **it must be refused**. See [`../backend/index.md`](../backend/index.md) §6.1
+3. **Cross-tenant access through a sub-service (only when there is one)**: create a job as account A, then use **that job** to reach account B's resource key — **it must be refused**. See [`../backend/sub-services.md`](../backend/sub-services.md) §6.1
 4. Required checks all green, and `supabase db reset` replays every migration cleanly
 5. After a schema change: confirm the migration and `database.types.ts` are both updated, and that typecheck is still green
 

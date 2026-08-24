@@ -34,7 +34,7 @@
 
 > When a real project genuinely needs an exception — service-role for the Auth Admin API, say, or a forwarding Route because a secret cannot be a server-action argument — it is **recorded explicitly as a controlled exception** (scope, reason, where it lives). Nothing is bypassed quietly, and the exception itself has to survive review.
 >
-> **There is exactly one registered controlled exception, and most projects will never use it**: a heterogeneous sub-service's worker holding service-role, scoped in [`backend/index.md`](backend/index.md) §6.1. **When the project has no `services/` directory that exception does not exist**, and the rule is five words: do not bypass RLS. It carries one invariant that must not be abbreviated — the worker's only input is a job id, and it never fetches user data by an externally supplied primary key — plus one negative acceptance test: using tenant A's job to reach tenant B's resource must be refused. **"There is an exception" does not mean "service-role is free to use"**: anything not in that table is forbidden.
+> **There is exactly one registered controlled exception, and most projects will never use it**: a heterogeneous sub-service's worker holding service-role, scoped in [`backend/sub-services.md`](backend/sub-services.md) §6.1. **When the project has no `services/` directory that exception does not exist**, and the rule is five words: do not bypass RLS. It carries one invariant that must not be abbreviated — the worker's only input is a job id, and it never fetches user data by an externally supplied primary key — plus one negative acceptance test: using tenant A's job to reach tenant B's resource must be refused. **"There is an exception" does not mean "service-role is free to use"**: anything not in that table is forbidden.
 
 **Security (breaking these causes a real incident):**
 
@@ -101,12 +101,23 @@ Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality
 
 **Track-specific.** Every file in this table declares `paths:`, so it is injected when you touch the source files it governs.
 
+**Under `src/app/` the two layers are separated by extension**: `*.ts` is server code and belongs to the backend spec, `*.tsx` and `*.css` are route UI and belong to the frontend spec. App Router colocates server actions with the pages that call them, the glob grammar has no exclusion syntax, and one edited file must match exactly one spec — the extension is the only seam left.
+
+**A colocated unit test belongs to the layer it sits in, not to the testing spec.** `src/lib/utils.test.ts` is governed by the backend spec and `src/components/x.test.ts` by the frontend spec; only `e2e/**` reaches the testing spec by path. The same grammar limit applies — nothing distinguishes `utils.ts` from `utils.test.ts` — so a testing glob over `**/*.test.ts` would match every layer at once and cost the loser its tail. Each layer's Pre-Development Checklist therefore carries a line pointing at [`testing/index.md`](testing/index.md) for the two rules a unit test actually needs. The java track assigns ownership the same way, globs and checklist line alike.
+
 | File | Covers | Read it when |
 |---|---|---|
-| [`frontend/index.md`](frontend/index.md) | Component reuse order, the Server/Client boundary, hooks, forms and overlays, theme and visuals, accessibility | Adding a component, writing a form, touching theme tokens |
-| [`backend/index.md`](backend/index.md) | How data is read and written, auth and sessions, the auth cookie, the signup toggle, a sub-service's trust boundary | Writing a server action, touching auth or the proxy |
+| [`frontend/index.md`](frontend/index.md) | The Server/Client boundary, forms and overlays, hooks, theme and visuals, accessibility | Adding a component, writing a form, touching theme tokens |
+| [`backend/index.md`](backend/index.md) | How data is read and written, auth and sessions, the auth cookie, the signup toggle | Writing a server action, touching auth or the proxy |
 | [`database/index.md`](database/index.md) | RLS, the three parts of a new table, migrations, type generation | Adding a table, writing a migration |
 | [`testing/index.md`](testing/index.md) | Required checks, how to verify behaviour and data (including two negative tests) | Before saying it is done |
+
+**The longest sections sit beside their core**, in files that carry no `paths:` — they are reached from the core's "Where the rest of it lives" table, never injected. Section numbers are shared with the core they came from.
+
+| File | Covers |
+|---|---|
+| [`backend/sub-services.md`](backend/sub-services.md) | §6 — when an execution-heavy service is worth splitting out, and the trust boundary a service-role worker must respect |
+| [`frontend/components.md`](frontend/components.md) | §2 — the reuse order, and where a component's API comes from on a Base UI kernel |
 
 **Track-independent** (holds on any stack; ships with this template):
 

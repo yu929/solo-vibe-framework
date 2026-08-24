@@ -26,7 +26,7 @@ Per-user data **must** have RLS enabled.
 - Inserts carry `user_id` **explicitly**.
 - **Do not bypass RLS**: no service-role client reads or writes user data.
 
-**The only controlled exception** is a heterogeneous sub-service's worker, whose scope and invariants are defined in [`../backend/index.md`](../backend/index.md) §6.1 — **defined there once and nowhere else**. **When the project has no `services/` directory, that exception does not exist**, "do not bypass RLS" has no exceptions at all, and this paragraph can be skipped entirely. In outline: the worker's only input is a job id; the job's ownership is fixed at creation time by a user-scoped path plus RLS; and every user table the worker reads goes through a database function that checks ownership explicitly, never fetching by an externally supplied primary key. When service-role looks useful elsewhere, do not carry over the conclusion that "the sub-service is allowed to".
+**The only controlled exception** is a heterogeneous sub-service's worker, whose scope and invariants are defined in [`../backend/sub-services.md`](../backend/sub-services.md) §6.1 — **defined there once and nowhere else**. **When the project has no `services/` directory, that exception does not exist**, "do not bypass RLS" has no exceptions at all, and this paragraph can be skipped entirely. In outline: the worker's only input is a job id; the job's ownership is fixed at creation time by a user-scoped path plus RLS; and every user table the worker reads goes through a database function that checks ownership explicitly, never fetching by an externally supplied primary key. When service-role looks useful elsewhere, do not carry over the conclusion that "the sub-service is allowed to".
 
 ## 2. The three parts of a new table
 

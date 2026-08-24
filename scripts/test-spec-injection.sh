@@ -49,8 +49,9 @@
 #      注意这个注入下第二份拿到的是**被截断的正文**而不是索引行——这正是把断言写成
 #      「只命中一份」而不是「都拿到正文」的原因，后者会放过它。
 #   ④ 往任一 `<layer>/index.md` 尾部塞 200 字符 → 它越过 9,000 边际，但 ② 仍然是绿的。
-#   基线：从 KNOWN_RED 里删掉任意一行 → 那条样本的失败开始计入退出码；
-#         把一条已经全绿的样本加进 KNOWN_RED → 报「基线已过期」并失败。
+#   基线：把一条已经全绿的样本加进 KNOWN_RED → 报「基线已过期」并失败。
+#         基线当前为空（2026-08-24 web-fullstack 两份拆完后清掉），反向那半——删掉一行
+#         让那条样本的失败重新计入退出码——要等下次真记欠账时才跑得动。
 #
 #   还原用**事先备份的副本**覆盖回去，不要 git checkout —— 那会连同未提交的工作一起扔掉。
 #
@@ -119,8 +120,10 @@ print(f"Trellis {pin} · 每份 {MAX_SPEC} 字符 / 每次 {MAX_TOTAL} 字符")
 # 路径相对 .trellis/spec/。加一条轨、改一次 paths、拆一次簇，都要回来同步这张表——
 # 那正是应该被强制想一遍的时刻。
 #
-# 刻意不收录判定含糊的样本（例如 web 的 src/lib/x.test.ts 同时命中 backend 与
-# testing，谁该赢是一个还没拍过的产品决定）——把猜测写进断言等于把它变成需求。
+# 就近放的单元测试归它所在的那一层，不归 testing（2026-08-24 拍板，与 java-stack 一致；
+# 理由写在 specs/web-fullstack/README.md 的 Spec index）。下面那条 src/lib/utils.test.ts
+# 就是锁这个决定的——谁把 **/*.test.ts 加回 testing 的 paths，它立刻红（2026-08-24 注入
+# 验证过：退出码 1，③ 掉到 20/21，并指名 testing/index.md 拿到被截断的正文）。
 SAMPLES = {
     "java-stack": [
         ("backend/src/main/java/com/example/app/notes/NoteRepository.java", "backend/index.md"),
@@ -130,14 +133,18 @@ SAMPLES = {
         ("backend/src/test/java/com/example/app/NoteIT.java", "testing/index.md"),
         ("frontend/src/components/NoteList.tsx", "frontend/index.md"),
         ("frontend/src/routes/notes.tsx", "frontend/index.md"),
+        ("frontend/src/lib/utils.test.ts", "frontend/index.md"),
         ("frontend/e2e/notes.spec.ts", "testing/index.md"),
         (".trellis/tasks/t-01/design.md", "guides/task-artifacts.md"),
         ("docs/discovery/slices.md", "guides/source-of-truth.md"),
     ],
     "web-fullstack": [
         ("src/lib/notes.ts", "backend/index.md"),
+        ("src/lib/utils.test.ts", "backend/index.md"),
         ("src/app/notes/actions.ts", "backend/index.md"),
         ("src/components/note-card.tsx", "frontend/index.md"),
+        ("src/app/notes/page.tsx", "frontend/index.md"),
+        ("src/app/globals.css", "frontend/index.md"),
         ("supabase/migrations/001_init.sql", "database/index.md"),
         ("e2e/notes.spec.ts", "testing/index.md"),
         (".trellis/tasks/t-01/design.md", "guides/task-artifacts.md"),
@@ -172,11 +179,7 @@ SAFE_MAX = 9000
 # 新引入的破坏和欠账混在同一个红点里分不开。
 # 但基线是双向的：**样本全绿了也会失败**，因为那说明这一行该删掉了。留着过期基线
 # 等于给将来的回归开一个永久豁免。
-KNOWN_RED = {
-    ("web-fullstack", "src/lib/notes.ts"),
-    ("web-fullstack", "src/app/notes/actions.ts"),
-    ("web-fullstack", "src/components/note-card.tsx"),
-}
+KNOWN_RED = set()
 
 LABEL = {
     1: "rank-1 是预期的核心",

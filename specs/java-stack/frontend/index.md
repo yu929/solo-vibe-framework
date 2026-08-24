@@ -1,13 +1,13 @@
 ---
 name: frontend
-description: The one way to do each frontend thing, what decides what when sources disagree, the rules that fail silently, and where the full text of each lives
+description: The one way to do each frontend thing, what decides what when sources disagree, the two checklists, and where the full text of each lives
 paths:
   - frontend/src/**
 ---
 
 # Frontend Rules · Java Stack
 
-> What you get on every frontend edit: the one way to do each thing, which source wins when two disagree, and the two checklists. **The reasoning, the patterns and the traps are in the three sibling files** — open the one your change touches.
+> What you get on every frontend edit: the one way to do each thing, which source wins when two disagree, and the two checklists. **The reasoning, the patterns and the traps are in the four sibling files** — open the one your change touches.
 >
 > Section numbers restart in each file, so every reference below names the file it means.
 
@@ -39,18 +39,6 @@ Four things govern this UI; only one produces *rules*.
 
 **Follow the hi-fi where it depicts something; apply the rules everywhere it is silent** — which is most of the time, since a mockup shows one state of one screen. **Apply every NEVER rule even when a mockup contradicts it.** A project overrides a default by writing the deviation and its reason into `design-system/MASTER.md`; an unwritten one is not an override.
 
-## Which of those are green when you get them wrong
-
-None of these produces an error, a failing test, or any visible defect on a developer machine.
-
-- **A form reachable while signed out submitting before the CSRF bootstrap returns** — it works once the page has been open a moment, and fails only on the fast path (`data-layer.md` §1.1).
-- **Sign out, then straight back in** — the second door: a stale token answers 403 where you expected the app (`data-layer.md` §1.1).
-- **A 401, a 5xx or a network failure rendered as "not found"** — the screen looks reasonable and sends everyone in the wrong direction (`data-layer.md` §1.2).
-- **This slice's approved hi-fi screens missing from `implement.jsonl`** — a sub-agent in a fresh context builds something else, and the diff reads like carelessness.
-- **The provider's clamp and the backend's sort allow-list drifting apart** — the generated types widen both back to `string`, so nothing catches it (`data-layer.md` §3.2).
-- **A route with no cold-load E2E case** — the Vite dev server has its own history fallback, so deep links are always green in dev.
-- **Reading these rules after the first write** — injection fires PostToolUse on Claude Code, so it can arrive too late. Open the file your change touches first.
-
 ## Where the rest of it lives
 
 | File | Covers | Open it when |
@@ -58,6 +46,9 @@ None of these produces an error, a failing test, or any visible defect on a deve
 | [`data-layer.md`](data-layer.md) | The provider as the only path to the backend, generated types, the cache across tabs, reuse order, hooks, theme tokens, routing and deep links | You call the backend, add a component, or touch auth, cache or tokens |
 | [`ui-structure.md`](ui-structure.md) | Page skeletons, button hierarchy, search and filters, tables, empty states, what the admin kit switches on by default, accessibility invariants | You build a screen, a list, or anything the hi-fi did not draw |
 | [`ui-interaction.md`](ui-interaction.md) | Forms and validation, dialog vs drawer vs route, feedback, loading, destructive actions, where a mutation leaves the user | You build a form, an overlay, or any loading or failure state |
+| [`silent-failures.md`](silent-failures.md) | Six mistakes that produce no error, no failing test and no visible defect, and what each one looks like from the outside | A checklist line below reads like paranoia, or something is wrong and nothing is red |
+
+**Open them before the first write, not after** — injection fires PostToolUse on Claude Code, so even this page can arrive after the edit it was meant to govern.
 
 ## Pre-Development Checklist
 
@@ -79,6 +70,7 @@ None of these produces an error, a failing test, or any visible defect on a deve
 - [ ] Adding a colour, shadow or type size? **Not allowed** — read `design-system/MASTER.md`, then change `@theme` in `globals.css`.
 - [ ] Added a route? Add a **cold load** case to E2E; it is always green under dev.
 - [ ] What is this screen's primary action? Not being able to say means the information architecture is not settled.
+- [ ] Writing a test, or fixing a bug? [`../testing/index.md`](../testing/index.md) says which kind to write and what to do first
 
 ## Quality Check
 

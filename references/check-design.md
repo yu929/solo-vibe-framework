@@ -38,11 +38,12 @@ The previous version of this repository shipped two invariant scripts with 28 ch
 
 ## Still to build
 
-Both are known to be needed. Neither is built, because a rule that has never survived a real run is a rule that is still moving.
+All three are known to be needed. None is built, because a rule that has never survived a real run is a rule that is still moving.
 
 | Check | Why | Bug to inject |
 |---|---|---|
 | **No `](../../` inside a skill** | A skill symlinked into `~/.claude/skills/` cannot reach this repository's `specs/`, so a cross-directory reference arrives as a dead link. This was a high-severity defect once already, and a text convention did not prevent it. `test-spec-templates.sh` case 3 only scans `specs/` | Add the literal text `](../../specs/x.md)` to any `SKILL.md`; the check must fail |
 | **The four sources of truth hold no copies of each other** | Requirements, terminology, decisions and interface structure each have one home. A copy diverges, and the divergence shows nothing for months | Put a glossary into the PRD template — the check must fail. Write "terminology is in `CONTEXT.md`" — the check must **not** fire |
+| **The pasted planning prompt and `task-artifacts.md` still agree** | The `implement.jsonl` rule lives in two files by design: one ships with the registry, one a person pastes into their own `workflow.md`. Drift is silent — the pasted copy keeps working while the shipped one moves on | Delete the spec-index lines from the prompt block in [`../playbook/00-setup.md`](../playbook/00-setup.md) step 6; the check must fail |
 
 **Add a check with any new cross-file rule.** A text convention has no mechanism at all for noticing drift; that is the lesson every entry above is an instance of.
