@@ -1,64 +1,64 @@
-# 复用清单
+# Code Reuse
 
-> **在写新代码之前先停一下：它是不是已经存在？**
+> **Stop before you write new code: does it already exist?**
 
-## 为什么这条排第一
+## Why this one comes first
 
-**重复代码是不一致 bug 的头号来源。** 复制粘贴或重写一段已有逻辑之后：
+**Duplicated code is the leading source of inconsistency bugs.** Once a piece of logic has been copied or rewritten:
 
-- 修 bug 时只修了一处，另一处继续错
-- 两份实现随时间慢慢分叉，最后谁也不知道哪个是对的
-- 新人（包括下一个 session 的 AI）不知道该改哪一份
+- a bug gets fixed in one copy while the other keeps being wrong
+- the two implementations drift apart over time, until nobody knows which is correct
+- a newcomer — including the AI in the next session — cannot tell which one to change
 
-对 solo + AI 协作，这个问题更严重：**AI 默认倾向于新建而不是复用**——它看不到整个仓库，新建一个函数永远比找到并理解已有的那个容易。所以这条清单主要是给 AI 用的约束，不是给人的提醒。
+For solo work with an AI, the problem is sharper: **an AI defaults to building rather than reusing.** It cannot see the whole repository, and writing a new function is always easier than finding and understanding the existing one. So this checklist is mainly a constraint on the AI, not a reminder for the human.
 
-## 写新代码之前
+## Before writing new code
 
-### 第一步：先搜
+### Step 1: search
 
 ```bash
-# 搜相似的函数名
+# similar function names
 grep -rn "functionName" .
 
-# 搜相似的逻辑关键词
+# keywords from the logic itself
 grep -rn "keyword" .
 ```
 
-**这一步没有例外。** "我确定没有"这种判断，在一个你自己没读完的仓库里不成立。
+**There is no exception to this step.** "I'm sure there isn't one" does not hold in a repository you have not read end to end.
 
-### 第二步：问这四个问题
+### Step 2: ask these four questions
 
-| 问题 | 如果是 |
+| Question | If yes |
 |---|---|
-| 有没有功能相似的函数？ | 用它，或扩展它 |
-| 这个模式别处用过吗？ | 跟随已有写法，不要自创第二种 |
-| 这段逻辑该不该是共享工具？ | 建到正确的位置，一次 |
-| 我是不是在从另一个文件复制代码？ | **停** —— 抽出来共享 |
+| Is there a function that does something similar? | Use it, or extend it |
+| Has this pattern been used elsewhere? | Follow what exists; do not invent a second way |
+| Should this logic be a shared utility? | Build it in the right place, once |
+| Am I copying code out of another file? | **Stop** — extract it and share it |
 
-## 常见的重复形态
+## Common shapes of duplication
 
-### 形态 1 · 复制函数
+### Pattern 1 · A copied function
 
-**坏**：把一个校验函数复制到另一个文件。
-**好**：抽到共享位置，两边 import。
+**Bad**: copying a validation function into another file.
+**Good**: extract it to a shared location and import it from both.
 
-### 形态 2 · 相似组件
+### Pattern 2 · A near-identical component
 
-**坏**：新建一个和已有组件 80% 相同的组件。
-**好**：给已有组件加 props 或 variant。
+**Bad**: building a new component that is 80% the same as one that exists.
+**Good**: add a prop or a variant to the existing one.
 
-**判据**：如果两个组件的差异可以用一个布尔值或枚举表达，那它们是同一个组件。
+**The test**: if the difference between the two components can be expressed as one boolean or one enum, they are the same component.
 
-### 形态 3 · 重复常量
+### Pattern 3 · A duplicated constant
 
-**坏**：同一个常量在多个文件里各定义一份。
-**好**：单一事实源，其余 import。
+**Bad**: the same constant defined separately in several files.
+**Good**: one source of truth; everything else imports it.
 
-这是**最容易在改动时出事**的一种：改了一处，其余静默保持旧值，而且类型检查完全发现不了。
+This is the shape **most likely to break during a change**: you edit one copy, the rest silently keep the old value, and type checking sees nothing at all.
 
-### 形态 4 · 每个消费方各自解析同一份数据
+### Pattern 4 · Every consumer parsing the same payload
 
-**坏**：
+**Bad**:
 
 ```ts
 // a.ts
@@ -67,34 +67,34 @@ const desc = (payload as { description?: string }).description;
 const desc = (payload as { description?: string }).description;
 ```
 
-即使只有两行，这也是**重复的契约逻辑**。字段一改，两处都得改，而 `as` 断言让类型检查袖手旁观。
+Two lines each, and still **duplicated contract logic**. Change the field and both have to change — and the `as` assertion keeps type checking out of it.
 
-**好**：一个地方定义类型和解析函数，其余消费它。
+**Good**: define the type and the parsing in one place; everything else consumes that.
 
-### 形态 5 · 同一份派生状态在多个分支里各算一遍
+### Pattern 5 · The same derived state recomputed in several branches
 
-多个分支根据同一个 `kind` / `action` 更新同一份派生状态时，加一个新取值必然漏改其中一处。抽成一个映射或一个函数。
+When several branches update the same derived state off one `kind` or `action`, adding a new value is guaranteed to miss one of them. Extract a map or a function.
 
-## 反向：什么时候**不**要抽象
+## The reverse: when *not* to abstract
 
-复用纪律有个对称的失败模式——**为了复用而过早抽象**：
+Reuse discipline has a symmetric failure mode — **abstracting too early for the sake of reuse**:
 
-- 只出现两次、且没有理由相信会有第三次 → 先重复，等第三次再抽
-- 两处代码看起来像但**变化原因不同** → 不要合并，它们会朝不同方向演化
-- 抽出来的东西需要 3 个以上参数才能覆盖两个用例 → 说明它们不是同一件事
+- it appears twice, with no reason to expect a third → leave it duplicated and extract on the third
+- two pieces look alike but **change for different reasons** → do not merge them; they will evolve apart
+- the extracted thing needs more than three parameters to cover two call sites → they are not the same thing
 
-**判据不是"长得像不像"，是"会不会因为同一个原因一起改"。** 会，就抽；不会，就让它们重复着。
+**The test is not "do they look alike", it is "will they change together for the same reason".** If yes, extract. If no, let them stay duplicated.
 
-## 最容易忘的一条
+## The one that gets forgotten most
 
-> **改任何一个值之前，先搜一遍它出现在哪。**
+> **Before changing any value, search for everywhere it appears.**
 
 ```bash
-grep -rn "要改的值" .
+grep -rn "the value you are changing" .
 ```
 
-配置项、常量、枚举、环境变量名、文件路径、魔法字符串——这一个习惯挡掉的 bug 比其余所有清单加起来都多。
+Config keys, constants, enums, environment variable names, file paths, magic strings — this single habit prevents more bugs than every other checklist here combined.
 
 ---
 
-<sub>问题框架参考 [Trellis](https://github.com/mindfold-ai/Trellis)（AGPL-3.0）内置 spec 模板的 code-reuse thinking guide，内容重写。</sub>
+<sub>The question framework is adapted from the code-reuse thinking guide in [Trellis](https://github.com/mindfold-ai/Trellis)'s (AGPL-3.0) built-in spec template; the content is rewritten.</sub>

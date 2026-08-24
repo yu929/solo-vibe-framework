@@ -1,77 +1,68 @@
-# 质量门与验证 · Web Fullstack 轨
+---
+name: testing
+description: The required checks, what to add per kind of change, and how to verify behaviour and data — including the two negative tests
+paths:
+  - e2e/**
+  - playwright.config.*
+---
 
-> 说「做完了」之前必须全绿。轨总览见 [`../README.md`](../README.md)。
+# Quality Gates and Verification · Web Fullstack
 
-## 命令门（每次都要）
+> Everything is green before you say it is done. The track overview is in [`../README.md`](../README.md).
+
+## Required checks (every time)
 
 ```bash
 pnpm typecheck   # tsc --noEmit
 pnpm lint        # eslint
-pnpm test        # vitest run（单元/逻辑）
-pnpm build       # next build（再次类型检查 + 产物）
+pnpm test        # vitest run (unit and logic)
+pnpm build       # next build (type-checks again, and produces the artifact)
 ```
 
-## 按改动类型追加
+## Add these, by kind of change
 
-| 动过什么 | 追加 |
+| What you touched | Also run |
 |---|---|
-| 样式 / 格式 | `pnpm format`（Prettier，含 Tailwind 排序） |
-| 页面 / 流程 | `pnpm test:e2e`（Playwright，需先 `pnpm db:start`） |
-| DB schema | `supabase migration new` → `pnpm db:reset` → `pnpm db:types` |
+| Styling or formatting | `pnpm format` (Prettier, including Tailwind class ordering) |
+| A page or flow | `pnpm test:e2e` (Playwright; run `pnpm db:start` first) |
+| The DB schema | `supabase migration new` → `pnpm db:reset` → `pnpm db:types` |
 
-**`pnpm format` 的收尾自检**：文档（`*.md`）、`.venv`、`design-system/`、生成文件已在 `.prettierignore` 排除。跑完用 `git status` 看一眼——**如果出现本次任务没编辑过的文件**，先确认原因，必要时回退或拆成单独的格式化变更。
+**After `pnpm format`, check yourself**: documentation (`*.md`), `.venv`, `design-system/` and generated files are already excluded in `.prettierignore`. Run `git status` afterwards — **if files appear that this task never edited**, find out why first, and either revert them or split them into a separate formatting change.
 
-**跑过 `pnpm build` 后再起 `pnpm dev`**：先删 `.next`。production 构建产物与 dev 缓存混用会报错。
+**After running `pnpm build`, delete `.next` before starting `pnpm dev`.** Mixing a production artifact with the dev cache raises errors.
 
-## 测试分工
+## What tests which
 
-- **Vitest**：单元与逻辑，`*.test.ts`，与被测代码同目录
-- **Playwright**：E2E，`e2e/*.spec.ts`，**含 RLS 隔离验证**
+- **Vitest**: units and logic, in `*.test.ts`, beside the code under test.
+- **Playwright**: end to end, in `e2e/*.spec.ts`, **including RLS isolation**.
 
-## 怎么验证（功能 + 数据）
+## How to verify (behaviour and data)
 
-1. `pnpm dev` → `localhost:3000`：注册 → 登录 → 对某业务模块走通新增/编辑/删除 → 登出
-2. **数据隔离**：换第二个账号，确认看不到、也改不动第一个账号的数据（RLS 生效）
-3. **异构子服务的越权（有子服务时才需要）**：用 A 账号建一个 job，然后拿**这个 job** 去够 B 账号的资源主键，**必须被拒**。见 [`../backend/index.md`](../backend/index.md) §6.1
-4. 命令门全绿；`supabase db reset` 能干净重放迁移
-5. 改了 schema：确认 migration + `database.types.ts` 都更新了，且 typecheck 仍绿
+1. `pnpm dev` → `localhost:3000`: sign up → sign in → create, edit and delete in one business module → sign out
+2. **Data isolation**: switch to a second account and confirm it can neither see nor modify the first account's data (RLS is working)
+3. **Cross-tenant access through a sub-service (only when there is one)**: create a job as account A, then use **that job** to reach account B's resource key — **it must be refused**. See [`../backend/sub-services.md`](../backend/sub-services.md) §6.1
+4. Required checks all green, and `supabase db reset` replays every migration cleanly
+5. After a schema change: confirm the migration and `database.types.ts` are both updated, and that typecheck is still green
 
-第 2、3 条是本轨最容易被跳过、也最贵的两条。**写了不等于生效**——RLS 要用第二个账号真的试，归属校验要用另一个租户的主键真的够一次。
+Items 2 and 3 are the two most often skipped and the most expensive to skip. **Written is not working** — RLS gets tried with a second account, and an ownership check gets tried with another tenant's key.
 
-这两条都是**负向测试**：证明"该拒的拒了"，而正向用例全绿并不能证明这一点。所以它们必须单独存在，不能靠"功能跑通了"顺带覆盖。
+Both are **negative tests**: they prove that what should be refused is refused, which a fully green set of positive cases cannot show. So they have to exist separately, and cannot be picked up incidentally by "the feature works".
 
-## 本地后端
+## Where the rest of it lives
 
-```bash
-pnpm db:start        # 需先开 Docker / OrbStack
-supabase status      # 查状态与密钥
-```
-
-## 容器化与发版
-
-```bash
-docker compose up -d --build                          # 个人 / 云端
-docker compose -f docker-compose.yml \
-  -f docker-compose.selfhost.yml up -d --build        # 内网自托管
-```
-
-发版走 `vX.Y.Z` / `vX.Y.Z-rc.N` tag：
-
-1. 先改 `package.json` version（含 `services/*/pyproject.toml`，如有）
-2. `pnpm release:validate <tag>`
-3. tag push 触发 `.github/workflows/release.yml` 的发布质量门
-
-镜像 env 约定见 `.env.example`：`NEXT_DEPLOYMENT_ID` 每发必变，`NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` 跨 rebuild 必须稳定。
+| File | Covers | Open it when |
+|---|---|---|
+| [`../ops/index.md`](../ops/index.md) | Bringing the local Supabase stack up, project configuration, compose, the image and the release tag | You run the stack locally, change a setting, or cut a release |
 
 ---
 
 ## Pre-Development Checklist
 
-- [ ] 这次改动要补哪一类测试？逻辑 → Vitest；页面/流程 → Playwright
-- [ ] 改的是 bug 吗？**先写一个会失败的测试**，再修
-- [ ] 涉及多用户数据吗？E2E 要覆盖 RLS 隔离
-- [ ] 动了异构子服务吗？要补**双租户越权负向测试**（A 的 job 够不到 B 的资源）
+- [ ] Which kind of test does this change need? Logic → Vitest; a page or flow → Playwright
+- [ ] Is this a bug fix? **Write a failing test first**, then fix it
+- [ ] Does this involve multi-user data? E2E must cover RLS isolation
+- [ ] Did you touch a heterogeneous sub-service? Add a **two-tenant negative test** (A's job cannot reach B's resource)
 
 ## Quality Check
 
-见本页「命令门」。说「做完了」之前四条必须全绿，按改动类型追加对应的那条。
+See "Required checks" on this page. All four must be green before you say it is done, plus whatever the kind of change adds.

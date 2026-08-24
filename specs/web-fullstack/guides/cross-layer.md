@@ -1,126 +1,126 @@
-# 跨层清单
+# Cross-Layer Work
 
-> **一个功能跨的层越多，"每层单独看都对、合起来是错的"就越容易发生。**
+> **The more layers a feature crosses, the easier it becomes for every layer to be right on its own and the whole to be wrong.**
 
-## 为什么跨层问题特别贵
+## Why cross-layer bugs are expensive
 
-跨层 bug 的共同特征是：**每一层的代码单独读都没问题**。
+What they have in common is that **each layer reads correctly in isolation**.
 
-- 服务层返回 `null` 表示"没有"，界面层把 `null` 当成"还没加载"
-- 存储层存的是 UTC，展示层按本地时区解释，中间那层原样透传
-- 外部接口返回的字段是可选的，某一层加了 `as` 断言把它当必填
+- the service layer returns `null` for "absent"; the UI layer reads `null` as "not loaded yet"
+- storage holds UTC, the display layer interprets it as local time, and the layer between passes it through untouched
+- an external API returns an optional field, and some layer adds an `as` assertion that treats it as required
 
-这类问题的代价高，是因为**发现它的地方离制造它的地方很远**。定位成本远大于修复成本。
+These cost so much because **the place that reveals the bug is far from the place that caused it**. Locating it costs far more than fixing it.
 
-## 动手之前的三步
+## Three steps before you start
 
-### 第一步 · 画出数据流
+### Step 1 · Draw the data flow
 
-从源头到最终展示，写清每一跳：
+Write out every hop from origin to final display:
 
 ```
-外部接口 → 存储 → 服务层 → 界面层
+external API → storage → service layer → UI layer
 ```
 
-每一跳标注**三件事**：
+Annotate each hop with **three things**:
 
-1. 数据长什么样（结构）
-2. 这一跳做了什么变换
-3. 出错时这一跳返回什么
+1. what the data looks like (its shape)
+2. what this hop transforms
+3. what this hop returns when it fails
 
-第 3 点最常被跳过，也最常出事。
+The third is the one that gets skipped, and the one that bites.
 
-### 第二步 · 找出边界
+### Step 2 · Find the boundaries
 
-**边界 = 数据换手的地方**。每个边界问：
+**A boundary is where data changes hands.** At each one, ask:
 
-- 这一侧的"没有数据"和另一侧的"没有数据"是同一个含义吗？
-- 空值、空数组、空字符串在两侧的含义一致吗？
-- 谁负责校验？（答案不能是"两边都校验"，也不能是"都以为对方校验了"）
+- does "no data" mean the same thing on both sides?
+- do null, empty array and empty string mean the same thing on both sides?
+- who validates? (The answer cannot be "both", and it cannot be "each assumed the other did".)
 
-### 第三步 · 定契约
+### Step 3 · Write the contract down
 
-边界上的契约要**显式写下来**，而不是靠双方各自的假设：
+A boundary's contract is **explicit**, not something each side assumes:
 
-- 类型定义放在共享位置，两侧都 import——不要各自写一份"应该长这样"
-- 错误怎么表达：抛异常？返回错误值？两种混用是灾难
-- 可选字段的默认行为由**哪一侧**决定
+- the type definition lives in a shared place and both sides import it — neither writes its own "it should look like this"
+- how errors are expressed: thrown? returned as a value? Mixing the two is a disaster
+- which **side** decides the default behaviour for an optional field
 
-## 四种常见错误
+## Four common mistakes
 
-### 错误 1 · 隐式格式假设
+### Mistake 1 · An implicit format assumption
 
-一层产出 `2026-08-12`，另一层期待 ISO 时间戳，中间没人声明格式。
+One layer produces `2026-08-12`, another expects an ISO timestamp, and nobody in between declares a format.
 
-**症状**：本地测试正常，换个时区或换条数据就炸。
-**解**：格式写进类型或契约，不写进"大家都知道"。
+**Symptom**: fine locally, explodes on a different timezone or a different row.
+**Fix**: put the format in the type or the contract, not in "everyone knows".
 
-### 错误 2 · 校验散落各层
+### Mistake 2 · Validation scattered across layers
 
-每层都做了一点校验，加起来既有重复也有缺口。
+Every layer validates a little, and the sum has both duplication and gaps.
 
-**解**：按**职责**分，不是按层数分。这两类必须分开处理，混起来会得出危险的结论：
+**Fix**: split by **responsibility**, not by layer count. These two categories must be handled separately; conflating them produces dangerous conclusions:
 
-| 类别 | 规则 | 例 |
+| Category | Rule | Examples |
 |---|---|---|
-| **解析、规范化、默认值** | **可以有单一所有者**，其余层直接用它的产物 | 日期串怎么解析、字段缺省值填什么、大小写与空白怎么归一 |
-| **信任边界与不变量** | **每一道边界各自负责，不得省** | 不可信输入进入边界时的校验、服务端授权、存储层的唯一性与引用完整性 |
+| **Parsing, normalization, defaults** | **May have a single owner**; other layers consume its output | how a date string is parsed, what a missing field defaults to, how case and whitespace are normalized |
+| **Trust boundaries and invariants** | **Every boundary enforces its own, with no exceptions** | validating untrusted input as it crosses a boundary, server-side authorization, uniqueness and referential integrity in storage |
 
-**不要把「别重复解析」推成「只在一层校验」。** 三条具体的：
+**Do not stretch "don't parse it twice" into "only validate in one layer".** Three specifics:
 
-- **客户端校验不能替代服务端授权。** 前者是体验，后者是安全。绕过界面直接调接口是最基本的攻击方式。
-- **入口校验不能替代存储约束。** 并发请求、后台任务、数据修复脚本、另一个写入入口都不经过那个「唯一的校验层」。唯一性、外键、非空、状态机合法性要由存储兜底。
-- **上游校验过不等于下游可以无条件信任。** 尤其跨进程、跨服务、跨时间（消息队列里的旧消息）。
+- **Client validation does not substitute for server-side authorization.** The first is experience, the second is security. Bypassing the UI and calling the API directly is the most basic attack there is.
+- **Entry-point validation does not substitute for storage constraints.** Concurrent requests, background jobs, data-repair scripts and a second write path all skip that "single validating layer". Uniqueness, foreign keys, non-null and state-machine legality are backstopped by storage.
+- **Validated upstream does not mean unconditionally trusted downstream** — least of all across processes, across services, or across time (an old message sitting in a queue).
 
-**怎么减少重复而不牺牲防御**：共享 schema 或校验函数，让多层引用同一份定义——重复的是**执行**，不是**定义**。执行多次是对的，定义多份才是错的。
+**How to cut duplication without giving up defence**: share the schema or the validation function so several layers reference one definition. What repeats is the **enforcement**, not the **definition**. Enforcing many times is correct; defining many times is the mistake.
 
-### 错误 3 · 抽象泄漏
+### Mistake 3 · A leaky abstraction
 
-上层代码里出现了下层的实现细节——界面层知道数据库列名、服务层拼接界面用的展示字符串。
+An upper layer contains a lower layer's implementation details — the UI layer knowing database column names, the service layer assembling display strings for the UI.
 
-**症状**：换实现时改动扩散到不该动的层。
-**解**：每层只暴露它这一层的概念。
+**Symptom**: changing the implementation spreads edits into layers that should not have moved.
+**Fix**: each layer exposes only its own concepts.
 
-### 错误 4 · 每个消费方各自解析同一份数据
+### Mistake 4 · Every consumer parsing the same payload
 
-见 [`code-reuse.md`](code-reuse.md) 形态 4。这是复用问题也是跨层问题——**契约逻辑被复制了**。
+See Pattern 4 in [`code-reuse.md`](code-reuse.md). It is a reuse problem and a cross-layer problem at once — **contract logic has been copied**.
 
-## 加字段时的清单
+## Checklist for adding a field
 
-给事件、消息、配置或外部响应**加一个字段**时（这是最容易漏的场景）：
+When you **add a field** to an event, a message, a config or an external response — the case that is missed most often:
 
-- [ ] 类型定义改了
-- [ ] 所有消费方都处理了这个字段的缺失情况（老数据没有它）
-- [ ] 持久化的数据要不要迁移
-- [ ] 有没有别的地方在用 `as` 断言绕过类型检查（那里不会报错，但会静默拿到 `undefined`）
-- [ ] 加完之后 `grep` 一遍字段名，确认没有遗漏的消费点
+- [ ] the type definition is updated
+- [ ] every consumer handles the field being absent (old data does not have it)
+- [ ] persisted data is migrated, or explicitly does not need to be
+- [ ] nothing elsewhere uses an `as` assertion to slip past type checking (it will not error there; it will silently produce `undefined`)
+- [ ] `grep` the field name afterwards and confirm no consumer was missed
 
-**反过来删字段时同理，而且更危险**——删除不会有编译错误提示你哪里还在读它，如果那里用了 `as`。
+**Removing a field is the same, and more dangerous** — deletion produces no compile error telling you who still reads it, if that reader used `as`.
 
-## 判断某段逻辑该放哪一层
+## Deciding which layer logic belongs in
 
-按"**它依赖什么**"决定，不按"它长得像什么"：
+Decide by **what it depends on**, never by what it resembles:
 
-| 这段逻辑依赖 | 放哪 |
+| This logic depends on | It goes in |
 |---|---|
-| 只依赖输入参数 | 共享的纯函数层 |
-| 依赖存储结构 | 数据访问层 |
-| 依赖业务规则 | 服务层 |
-| 依赖展示上下文（当前用户在看什么） | 界面层 |
+| its input arguments only | the shared pure-function layer |
+| the storage schema | the data access layer |
+| business rules | the service layer |
+| display context (what the current user is looking at) | the UI layer |
 
-**说不清依赖什么的，通常说明它混了两件事**，拆开再问一遍。
+**Logic whose dependencies you cannot state is usually doing two things.** Split it and ask again.
 
-## 什么时候值得画一张流程图
+## When a diagram is worth drawing
 
-不要给每个功能都画。值得画的判据：
+Do not draw one for every feature. It is worth drawing when the feature:
 
-- 跨了 3 层以上，**且**
-- 有异步或失败重试，**或**
-- 有多个消费方，**或**
-- 你已经第二次向别人（或向 AI）解释它了
+- crosses three or more layers, **and**
+- has asynchrony or retry on failure, **or**
+- has several consumers, **or**
+- you are explaining it to someone — or to an AI — for the second time
 
-图内联在对应文档里，**不要单独建文件**——两处维护同一份流程，漂移只是时间问题。
+Inline the diagram in the document it belongs to. **Never give it its own file**: two places maintaining one flow will drift, and it is only a matter of time.
 
 ---
 
-<sub>问题框架参考 [Trellis](https://github.com/mindfold-ai/Trellis)（AGPL-3.0）内置 spec 模板的 cross-layer thinking guide，内容重写（其原文含大量 Trellis 项目自身的检查清单，不适用于本框架）。</sub>
+<sub>The question framework is adapted from the cross-layer thinking guide in [Trellis](https://github.com/mindfold-ai/Trellis)'s (AGPL-3.0) built-in spec template; the content is rewritten (the original carries a great deal of Trellis's own project checklists, which do not apply to this framework).</sub>

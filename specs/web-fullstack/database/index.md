@@ -1,86 +1,94 @@
-# 数据库规范 · Web Fullstack 轨
+---
+name: database
+description: RLS as the isolation mechanism, the three parts of a new table, the migration workflow, generated types, and the local stack's project-name trap
+paths:
+  - supabase/migrations/**
+---
 
-> SQL 只出现在 `supabase/migrations/`。轨总览与禁止清单见 [`../README.md`](../README.md)。
+# Database Rules · Web Fullstack
 
-## 速查
+> SQL appears only in `supabase/migrations/`. The track overview and the Never list are in [`../README.md`](../README.md).
 
-| 场景 | 做法 |
+## Quick reference
+
+| Situation | What to do |
 |---|---|
-| 改 schema | `supabase migration new <名>` → `pnpm db:reset` → `pnpm db:types` |
-| 建表 | 必须三件套：grant + enable RLS + 策略 |
-| 数据隔离 | RLS 策略 `(select auth.uid()) = user_id`；insert 显式带 `user_id` |
-| 生成类型 | `pnpm db:types`，**勿手改** `database.types.ts` |
+| Changing the schema | `supabase migration new <name>` → `pnpm db:reset` → `pnpm db:types` |
+| Creating a table | Three parts, all required: grant, enable RLS, policies |
+| Data isolation | An RLS policy of `(select auth.uid()) = user_id`; inserts carry `user_id` explicitly |
+| Generated types | `pnpm db:types`; **never hand-edit** `database.types.ts` |
 
-## 1. 数据隔离（RLS）
+## 1. Data isolation (RLS)
 
-每用户数据**必须**开 RLS。
+Per-user data **must** have RLS enabled.
 
-- 策略写 `(select auth.uid()) = user_id`
-- insert 必须**显式带** `user_id`
-- **不绕过 RLS**：不用 service-role client 读写用户数据
+- Policies are written as `(select auth.uid()) = user_id`.
+- Inserts carry `user_id` **explicitly**.
+- **Do not bypass RLS**: no service-role client reads or writes user data.
 
-**唯一受控例外**是异构子服务的 worker，范围与不变量定义在 [`../backend/index.md`](../backend/index.md) §6.1，**只在那里定义一次**。**项目里没有 `services/` 目录时，这条例外不存在**——那时上面那句「不绕过 RLS」没有任何例外，本段可以整段跳过。要点：worker 的入参只有 job id，job 的归属在创建时由用户作用域路径 + RLS 钉死；worker 读用户表一律经显式校验归属的数据库函数，不按外部传入的主键取数。别处想用 service-role 时不要照抄「子服务可以」这个结论。
+**The only controlled exception** is a heterogeneous sub-service's worker, whose scope and invariants are defined in [`../backend/sub-services.md`](../backend/sub-services.md) §6.1 — **defined there once and nowhere else**. **When the project has no `services/` directory, that exception does not exist**, "do not bypass RLS" has no exceptions at all, and this paragraph can be skipped entirely. In outline: the worker's only input is a job id; the job's ownership is fixed at creation time by a user-scoped path plus RLS; and every user table the worker reads goes through a database function that checks ownership explicitly, never fetching by an externally supplied primary key. When service-role looks useful elsewhere, do not carry over the conclusion that "the sub-service is allowed to".
 
-## 2. 新表三件套
+## 2. The three parts of a new table
 
-每个建表迁移必须**同时**包含这三样，少一个就出问题：
+Every table-creating migration contains **all three**; missing one causes a problem:
 
 ```sql
--- ① 授权：Supabase 不再自动暴露新表给 Data API，缺 grant 会报 "permission denied"
+-- ① Grant: Supabase no longer exposes a new table to the Data API automatically,
+--    and without the grant you get "permission denied"
 grant select, insert, update, delete on table <name> to authenticated;
 
--- ② 打开行级安全
+-- ② Turn on row level security
 alter table <name> enable row level security;
 
--- ③ 各操作的 RLS 策略
+-- ③ RLS policies, per operation
 create policy "..." on <name> for select using ((select auth.uid()) = user_id);
--- insert / update / delete 同理
+-- insert / update / delete likewise
 ```
 
-**`anon` 默认不授权。** 骨架里全站需登录，所以它一条 anon 授权都没有——**那是骨架的形状，不是本轨的上限**。真要有公开可读的数据（落地页内容、公开榜单、分享链接），照样是 grant + RLS 策略那一套，只是策略写成 `using (true)` 或按可见性列过滤，**并且在迁移里写一行注释说明匿名到底能读到哪些行**。
+**`anon` gets no grant by default.** The scaffold requires authentication everywhere, so it has not one anon grant — **that is the scaffold's shape, not this track's ceiling**. Genuinely public data — landing-page content, a public leaderboard, a share link — uses the same grant plus RLS policies, with the policy written as `using (true)` or filtering on a visibility column, **and a comment in the migration stating exactly which rows an anonymous caller can read**.
 
-不许做的是另一件事：**用「反正要公开」当借口跳过 RLS**。公开表也要 enable RLS + 显式策略——`grant` 给 anon 而不开 RLS，等于把整张表连同以后加进去的每一列都交出去了。
+What is not allowed is a different thing: **using "it is public anyway" as a reason to skip RLS.** A public table still enables RLS with explicit policies — granting to `anon` without RLS hands over the whole table, including every column added to it later.
 
-## 3. 迁移流程
+## 3. The migration workflow
 
 ```bash
-supabase migration new <名>   # 写迁移
-pnpm db:reset                 # 验证能干净重放
-pnpm db:types                 # 更新生成类型
-pnpm typecheck                # 确认类型仍绿
+supabase migration new <name>   # write the migration
+pnpm db:reset                   # verify it replays cleanly
+pnpm db:types                   # regenerate the types
+pnpm typecheck                  # confirm the types are still green
 ```
 
-四步缺一不可。**改了 schema 必须连带更新 migration 和重新生成 `database.types.ts`。**
+All four steps are required. **A schema change updates the migration and regenerates `database.types.ts` together.**
 
-## 4. 生成文件不手改
+## 4. Generated files are not hand-edited
 
-`src/lib/supabase/database.types.ts` 由 `pnpm db:types` 生成。手改会在下次生成时被覆盖，且让类型与真实 schema 不一致。
+`src/lib/supabase/database.types.ts` is produced by `pnpm db:types`. A hand edit is overwritten at the next generation, and in the meantime the types no longer match the real schema.
 
-## 5. 本地栈的项目名陷阱
+## 5. The local stack's project-name trap
 
-新项目第一步跑 `pnpm init:project <项目名>`。它一次改掉全部模板名残留（supabase `project_id` / `package.json` name / auth cookie 名 / 镜像前缀与 LABEL / `MASTER.md` 标题）。
+The first thing a new project runs is `pnpm init:project <project-name>`. It clears every leftover template name in one pass: Supabase's `project_id`, `package.json`'s name, the auth cookie name, the image prefix and LABEL, and `MASTER.md`'s title.
 
-**`project_id` 决定本地 Supabase 容器与数据卷名。** 不改则所有模板生成的项目共享同一套本地栈——**A 项目的 `db:reset` 会静默清掉 B 项目的表**。这是实战踩过的坑。
+**`project_id` determines the local Supabase container and volume names.** Skip it and every project generated from this template shares one local stack — **project A's `db:reset` silently drops project B's tables**. This one has been walked into for real.
 
 ---
 
 ## Pre-Development Checklist
 
-- [ ] SQL 只写在 `supabase/migrations/`，没有写进应用代码？
-- [ ] 建表迁移包含**三件套**（grant + enable RLS + 策略）？
-- [ ] RLS 策略是 `(select auth.uid()) = user_id`？insert 显式带 `user_id`？
-- [ ] 这张表要公开可读吗？**默认不授权 anon**——要公开就在迁移里显式 grant + 写策略 + 注释说明匿名能读到哪些行，**RLS 照样要开**
-- [ ] 新项目跑过 `pnpm init:project <项目名>` 了吗？（不跑会共享本地栈，`db:reset` 互相清表）
+- [ ] Is the SQL only in `supabase/migrations/`, with none in application code?
+- [ ] Does the table-creating migration contain **all three parts** (grant, enable RLS, policies)?
+- [ ] Is the RLS policy `(select auth.uid()) = user_id`? Does the insert carry `user_id` explicitly?
+- [ ] Should this table be publicly readable? **`anon` gets no grant by default** — to go public, grant explicitly in the migration, write the policies, and add a comment saying which rows an anonymous caller can read. **RLS still gets enabled.**
+- [ ] Has the new project run `pnpm init:project <project-name>`? (Skipping it shares the local stack, so `db:reset` drops the other project's tables.)
 
 ## Quality Check
 
 ```bash
-pnpm db:reset      # 迁移能干净重放
-pnpm db:types      # 重新生成类型
-pnpm typecheck     # 类型仍绿
+pnpm db:reset      # the migrations replay cleanly
+pnpm db:types      # regenerate the types
+pnpm typecheck     # the types are still green
 ```
 
-额外自检：
+Then check by hand:
 
-- [ ] `database.types.ts` 是生成的，本次**没有手改**
-- [ ] 用第二个账号验过 RLS 真的隔离（写了策略 ≠ 生效）
+- [ ] `database.types.ts` is generated, and **was not hand-edited** this time
+- [ ] RLS was verified with a second account to be genuinely isolating (a written policy is not a working one)

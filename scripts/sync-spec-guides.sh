@@ -54,7 +54,7 @@ for t in $(tracks); do
   dst="$specs/$t/guides"
   if $check_only; then
     if [[ ! -d "$dst" ]]; then
-      echo "  ✗ $t：缺少 guides/ 副本 —— 轨模板必须自带 guides，否则装了它的项目拿不到轨无关规范"
+      echo "  ✗ ${t}：缺少 guides/ 副本 —— 轨模板必须自带 guides，否则装了它的项目拿不到轨无关规范"
       fail=1; continue
     fi
     if diff -ruN "$src" "$dst" > /dev/null 2>&1; then
@@ -62,7 +62,7 @@ for t in $(tracks); do
     else
       echo "  ✗ $t/guides 与权威源不一致："
       diff -ruN "$src" "$dst" | sed 's/^/      /'
-      echo "      改 guides 请改**权威源** $src，然后跑 scripts/sync-spec-guides.sh"
+      echo "      改 guides 请改**权威源** ${src}，然后跑 scripts/sync-spec-guides.sh"
       fail=1
     fi
   else

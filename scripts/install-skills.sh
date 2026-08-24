@@ -25,13 +25,24 @@ check_only=false
 [[ "${1:-}" == "--check" ]] && check_only=true
 
 # 本仓自有
-declare -a OWN=(lofi-prototype design-review)
+declare -a OWN=(vertical-slicing design-review)
 # vendor（第三方只读拷贝）
-declare -a VENDORED=(grilling grill-me)
+# 往这里加一个名字（新装或从 RETIRED 装回），**必须同时加进 sync-vendor.sh 的 SKILLS
+# 数组**。漏了那一步是全仓最安静的失效：managed_in() 靠遍历 SKILLS 枚举受管文件，
+# 名字不在里面 → 目录不被扫、文件不进 manifest → 漂移检查打印绿字说一切正常，
+# 而这个 skill 已经软链出去、正在被 agent 触发，且每晚的上游 diff 永远不会看它一眼。
+declare -a VENDORED=(grilling grill-me grill-with-docs domain-modeling prototype writing-for-agents)
 # 已退役：软链若还在就删掉。留着会继续被触发，把需求接走去走废弃流程。
-# domain-modeling 曾经是 vendor 项：它要求维护 CONTEXT.md 当术语源真，与本仓
-# 「术语结论落 brief §5」冲突，构成第二事实源，因此整个删除（见 references/third-party.md）。
-declare -a RETIRED=(product-brief prd-generator prd-generator-noweb system-design design-system-java domain-modeling)
+# lofi-prototype 退役：新流程里全量高保真在切片**之前**就定稿，task 内再出一次低保真
+# 等于跟定稿构成两个结构源真。它承接的「定稿必须进 implement.jsonl」那条实跑结论
+# 已改由 vertical-slicing 接住（见 references/third-party.md）。
+# domain-modeling 已从退役名单**移回 VENDORED**：grill-with-docs 全文只有一句
+# 「Call the Skill tool twice, for "grilling" and "domain-modeling"」，装前者必须有后者。
+# ⚠ 这三个名字被 test-install-skills.sh 当**测试夹具**钉死了：用例 2 钉 product-brief
+# 与 lofi-prototype（断言退役软链必须被删），用例 4 钉 vertical-slicing（断言指向旧仓的
+# 软链必须改指向本仓）。改名、或把它们移出 RETIRED，要同步改那两条用例——否则报错写的是
+# 「退役软链必须被删除」，看起来像安装脚本坏了。
+declare -a RETIRED=(product-brief prd-generator prd-generator-noweb system-design design-system-java lofi-prototype)
 # 本框架旧版本用过的仓库根。指向这些路径下的软链算「我们装的」，可以替换/删除。
 # 换过旧仓路径就往这里加一条，别去放宽归属判断本身。
 declare -a LEGACY_ROOTS=("$HOME/Developer/skills")
@@ -74,14 +85,14 @@ install_one() { # <源绝对路径> <链接名>
   local src="$1" name="$2" link="$dest/$2"
 
   if [[ ! -f "$src/SKILL.md" ]]; then
-    echo "  ✗ $name：源不存在或缺 SKILL.md（$src）"; fail=1; return
+    echo "  ✗ ${name}：源不存在或缺 SKILL.md（${src}）"; fail=1; return
   fi
 
   if [[ -L "$link" ]]; then
     local cur; cur="$(readlink "$link")"
     if [[ "$cur" == "$src" ]]; then echo "  = $name 已正确"; record "$name" "$src"; return; fi
     if ! owned_link "$link" "$name"; then reject_foreign "$name" "$link"; return; fi
-    $check_only && { echo "  ✗ $name 指向 $cur，应为 $src"; fail=1; return; }
+    $check_only && { echo "  ✗ $name 指向 ${cur}，应为 $src"; fail=1; return; }
     rm "$link"
   elif [[ -e "$link" ]]; then
     # 普通文件/目录：可能是用户自己装的第三方，不敢动。
@@ -116,8 +127,8 @@ for s in "${RETIRED[@]}"; do
   if [[ -L "$link" ]]; then
     target="$(readlink "$link")"
     if ! owned_link "$link" "$s"; then reject_foreign "$s" "$link"; continue; fi
-    $check_only && { echo "  ✗ $s 软链仍存在（→ $target）"; fail=1; continue; }
-    rm "$link"; echo "  ✓ $s 软链已删除（原指向 $target，目标未动）"
+    $check_only && { echo "  ✗ $s 软链仍存在（→ ${target}）"; fail=1; continue; }
+    rm "$link"; echo "  ✓ $s 软链已删除（原指向 ${target}，目标未动）"
   elif [[ -e "$link" ]]; then
     # 真文件/真目录：可能是用户自己的同名 skill。删了不可恢复，所以只报告。
     echo "  ✗ $s 是普通文件/目录不是软链，未处理——请自行确认后移走"; fail=1

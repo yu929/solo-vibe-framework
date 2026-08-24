@@ -1,207 +1,245 @@
-# Java Stack 轨 · 规范总览
+# Java Stack · Spec Overview
 
-> 本文件是 spec 根总览（对应官方模板的 `.trellis/spec/README.md`）。各层入口在 `<layer>/index.md`，轨无关思维清单在 `guides/`。
+> This file is the spec root overview (the official template's `.trellis/spec/README.md`). Each layer's entry point is `<layer>/index.md`; the track-independent thinking guides are in `guides/`.
 
-> Spring Boot 4 + Postgres + React 轨的编码规范。装进项目后位于 `.trellis/spec/`，由 Trellis 按需注入。
+> Coding rules for the Spring Boot 4 + Postgres + React 19 / shadcn-admin-kit track. Once installed they sit in `.trellis/spec/` and Trellis injects them on demand.
 >
-> **本文件是本轨锁定规则的权威源。** 与 starter 仓 `AGENTS.md` 冲突时以本文件为准——见本页末「与 starter AGENTS.md 的关系」。
+> **This file is the source of truth for the rules this track locks.** Where it conflicts with the starter repository's `AGENTS.md`, this file wins — see "Relationship to the starter's AGENTS.md" at the end.
 
-> ### 本模板是自足的，一个项目只装它一个
+> ### This template is self-contained; install exactly one
 >
-> 装法只有一条命令：
+> One command:
 >
 > ```bash
-> trellis init --claude --registry <框架仓 URL> --template java-stack
+> trellis init --claude --registry <framework repo URL> --template java-stack
 > ```
 >
-> **不要再装第二个模板。** Trellis 的 `.trellis/config.yaml` 里 `registry.spec.template` 是**单数**字段，装第二个会把它整行替换掉，此后 `trellis update` 只刷新后装的那个——**本轨规范（含下面那些安全红线）从此收不到修复，而且不报错**。
+> **Do not install a second template.** `registry.spec.template` in `.trellis/config.yaml` is a **singular** field, and installing a second one replaces that line outright. From then on `trellis update` refreshes only the one installed last — **this track's rules, including the safety red lines below, stop receiving fixes, and nothing reports an error**.
 >
-> 所以 `guides/`（轨无关思维清单）已经打包在本模板里，不需要额外装 `universal-guides`。那个模板只给**还没有轨规范**的项目用。
+> That is why `guides/` (the track-independent thinking guides) is already packaged here: you do not need to install `universal-guides` as well. That template exists only for projects that have **no track spec at all**.
 
-## 这条轨和 Web Fullstack 轨最大的区别
+## Data isolation is the heaviest section on this track
 
-**没有 RLS。**
+Per-user data isolation **has no database backstop**. The isolation *is* the `owner_id` predicate in the query, and it is **fail-open**: omit it and nothing errors — you get a 200 and somebody else's data, with nothing in the log.
 
-Supabase 轨的每用户数据隔离由数据库兜底：策略写在表上，应用怎么问都拿不到别人的行——**fail-closed**。这条轨没有那层东西。隔离就是查询里带的那个 `owner_id` 谓词，**fail-open**：漏了不会报错，会返回 200 和别人的数据，日志里什么都没有。
+So this track replaces a rule a human has to remember with three things a machine can check. The full definition is in [`backend/owner-scoping.md`](backend/owner-scoping.md) §2. Everything else here is ordinary engineering.
 
-所以本轨把那一层**重新造了一遍**，用三样机器能验的东西代替一条人要记住的纪律。完整定义在 [`backend/index.md`](backend/index.md) §2，**只在那里定义一次**。这是本轨最重的一节，其余都是常规工程。
+## Locked stack (substitutions need confirmation)
 
-## 栈锁定（不经确认不得替换）
-
-| 层 | 锁定 |
+| Layer | Locked to |
 |---|---|
-| 语言 / 运行时 | **Java 25 LTS**（Gradle toolchain 自动下载用于编译） |
-| 框架 | **Spring Boot 4.1.x**（Spring Framework 7） |
-| 构建 | **Gradle 9 + Kotlin DSL** + version catalog（`gradle/libs.versions.toml`） |
-| 数据库 | **Postgres 17** + **Flyway**（纯 SQL 迁移） |
+| Language / runtime | **Java 25 LTS** (the Gradle toolchain downloads it for compilation) |
+| Framework | **Spring Boot 4.1.x** (Spring Framework 7) |
+| Build | **Gradle 9 + Kotlin DSL** with a version catalog (`gradle/libs.versions.toml`) |
+| Database | **Postgres 17** + **Flyway** (plain SQL migrations) |
 | ORM | **Spring Data JPA / Hibernate 7** |
-| 鉴权 | **Spring Security** + **Spring Session JDBC**（会话存 Postgres），**不用 JWT** |
-| 认证限流 | **bucket4j**（`bucket4j_jdk17-core`）令牌桶，进程内；按客户端地址 + 按账号两份额度 |
-| API 文档 | **springdoc-openapi 3.x** → `/v3/api-docs` → 前端类型 |
-| 前端 | **Vite 8 + React 19 + TypeScript 6 + Ant Design 6**（无 Tailwind、无 CSS 框架；视觉单源在 `ConfigProvider` theme token） |
-| 前端路由 / 状态 | **React Router 8**（declarative）+ **TanStack Query 5** |
-| 包管理 | 后端 Gradle；前端 **pnpm**（宿主机 Node ≥ 24 + corepack，**不让 Gradle 另下一个 pnpm**） |
-| 测试 | **JUnit 5 + Testcontainers + ArchUnit**；**Vitest**；**Playwright** |
-| 部署 | **单容器**：SPA 打进 jar 的 `static/`，三阶段 Dockerfile + 分层 jar |
+| Auth | **Spring Security** + **Spring Session JDBC** (sessions stored in Postgres); **no JWT** |
+| Auth rate limiting | **bucket4j** (`bucket4j_jdk17-core`) token buckets, in-process; separate budgets per client address and per account |
+| API docs | **springdoc-openapi 3.x** → `/v3/api-docs` → frontend types |
+| Frontend | **Vite 8 + React 19 + TypeScript 6 + Tailwind v4 + shadcn/ui + shadcn-admin-kit**; the shadcn kernel is locked to **Radix + new-york** (the single source for visuals is `globals.css`, see "Directory structure") |
+| Frontend data layer | **ra-core 5.x** (shadcn-admin-kit's kernel): `dataProvider` / `authProvider` / `<Resource>`. **TanStack Query sits underneath it and is not used directly** |
+| Frontend routing / forms | **React Router 7** (`react-router` and `react-router-dom` **both pinned, at exactly the same version**) + **React Hook Form** (ra-core ships the integration) |
+| Package management | Gradle for the backend; **pnpm** for the frontend (host Node ≥ 24 plus corepack; **Gradle does not fetch a second pnpm**). The version in `packageManager` matches the one on PATH |
+| Testing | **JUnit 5 + Testcontainers + ArchUnit**; **Vitest**; **Playwright** |
+| Deployment | **A single container**: the SPA is packaged into the jar's `static/`, built by a three-stage Dockerfile with a layered jar |
 
-**版本上有两条不能凭直觉改**：
+**Five version decisions that intuition gets wrong:**
 
-- **TypeScript 锁 6.0.x，不要升 7。** TS 7 已发布，但 `typescript-eslint` 的 peer 范围是 `>=4.8.4 <6.1.0`——升上去 `tsc` 照常跑，**lint 链会断**。升级前先确认 typescript-eslint 支持了。
-- **Flyway / Testcontainers / Postgres 驱动 / Spring Session 不在 version catalog 里钉版本**，由 Spring Boot BOM 管。在 catalog 里覆盖它们等于让它们悄悄脱离你所在的 Boot 版本。要升就升 Boot。
+- **TypeScript stays on 6.0.x; do not move to 7.** TS 7 is released, but `typescript-eslint`'s peer range is `>=4.8.4 <6.1.0` — upgrade and `tsc` keeps working while **the lint chain breaks**. Confirm typescript-eslint supports it first.
+- **Flyway, Testcontainers, the Postgres driver and Spring Session are not pinned in the version catalog**; the Spring Boot BOM manages them. Overriding them in the catalog quietly detaches them from the Boot version you are on. To upgrade them, upgrade Boot.
+- **`react-router` and `react-router-dom` must both be direct dependencies at exactly the same version.** Pin only the first and pnpm installs a different version of the second to satisfy the peer range; two copies of the Router context then fail to recognize each other and the app reports "not a `<Route>` component" at runtime — while **typecheck and build are both green**. Verify with a deep-link E2E against the packaged jar.
+- **The shadcn kernel is locked to Radix + new-york; do not switch to Base UI.** The admin kit's registry source uses the Radix/new-york component API, `asChild` composition included. Switching kernels is not an import change — it grows an adapter fork, and from then on the generated components no longer match upstream's docs.
+- **`openapi-typescript` still declares a TypeScript 5 peer** while this project is on 6, and generation emits Springdoc/Jackson JsonSchema warnings. Both are **non-blocking**: `pnpm api:types` produces correct output. **Do not hand-edit the generated file to hide them** — converge the versions once upstream supports TS 6.
 
-## Boot 4 的包名陷阱（照抄 Boot 3 的代码会中招）
+## Boot 4 package traps (copying Boot 3 code walks into these)
 
-Boot 4 大改了坐标和包名。这些**编译期就报错**的还算好，最坏的是 Jackson 那条：
+Boot 4 changed coordinates and package names substantially. The ones that fail at compile time are the kind ones; the Jackson row is the dangerous one:
 
-| 你以为 | 实际是 | 症状 |
+| What you expect | What it actually is | Symptom |
 |---|---|---|
-| `spring-boot-starter-web` | **`spring-boot-starter-webmvc`** | 依赖解析失败 |
-| `spring-boot-starter-test` | 按模块拆开：**`-webmvc-test` / `-data-jpa-test` / `-security-test` / `-flyway-test`** | 测试类编译失败 |
-| `com.fasterxml.jackson.databind.ObjectMapper` | **`tools.jackson.databind.ObjectMapper`**（Jackson 3） | ⚠️ **编译通过、运行时 `No qualifying bean of type ObjectMapper`**——Jackson 2 还在 classpath 上（传递依赖），所以 import 是合法的，只是没人注册那个类型的 bean |
-| `o.s.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc` | **`o.s.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc`** | 编译失败 |
-| `org.testcontainers.containers.PostgreSQLContainer` | **`org.testcontainers.postgresql.PostgreSQLContainer`**（Testcontainers 2.x） | 编译失败 |
+| `spring-boot-starter-web` | **`spring-boot-starter-webmvc`** | Dependency resolution fails |
+| `spring-boot-starter-test` | Split per module: **`-webmvc-test` / `-data-jpa-test` / `-security-test` / `-flyway-test`** | Test classes fail to compile |
+| `com.fasterxml.jackson.databind.ObjectMapper` | **`tools.jackson.databind.ObjectMapper`** (Jackson 3) | ⚠️ **Compiles, then fails at runtime with `No qualifying bean of type ObjectMapper`** — Jackson 2 is still on the classpath as a transitive dependency, so the import is legal; there is simply no bean registered for that type |
+| `o.s.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc` | **`o.s.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc`** | Compile failure |
+| `org.testcontainers.containers.PostgreSQLContainer` | **`org.testcontainers.postgresql.PostgreSQLContainer`** (Testcontainers 2.x) | Compile failure |
 
-**不确定就去查真实坐标**（`start.spring.io` 生成一份对照，或翻 jar 里的包路径），别照记忆写。
+**Look up the real coordinates when you are unsure** — generate a reference project on `start.spring.io`, or read the package paths inside the jar. Do not write them from memory.
 
-## 禁止清单（最致命的先列）
+## Never (most lethal first)
 
-**数据隔离（本轨第一红线）**：
+**Data isolation — this track's first red line:**
 
-- **repository 唯一允许的父接口是裸 `Repository<T, ID>`**——这是白名单，不是「除了 `JpaRepository`/`CrudRepository` 都行」的黑名单。黑名单必漏：`PagingAndSortingRepository` 自 Spring Data 3.0 起直接继承裸 `Repository`，照样白送 `findAll(Sort)` / `findAll(Pageable)`；`JpaSpecificationExecutor` / `QueryByExampleExecutor` 压根不是 `Repository` 子类型，混进来整张表都能捞。
-- **手写的方法和继承的方法泄露程度相同**。挂在裸 `Repository` 上的 `findById(UUID)` 一样不带归属谓词。所以每个声明的方法要么在派生查询名里真的按 `ownerId` **过滤**，要么标 `@CrossUserQuery("理由")`（[`backend/index.md`](backend/index.md) §2）。
-- **上面两条对每一个 repository 都成立，不只是每用户实体的那些。** 不带归属的表（字典、参考数据、配置）标 `@OwnerlessTable("理由")` 在**接口**上，别拿 `@CrossUserQuery` 逐个方法凑——那会把「真的跨用户读」这个信号淹掉。它只豁免方法级归属检查，**不豁免父接口白名单**，而且实体真带 `ownerId` 时会被拒（[`backend/index.md`](backend/index.md) §2.4）。
-- 每张每用户表必须 `owner_id uuid not null references app_user(id)` + `owner_id` 索引 + **一条双账号负向测试**。
-- 「不是你的」和「不存在」都回 **404**，不回 403——403 等于确认了那条记录存在。
-- 跨用户读写走**显式登记的受控例外**（[`backend/index.md`](backend/index.md) §2.4）：标注在**方法**上，不许靠加方法或换更宽的父接口实现。
-- **守卫本身要有反向测试**。失效的守卫和无事可抓的守卫都是绿的，看不出区别（[`testing/index.md`](testing/index.md)）。
+- **The only permitted parent interface for a repository is the bare `Repository<T, ID>`.** This is an allow-list, not a "anything except `JpaRepository`/`CrudRepository`" deny-list. A deny-list is guaranteed to leak: `PagingAndSortingRepository` has extended the bare `Repository` directly since Spring Data 3.0 and still hands out `findAll(Sort)` / `findAll(Pageable)`; `JpaSpecificationExecutor` and `QueryByExampleExecutor` are not `Repository` subtypes at all, and let a whole table be scooped up.
+- **A hand-written method leaks exactly as much as an inherited one.** A `findById(UUID)` declared on a bare `Repository` carries no ownership predicate either. So every declared method either genuinely **filters** by `ownerId` in its derived query name, or carries `@CrossUserQuery("reason")` ([`backend/owner-scoping.md`](backend/owner-scoping.md) §2).
+- **Both rules above apply to every repository, not only the ones for per-user entities.** A table with no ownership — a lookup table, reference data, configuration — carries `@OwnerlessTable("reason")` on the **interface**. Do not approximate it with `@CrossUserQuery` on each method; that drowns out the signal that says "this genuinely reads across users". It exempts the method-level ownership check only, **never the parent-interface allow-list**, and it is rejected outright when the entity does carry `ownerId` ([`backend/owner-scoping.md`](backend/owner-scoping.md) §2.4).
+- Every per-user table has `owner_id uuid not null references app_user(id)`, an index on `owner_id`, and **one two-account negative test**.
+- "Not yours" and "does not exist" both answer **404**, never 403 — a 403 confirms the record exists.
+- Cross-user reads and writes go through an **explicitly registered, controlled exception** ([`backend/owner-scoping.md`](backend/owner-scoping.md) §2.4), annotated on the **method**. Never by adding a method or widening the parent interface.
+- **The guards themselves have negative tests.** A broken guard and a guard with nothing to catch are both green, and nothing distinguishes them ([`testing/index.md`](testing/index.md)).
 
-**安全**：
+**Security:**
 
-- **任何密钥不得进 `VITE_*` 变量**——Vite 把 `VITE_` 前缀的值内联进浏览器包，等于公开发布。
-- **不许关 CSRF**，也不许删 `SecurityConfig` 里 `setCsrfRequestAttributeName(null)` 那行（见 [`backend/index.md`](backend/index.md) §3）。
-- 不在 `localStorage` 存会话凭证或 token（会话是 httpOnly cookie）。
-- **session principal 里不许带凭据**——会话被序列化进 Postgres，带着密码哈希就是把它复制进第二张表（[`backend/index.md`](backend/index.md) §4.1）。
-- 不提交 `.env`，不把密码/密钥写进 `application.yml` 或源码。**数据库口令不许有任何默认值**（连"看起来像开发值"的也不行）——漏配变量的启动路径会用那个公开已知的口令静默成功。注意「没有默认值」不等于「会失败」：占位符解析失败**不会**中止 Spring 启动，必须在 `main()` 里显式挡一道（[`database/index.md`](database/index.md) §5.2）。
-- **开发用的容器端口只绑 `127.0.0.1`**，不要 `"5432:5432"`（那是 0.0.0.0）。
-- **不许摘掉登录/注册的限流**（[`backend/index.md`](backend/index.md) §4.5）。BCrypt 是故意慢的，且注册在唯一索引裁决**之前**就已经哈希过了——没有限流，一台机器反复提交同一个已注册邮箱就能打满 CPU，而数据库全程空闲。
-- **客户端地址只取 `getRemoteAddr()`，绝不信 `X-Forwarded-For`**——那是客户端自己写的，等于送攻击者无限身份。挂反代时改配 `server.forward-headers-strategy=native`，让 Tomcat 的 valve 去改写 `getRemoteAddr()`。
-- **API 接受的输入必须是底下存储真能存的**（[`backend/index.md`](backend/index.md) §4.6）。校验不到位的失败点在写入之后：一半的记录已经落库，用户拿到 500。
-- 授权一律在服务端；前端路由守卫只管渲染，不构成授权。
-- 上了 TLS 就 `APP_COOKIE_SECURE=true`；生产 `APP_API_DOCS_ENABLED=false`。
+- **No secret goes into a `VITE_*` variable.** Vite inlines `VITE_`-prefixed values into the browser bundle, which is publication.
+- **CSRF stays on**, and the `setCsrfRequestAttributeName(null)` line in `SecurityConfig` stays where it is (see [`backend/auth-sessions.md`](backend/auth-sessions.md) §3).
+- Session credentials and tokens do not go in `localStorage`; the session is an httpOnly cookie.
+- **No credentials in the session principal.** The session is serialized into Postgres, so carrying a password hash there copies it into a second table ([`backend/auth-sessions.md`](backend/auth-sessions.md) §4.1).
+- `.env` is not committed, and passwords and keys do not go into `application.yml` or source. **The database password has no default of any kind**, not even one that looks like a development value — a startup path with the variable unset would otherwise succeed silently on a publicly known password. Note that "has no default" does not mean "will fail": a failed placeholder resolution **does not** abort Spring startup, so `main()` blocks it explicitly ([`database/local-database.md`](database/local-database.md) §5.3).
+- **Development container ports bind to `127.0.0.1` only**, never `"5432:5432"`, which is 0.0.0.0.
+- **Rate limiting on login and signup stays on** ([`backend/auth-sessions.md`](backend/auth-sessions.md) §4.2). BCrypt is deliberately slow, and signup has already hashed **before** the unique index adjudicates — without rate limiting, one machine resubmitting the same already-registered email saturates the CPU while the database sits idle.
+- **The client address comes from `getRemoteAddr()` alone; `X-Forwarded-For` is never trusted** — the client writes that header, so trusting it hands an attacker unlimited identities. Behind a reverse proxy, set `server.forward-headers-strategy=native` and let Tomcat's valve rewrite `getRemoteAddr()`.
+- **What the API accepts must be what the storage underneath can actually hold** ([`backend/auth-sessions.md`](backend/auth-sessions.md) §4.3). Under-validation fails *after* the write: half the record has landed and the user gets a 500.
+- Authorization is server-side, always. A frontend route guard governs rendering and is not authorization.
+- With TLS in front, set `APP_COOKIE_SECURE=true`; in production, `APP_API_DOCS_ENABLED=false`.
 
-**结构**：
+**Structure:**
 
-- `spring.jpa.hibernate.ddl-auto` 只能是 **`validate`**，禁 `update` / `create-drop`。
-- `spring.jpa.open-in-view` 保持 **false**。
-- SQL 只出现在 `backend/src/main/resources/db/migration/`。
-- 禁 `@ManyToMany`、禁 `FetchType.EAGER`；controller 不返回实体，只返回 DTO record。
-- **不引入 Lombok**（注解处理器 + 与 record/JPA 的长期摩擦）。DTO 用 record，实体用普通类。
-- 不手改生成文件：`V*__spring_session.sql`（抄自 jar）、`frontend/src/lib/api/schema.d.ts`（`pnpm api:types` 生成）。
-- 前端所有后端调用经 `frontend/src/lib/api/client.ts`，**组件里不裸 `fetch`**。
-- 唯一性由**数据库约束**裁决，不由「先查存在再插入」裁决（[`backend/index.md`](backend/index.md) §4.2）。
-- 引入新依赖（尤其重型库）前先问。
+- `spring.jpa.hibernate.ddl-auto` is **`validate`** and nothing else — never `update` or `create-drop`.
+- `spring.jpa.open-in-view` stays **false**.
+- SQL appears only in `backend/src/main/resources/db/migration/`.
+- No `@ManyToMany` and no `FetchType.EAGER`; a controller returns DTO records, never entities.
+- **No Lombok** (an annotation processor, plus long-running friction with records and JPA). DTOs are records; entities are plain classes.
+- Generated files are not hand-edited: `V*__spring_session.sql` (copied from the jar) and `frontend/src/lib/api/schema.d.ts` (produced by `pnpm api:types`).
+- **`components/admin/*` is a frozen snapshot of upstream source and is not hand-edited.** Record any genuinely necessary local modification, one at a time, in `THIRD_PARTY_NOTICES.md`, and diff against the source at the pinned commit rather than the registry address ([`frontend/data-layer.md`](frontend/data-layer.md) §6).
+- **The project name is spelled once inside `frontend/src`** — `APP_NAME` in `lib/app-config.ts` — and distributed from there. Spread it across several places and the scaffold's rename step becomes impossible to follow; a missed rename means every generated project shares one Postgres volume and one session cookie ([`database/local-database.md`](database/local-database.md) §5.1).
+- Every frontend call to the backend goes through ra-core's `dataProvider` / `authProvider`. **No bare `fetch` in a component**, and no `useQuery` pointed straight at an endpoint.
+- Uniqueness is adjudicated by **a database constraint**, never by "check whether it exists, then insert" ([`backend/write-path.md`](backend/write-path.md) §5.1).
+- Ask before introducing a new dependency, especially a heavy one.
 
-**工具与脚本**：
+**Tooling and scripts:**
 
-- **改工作树的脚本（改名、批量重写、数据迁移）必须先做完整 preflight**：所有校验通过之前不许写任何一个字节。半途失败留下的仓库既不是原样也不是目标态，比直接拒绝难收拾得多。注意「先写再判断有没有命中」等于没有 preflight——那是**边写边校验**。
-- 脚本**永远不要 `rm -rf` 目标路径**来"腾地方"。目标已存在就是拒绝的理由，不是删除的理由——那可能是别人的代码。
-- **同一条策略不要在两层各写一份守卫**。曾经 Gradle 的 `bootRun` 和应用的 `main()` 各判一次数据库口令，规则却不一样——应用接受 `SPRING_DATASOURCE_PASSWORD`，Gradle 不接受，于是用那个变量跑 `bootRun` 会在 JVM 启动前被拒。两份规则必然漂移；**留在离事实最近的那一层**（这里是应用），另一层只负责把环境准备好。
-- **注释声称的行为要和实际行为一致**。`node { download = false }` 只跳过 Node 下载，`pnpmSetup` 照样会 `npm install` 一个不受版本控制的 pnpm；写着"只用 PATH 上那个"而实际装了第二个，比没写注释更糟。改完用 `--info` 看一眼真实执行了什么。
+- **A script that modifies the working tree — renaming, bulk rewriting, data migration — completes a full preflight first.** Not one byte is written until every check has passed. A half-failed run leaves a repository that is neither the original nor the target, which is far worse to recover from than an outright refusal. Note that "write first, then check whether it matched" is not a preflight; that is **validating as you write**.
+- A script **never `rm -rf`s the target path** to make room. An existing target is a reason to refuse, not a reason to delete — it may be somebody else's code.
+- **One policy gets one guard, in one layer.** Check the database password in both Gradle's `bootRun` and the application's `main()` and the two rules will drift: the application accepts `SPRING_DATASOURCE_PASSWORD` and Gradle does not, so running `bootRun` with that variable is rejected before the JVM even starts. **Keep the guard in the layer closest to the fact** — here, the application — and let the other layer only prepare the environment.
+- **What a comment claims must be what the code does.** `node { download = false }` skips only the Node download; `pnpmSetup` still runs `npm install` for a pnpm that is outside version control. A comment saying "we use only the one on PATH" beside code that installs a second one is worse than no comment. Check what actually ran with `--info`.
 
-> **怎么写好这类脚本不在本规范里。** preflight 的清单与范围、`perl -0ne` 与 `perl -pi` 对 `^`/`$` 的分歧、`trap ... EXIT` 会改写退出码、`find ... 2>/dev/null` 把权限失败连同错误一起吞掉、bash 3.2 的限制、要查**父目录**的 `write + execute` 而不是文件的 `-w`、幂等改名必须以**当前值**为基准——这些是 `scripts/init-project.sh` 这个**可执行工件**的教训，跟着工件走，写在 starter 仓的 `scripts/README.md` 里。本页只留上面那几条换个脚本也成立的。
+> **How to write scripts like these is not in this spec.** The preflight checklist and its scope, how `perl -0ne` and `perl -pi` disagree about `^` and `$`, `trap ... EXIT` rewriting the exit code, `find ... 2>/dev/null` swallowing permission failures along with the errors, bash 3.2's limits, checking the **parent directory** for write plus execute rather than the file's `-w`, idempotent renaming being anchored on the **current** value — those are lessons about `scripts/init-project.sh`, an **executable artifact**. They travel with the artifact, in the starter repository's `scripts/README.md`. This page keeps only the rules above, which hold for any script.
 
-## 目录结构（新增代码按此归位）
+## Directory structure (where new code goes)
 
 ```
 backend/src/main/java/<pkg>/
-  config/      SecurityConfig（CSRF/会话/公共前缀）· SpaForwardConfig（深链）
+  config/      SecurityConfig (CSRF / session / public prefixes) · SpaForwardConfig (deep links)
   auth/        AppUser · AppUserRepository · AppUserPrincipal · AppUserDetailsService
-               CurrentUserService（≈ requireUser()）· AuthController · AuthProperties
-  <功能>/      实体 · Repository（归属收口）· Service · Controller · Dtos（record）
-  common/      ApiExceptionHandler（RFC 9457 ProblemDetail）· NotFoundException · ConflictException
-               CrossUserQuery（方法级例外）· OwnerlessTable（接口级：这张表没有归属）
+               CurrentUserService (≈ requireUser()) · AuthController · AuthProperties
+  <feature>/   Entity · Repository (owner-scoped) · Service · Controller · Dtos (record)
+  common/      ApiExceptionHandler (RFC 9457 ProblemDetail) · NotFoundException · ConflictException
+               CrossUserQuery (method-level exception) · OwnerlessTable (interface-level: this table has no owner)
 backend/src/main/resources/
   application.yml
-  db/migration/V*.sql          # 唯一写 SQL 的地方
+  db/migration/V*.sql          # the only place SQL is written
 backend/src/test/java/<pkg>/
-  support/ApiIntegrationTest   # 带 cookie 的 MockMvc 基类 + Testcontainers
-  architecture/                # ArchUnit：归属收口
-  <功能>/                       # 含 *OwnershipIsolationTest（负向）
-  TestcontainersConfiguration · DatabasePasswordGuardTest   # 跨模块的，放包根
-frontend/src/
-  lib/api/client.ts            # 唯一出口：CSRF 头 + 错误归一化
-  lib/api/schema.d.ts          # 生成，勿手改
-  lib/api/<功能>.ts             # endpoint + TanStack Query hooks
-  lib/{status,utils}.ts
-  components/{data,forms,app}/ # patterns 层（antd 没有的那部分）
-  routes/                      # 页面
-  styles/theme.ts              # 视觉唯一真源：ConfigProvider 的 token + components
-  app.tsx  main.tsx  styles/globals.css  assets/fonts/
-design-system/MASTER.md        # 全站 UI 视觉权威
+  support/ApiIntegrationTest   # MockMvc base class carrying cookies, plus Testcontainers
+  architecture/                # ArchUnit: the ownership rules
+  <feature>/                   # includes *OwnershipIsolationTest (negative)
+  TestcontainersConfiguration · DatabasePasswordGuardTest   # cross-module, so they sit at the package root
+frontend/src/                  # load-bearing entries only; anything not listed goes wherever it is used
+  lib/api/client.ts            # transport: CSRF header + problem+json normalization, under every backend call
+  lib/api/schema.d.ts          # generated by pnpm api:types, not hand-edited
+  providers/                   # dataProvider (the only path to data) · authProvider (the only path to auth)
+  lib/app-config.ts            # APP_NAME: the single place the project name is spelled inside frontend/src
+  components/admin/            # frozen shadcn-admin-kit source snapshot, not hand-edited (record changes in THIRD_PARTY_NOTICES.md)
+  components/ui/               # shadcn output, not hand-edited (add with the CLI)
+  components/{data,forms,app}/ # the pattern layer: resource CRUD screens do not need it; non-CRUD screens grow it
+  routes/                      # pages
+  app.tsx                      # <Admin> and <Resource>: where routing and data are bound together
+  styles/globals.css           # the single source for visuals: values in :root, mapped by @theme inline
+  assets/fonts/                # fonts are vendored; no CDN
+design-system/MASTER.md        # the authority on the product's visual design
+design-system/screens/         # the approved hi-fi screens; the fourth column of slices.md points here
+THIRD_PARTY_NOTICES.md         # third-party notices, plus the ledger of local changes to the frozen snapshot
+CONTEXT.md                     # glossary (maintained by domain-modeling; the only host)
 docs/
-  discovery/brief.md           # 产品简报（产品全貌的唯一宿主）
-  discovery/wireframe/<片>/     # 逐切片低保真骨架，final/ 冻结
-  releases/vX.Y.Z.md           # 逐版本发布说明 + 验收清单
+  adr/NNNN-*.md                # decisions with a trade-off (the only host)
+  discovery/prd.md             # the full PRD (the only host for requirements and acceptance)
+  discovery/slices.md          # the slice map: phase goal / slice list / frontier
+  releases/vX.Y.Z.md           # per-release notes plus acceptance list
 scripts/
-  README.md                    # 改工作树的脚本怎么写（preflight、bash 3.2、权限位…），本规范不复述
-  init-project.sh              # 新项目第一步：改名（否则共享数据卷，见 database §5）
-  test-init-project.sh         # 上面那个脚本的拒绝路径与零写入验收
-gradle/libs.versions.toml      # 后端版本唯一钉版处（哪些故意不钉见「栈锁定」）
+  README.md                    # how to write scripts that modify the tree (preflight, bash 3.2, permission bits) — not repeated in this spec
+  init-project.sh              # first step for a new project: rename it (otherwise the data volume is shared, see database §5)
+  test-init-project.sh         # that script's refusal paths and its zero-write guarantee
+gradle/libs.versions.toml      # the only place backend versions are pinned (what is deliberately unpinned is under "Locked stack")
 Dockerfile
-docker-compose.dev.yml         # 本地开发库（只绑 127.0.0.1）
-docker-compose.yml             # 只有应用，没有数据库
-docker-compose.override.yml    # 自带库；不写 -f 时 compose 自动加载
-docker-compose.external-db.yml # 外部库；显式 -f 会连带抑制上面那个 override
+docker-compose.dev.yml         # local development database, bound to 127.0.0.1 only
+docker-compose.yml             # the application only, no database
+docker-compose.override.yml    # brings its own database; compose loads it automatically when no -f is given
+docker-compose.external-db.yml # external database; passing -f explicitly also suppresses the override above
 .github/workflows/{ci,release}.yml
 ```
 
-> **数据库为什么不写在 `docker-compose.yml` 里**：compose **先逐文件插值、再合并**。自带库的 `${POSTGRES_PASSWORD:?…}` 只要写在基础文件里，外部库那条路径也会去解析它——为一个自己根本不启动的数据库要口令，整个 deploy 失败。把它挪进 override 之后，两种模式各自只解析自己用到的变量。注意 `deploy: replicas: 0` **不解决这个问题**：插值发生在任何 override 生效之前。
+> **Why the database is not in `docker-compose.yml`**: compose **interpolates each file first, then merges**. Put the bundled database's `${POSTGRES_PASSWORD:?…}` in the base file and the external-database path resolves it too — demanding a password for a database it never starts, and failing the whole deploy. Moving it into the override leaves each mode resolving only the variables it uses. Note that `deploy: replicas: 0` **does not fix this**: interpolation happens before any override takes effect.
 
-> **实现规格不进 `docs/`**——它随 task 住在 `.trellis/tasks/<task>/prd.md`。集中预先穷举的那份必然先于代码腐化。
+> **How `lib/api/` and `providers/` divide the work**: the transport — CSRF header and `problem+json` normalization — is `lib/api/client.ts`; the two providers are built on it and live in `providers/`. Business components see the providers and never the transport.
 
-## 锁死 vs 放手
+> **Implementation specs do not go in `docs/`.** They travel with their task, in `.trellis/tasks/<task>/prd.md`. A single up-front document enumerating all of them is guaranteed to rot ahead of the code.
 
-**锁死，改动先问**：栈、目录、归属收口方式、鉴权与 CSRF、迁移方式、部署形态。
+## Locked vs free
 
-**放手，直接改**：单个页面的布局、文案、组件选用、业务字段。
+**Locked — ask before changing**: the stack, the directory layout, how ownership is scoped, auth and CSRF, how migrations work, the deployment shape.
 
-## 已知取舍（本轨默认不做，真实项目要自己判断）
+**Free — just change it**: an individual page's layout, its copy, which components it uses, its business fields.
 
-写在这里是因为**沉默会被当成背书**：默认实现里没有的东西，下一个人会默认「这条轨不需要它」。
+## Known trade-offs (this track's defaults, which a real project must judge for itself)
 
-- **写路径默认是无条件 last-write-wins**，没有版本列、`@Version`、ETag 或条件更新。实体单人所有时，冲突只可能出现在同一用户的两个标签页之间，默认不为它付这份复杂度。**但凡你的实体会被多人同时编辑，就必须上乐观锁**：加版本列 + `@Version`，请求带上版本（或 `If-Match`），不匹配返回 409/412，并配并发事务与陈旧表单测试。**沿用默认**等于把「后提交者静默覆盖」带进一个它不再安全的场景。
-- **限流是进程内的**，两个实例就是两份额度（[`backend/index.md`](backend/index.md) §4.5）。单实例部署下这是诚实的取舍——不用多跑一个 Redis——但横向扩容后要换成共享存储的桶。
-- **没有二次验证 / 人机挑战**。所以按账号的限流有一份残余风险，写在 §4.5 里，不许假装它不存在。
+These are written down because **silence reads as endorsement**: whatever the default implementation lacks, the next person assumes this track does not need.
 
-## 本轨规范索引
+- **Writes are unconditional last-write-wins by default** — no version column, no `@Version`, no ETag, no conditional update. While an entity has a single owner, conflicts can only arise between two tabs belonging to the same user, and the default declines to pay for that. **The moment your entity can be edited by several people at once, optimistic locking becomes mandatory**: add a version column and `@Version`, carry the version on the request (or `If-Match`), answer 409/412 on a mismatch, and cover it with concurrent-transaction and stale-form tests. **Keeping the default** carries "the later writer silently overwrites" into a situation where it is no longer safe.
+- **Rate limiting is in-process**, so two instances mean two budgets ([`backend/auth-sessions.md`](backend/auth-sessions.md) §4.2). On a single-instance deployment that is an honest trade — no extra Redis to run — but scaling horizontally means moving to a bucket in shared storage.
+- **The first-load bundle is not split.** The admin stack has one entry point, and the build exceeds Vite's default 500 kB warning — but that warning measures **uncompressed** size, which is not what a user downloads. **The bar is the initial chunk's gzip size: 350 kB or less is within baseline**, and the build already prints that number. Over the bar, split by route or write down the reason. Under it, leave it alone: adding a lazy route or a custom chunk strategy because something "looks big" expands the architecture for a sample.
+- **There is no second factor and no human challenge.** So per-account rate limiting carries a residual risk, written down in [`backend/auth-sessions.md`](backend/auth-sessions.md) §4.2. Do not pretend it is absent.
 
-每个 `<layer>/index.md` 都带 Trellis 约定的 **Pre-Development Checklist** 与 **Quality Check** 两节（`workflow.md` 会按这个约定去读）。
+## Spec index
 
-**轨特化（这条轨专有）**：
+Every `<layer>/index.md` carries the **Pre-Development Checklist** and **Quality Check** sections Trellis expects (`workflow.md` reads them by that convention).
 
-| 文件 | 管什么 |
+**Track-specific.** Each layer has exactly one `index.md`, and that one file declares `paths:` — it is what arrives automatically when you touch the source files that layer governs. It carries the one way to do each thing, the rules that fail silently, and the two checklists, sized to fit the injection budget whole.
+
+**A colocated unit test belongs to the layer it sits in, not to the testing spec.** Only `backend/src/test/**` and `frontend/e2e/**` reach [`testing/index.md`](testing/index.md) by path; `frontend/src/**/*.test.ts` sits inside the frontend spec's own tree, and the glob grammar has no exclusion syntax — a testing glob over it would match alongside the frontend catch-all, and the loser of that pair is truncated rather than dropped. So [`frontend/index.md`](frontend/index.md)'s Pre-Development Checklist carries a line pointing at the testing spec for the two rules a unit test actually needs.
+
+**Configuration is a layer, not an afterthought.** The four source-tree layers cover source files only, so `application.yml`, the compose files, `Dockerfile`, the Gradle build and `.github/workflows/**` used to match no spec at all — while the rules governing them sat inside [`backend/platform.md`](backend/platform.md) and [`database/local-database.md`](database/local-database.md), reachable only by someone already reading those layers. [`ops/index.md`](ops/index.md) owns those paths and routes each setting back to the file that owns its other half.
+
+| Layer core (injected) | Read it when |
 |---|---|
-| [`backend/index.md`](backend/index.md) | 分层与数据读写、**归属收口**、鉴权与会话、CSRF、JPA 禁止项、SPA 深链、异构子服务 |
-| [`database/index.md`](database/index.md) | Flyway 流程、**新表三件套**、`ddl-auto=validate`、生成的迁移不手改、本地卷名陷阱 |
-| [`frontend/index.md`](frontend/index.md) | API 调用收口、组件复用顺序、Hooks、表单、主题与视觉、可访问性 |
-| [`testing/index.md`](testing/index.md) | 质量门命令、怎么验证（含两条负向测试）、Testcontainers、E2E 必须跑在打包产物上 |
+| [`backend/index.md`](backend/index.md) | Writing a repository, controller or service, or touching Spring Security |
+| [`database/index.md`](database/index.md) | Adding a table, writing a migration, changing a column type |
+| [`frontend/index.md`](frontend/index.md) | Calling the backend, building a screen, touching theme tokens |
+| [`testing/index.md`](testing/index.md) | Before saying it is done |
+| [`ops/index.md`](ops/index.md) | Changing an application setting, a compose file, the build or a workflow, or cutting a release |
 
-**轨无关（换技术栈也成立，随本模板一起装）**：
+**The full text sits beside each core**, in files that carry no `paths:` — they are reached from the core's "Where the rest of it lives" table, never injected. Open the one your change touches:
 
-| 文件 | 管什么 |
+| File | Covers |
 |---|---|
-| [`guides/index.md`](guides/index.md) | guides 总入口 |
-| [`guides/code-reuse.md`](guides/code-reuse.md) | 写新代码前先找既有实现的顺序 |
-| [`guides/cross-layer.md`](guides/cross-layer.md) | 跨层职责判据（含「校验散落各层」） |
-| [`guides/review-adjudication.md`](guides/review-adjudication.md) | 编码期 finding 的 4 字段、召回与裁决分离 |
+| [`backend/owner-scoping.md`](backend/owner-scoping.md) | The repository choke point, `@CrossUserQuery` and `@OwnerlessTable`, the three ArchUnit rules, testing the guards |
+| [`backend/auth-sessions.md`](backend/auth-sessions.md) | CSRF, Spring Session JDBC, login and logout, rate limiting, matching API limits to what storage holds |
+| [`backend/write-path.md`](backend/write-path.md) | The write/response seam, validation and the error shape, the list-endpoint contract |
+| [`backend/platform.md`](backend/platform.md) | Layering, SPA deep links, JPA prohibitions, heterogeneous sub-services |
+| [`database/conventions.md`](database/conventions.md) | Column types, closed enums constrained by a CHECK, timestamp precision |
+| [`database/local-database.md`](database/local-database.md) | Bringing the local stack up and resetting it, and the traps that exist only there |
+| [`frontend/data-layer.md`](frontend/data-layer.md) | The provider as the only path to the backend, generated types, the cache across tabs, reuse order, hooks, theme tokens, deep links |
+| [`frontend/ui-structure.md`](frontend/ui-structure.md) | Page skeletons, button hierarchy, filters, tables, empty states, what the admin kit switches on, accessibility invariants |
+| [`frontend/ui-interaction.md`](frontend/ui-interaction.md) | Forms, validation, dialog vs route, feedback, loading, destructive actions |
+| [`frontend/silent-failures.md`](frontend/silent-failures.md) | The six frontend mistakes that produce no error, no failing test and no visible defect |
+| [`testing/test-matrix.md`](testing/test-matrix.md) | Which level uses which tool, and the application state that leaks between tests |
+| [`testing/falsification.md`](testing/falsification.md) | Proving each guard actually goes red |
 
-> `guides/` 在框架仓里是**生成副本**，权威源是 `specs/universal/guides/`，由 `scripts/sync-spec-guides.sh` 同步。**改 guides 要去改权威源**——直接改这里下次同步就被覆盖（框架仓的 CI 会先报出来）。
+**Track-independent** (holds on any stack; ships with this template):
 
-## 与 starter AGENTS.md 的关系
+| File | Covers | Read it when |
+|---|---|---|
+| [`guides/index.md`](guides/index.md) | Entry point for the guides | Unsure which guide applies |
+| [`guides/code-reuse.md`](guides/code-reuse.md) | Where to look for an existing implementation before writing a new one | About to write something that resembles existing code |
+| [`guides/cross-layer.md`](guides/cross-layer.md) | Criteria for splitting responsibility across layers, including "validation scattered across layers" | A feature crosses three or more layers |
+| [`guides/review-adjudication.md`](guides/review-adjudication.md) | The four-field finding while coding; reporting is not deciding | You found a rule that is wrong, or a trap the spec never mentioned |
+| [`guides/task-artifacts.md`](guides/task-artifacts.md) | What belongs in a task's `design.md` and `implement.md` | Writing task artifacts — **injected by path** |
+| [`guides/source-of-truth.md`](guides/source-of-truth.md) | Which artifact is authoritative at each stage; writing back as a delta | Two documents disagree — **injected by path** |
 
-**同一套规则目前存在两处**：本目录，与 starter 仓 `java-stack/AGENTS.md`。这是已知的临时状态，不是设计意图。
+> In the framework repository `guides/` is a **generated copy**; the source of truth is `specs/universal/guides/`, synced by `scripts/sync-spec-guides.sh`. **Edit the source of truth** — editing the copy here is overwritten at the next sync, and the framework repository's CI reports it first.
 
-- **本目录是权威源**，跟着框架仓维护、经 Trellis 按需注入。
-- starter 的 `AGENTS.md` 只保留「项目信息 + 指向本规范 + 最致命的那几条红线」，且它们必须是本页禁止清单的**严格子集**，分组也与本页一致（数据隔离 / 安全 / 结构）。**下放的判据**：不走 Trellis 的 session 读不到按需注入的 spec，而这条破了会出真事故。不满足这条判据的规则留在本页，不下放。
-- **不要把这份子集写成固定枚举。** 两边的清单都会长，枚举一旦落后，读的人会按枚举判定 starter「超范围」，而它其实只是又下放了一条同样致命的规则。核对方式是**逐条回本页禁止清单找对应项**——找不到对应项才是违规。
-- 改规则**先改本目录**，再同步回 starter。反向改会漂移。
+## Relationship to the starter's AGENTS.md
+
+**The same rules currently exist in two places**: this directory, and the starter repository's `java-stack/AGENTS.md`. That is a temporary state.
+
+- **This directory is the source of truth.** It is maintained in the framework repository and injected on demand by Trellis.
+- The starter's `AGENTS.md` keeps only project information, a pointer to this spec, and the few most lethal red lines — and those must be a **strict subset** of the Never list on this page, grouped the same way (data isolation / security / structure). **The test for pushing a rule down**: a session that does not go through Trellis cannot see an on-demand spec, and breaking this rule causes a real incident. A rule that fails that test stays on this page.
+- **Do not write that subset as a fixed enumeration.** Both lists will grow, and the moment an enumeration falls behind, a reader will judge the starter "out of scope" when it has merely pushed down one more equally lethal rule. Check it by **finding each starter rule's counterpart in the Never list on this page** — having no counterpart is the violation.
+- **Change this directory first**, then sync back to the starter. Changing the other direction drifts.

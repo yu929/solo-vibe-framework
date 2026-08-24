@@ -1,117 +1,122 @@
-# 第三方依赖
+# Third-Party Dependencies
 
-> **装什么和不装什么同样重要。** 每条「不装」都写了理由——没有理由的禁令会在半年后被自己推翻，然后重踩同一个坑。
+> **What we do not install matters as much as what we do.** Every "not installed" entry carries its reason — a ban with no reason gets overturned by its own author six months later, who then walks into the same trap again.
 >
-> 核实日期：2026-08-12。上游变了先回来改这份，别在别处打补丁。
+> Verified 2026-08-21 (the vendor decisions and the table of measured facts). When upstream changes, come back and fix this file rather than patching around it elsewhere.
 
-## 底座：Trellis
+## The foundation: Trellis
 
 ```bash
 npm install -g @mindfoldhq/trellis@latest
 trellis init -u <your-name>
 ```
 
-要求 Node ≥ 18、Python ≥ 3.9。License **AGPL-3.0**。
+Requires Node ≥ 18 and Python ≥ 3.9. Licensed **AGPL-3.0**.
 
-### 不 fork
+### We do not fork it
 
-Trellis 官方只认四种 fork 理由：给它提 PR、改 npm 包发布内容、改 `trellis init/update` 的生成逻辑、明确要 fork。都不占。
+Trellis officially recognizes four reasons to fork: sending it a PR, changing what the npm package publishes, changing what `trellis init/update` generates, or explicitly wanting a fork. None applies.
 
-定制落点全在本地，无需 fork：
+Every customization lands locally, with no fork needed:
 
-| 想改什么 | 落点 |
+| What you want to change | Where it lands |
 |---|---|
-| 阶段、下一步提示、要不要建 task、skill 路由、自定义状态 | 目标项目的 `.trellis/workflow.md`（单文件，改完不用重 build，下个 session 生效） |
-| 编码约定 | `.trellis/spec/` |
-| `task.py` 等运行时脚本 | 它们是生成到项目里的，直接改 |
+| Phases, next-step prompts, whether to create a task, skill routing, custom states | The target project's `.trellis/workflow.md` (one file; no rebuild, effective next session) |
+| Coding conventions | `.trellis/spec/` |
+| Runtime scripts such as `task.py` | They are generated into the project — edit them directly |
 
-fork 的实际代价：Trellis 是 pnpm monorepo（`packages/cli` + `packages/core` + 两个 submodule + husky + pyright），fork 后要维护 TS/Python 混合构建，且**不能再 `npm install -g` 拿上游更新**。
+What a fork actually costs: Trellis is a pnpm monorepo (`packages/cli` + `packages/core` + two submodules + husky + pyright). Forking means maintaining a mixed TS/Python build, and **you can no longer take upstream updates with `npm install -g`**.
 
-**本仓不发 `type: workflow` 模板。** 实测它是整份替换 `.trellis/workflow.md`（官方 marketplace 的条目就是 `path: workflows/native/workflow.md`），等于接管整个 Plan/Execute/Finish 正文。理由不是代价不可接受——`trellis workflow create <id>` 是**从 native 派生**的（`dist/cli/index.js:224-227`，写进 `.trellis/workflows/<id>.md`），`trellis workflow -s <id>` 也能把一个模板存进那个库而不动活跃 workflow，再合并没那么痛——理由是**这套流程一次都没实跑过**，现在写等于把猜测固化。
+**This repository does not publish a `type: workflow` template.** Running it showed that such a template replaces `.trellis/workflow.md` wholesale — the official marketplace entry is literally `path: workflows/native/workflow.md` — which means taking over the entire Plan/Execute/Finish text. The reason is not that the cost is unacceptable: `trellis workflow create <id>` **derives from native** (`dist/cli/index.js:224-227`, written to `.trellis/workflows/<id>.md`), and `trellis workflow -s <id>` can store a template in that library without touching the active workflow, so merging later is less painful than it sounds. The reason is that **this flow has never been run even once**, and writing it now would freeze a guess.
 
-> 别把 `-s/--save <id>` 和 `-n/--create-new` 搞混：前者写 `.trellis/workflows/<id>.md`（每 task 可选的模板库），后者写 `.trellis/workflow.md.new`（活跃 workflow 的待合并副本）。实跑一遍知道该卡在哪，再决定。
+> Do not confuse `-s/--save <id>` with `-n/--create-new`: the first writes `.trellis/workflows/<id>.md` (the per-task template library), the second writes `.trellis/workflow.md.new` (a pending-merge copy of the active workflow). Run it once to learn where it should be gated, then decide.
 
-#### workflow 变体：实测（2026-08-13，v0.7.0-beta.3）
+#### Workflow variants: measured (2026-08-13, v0.7.0-beta.3)
 
-**「再合并没那么痛」那句话是错的，实测修正**：`trellis workflow create <id>` 产出的是 native `workflow.md` 的**逐字全量副本**（709 行 / 38 KB，`diff` 完全相同），不是差异层。建一份就是接管整份 Plan/Execute/Finish 正文，从此上游改了要自己 diff 回来。**结论不变（仍然不发、不建），但理由现在有两条**：流程没实跑过，加上代价比原先估计的高。
+**"Merging later is less painful than it sounds" turned out to be wrong, and this is the correction**: what `trellis workflow create <id>` produces is a **verbatim full copy** of the native `workflow.md` — 709 lines, 38 KB, `diff` reports no difference — not a difference layer. Creating one takes over the whole Plan/Execute/Finish text, and every upstream change from then on has to be diffed back by hand. **The conclusion is unchanged (still not published, still not created), but there are now two reasons**: the flow has never been run, and the cost is higher than first estimated.
 
-解析优先级（`scripts/common/workflow_selection.py` 的 docstring，实测逐层验过）：
+Resolution order (from the docstring of `scripts/common/workflow_selection.py`, verified layer by layer):
 
-| 层 | 落点 | 提交与否 |
+| Layer | Where it lands | Committed |
 |---|---|---|
-| 1 | active task 的 `task.json` `workflow` 字段（`task.py create --workflow <id>` / `task.py workflow <id>`） | 提交 |
-| 2 | `.trellis/.developer` 的 `workflow=<id>` | **gitignore，个人级** |
-| 3 | `.trellis/config.yaml` 的 `default_workflow` | 提交 |
-| 4 | `.trellis/workflow.md` | 提交 |
+| 1 | The active task's `workflow` field in `task.json` (`task.py create --workflow <id>` / `task.py workflow <id>`) | Yes |
+| 2 | `workflow=<id>` in `.trellis/.developer` | **gitignored, per-person** |
+| 3 | `default_workflow` in `.trellis/config.yaml` | Yes |
+| 4 | `.trellis/workflow.md` | Yes |
 
-**对本仓最要紧的一条实测结论：需求探索期（`no_task`）第 1 层用不上，第 2 层照样生效。** 官方两篇文档主推的都是 per-task pin，但简报阶段**没有 task**，那一层根本不参与解析。实测：清掉 active task 后只设 `.developer` 的 `workflow=`，per-turn breadcrumb 读的就是那个变体的 `[workflow-state:no_task]` 块。
+**The measured conclusion that matters most here: during requirements discovery (`no_task`) layer 1 is unavailable, while layer 2 still works.** Both official documents lead with the per-task pin, but the brief stage **has no task**, so that layer does not participate in resolution at all. Measured: with the active task cleared and only `.developer`'s `workflow=` set, the per-turn breadcrumb reads that variant's `[workflow-state:no_task]` block.
 
-所以「给需求探索期定制一套流程」在机制上唯一的落点是第 2 层——**而它是 gitignore 的个人级配置，跨项目不共享**。这也是本仓不往这个方向走的追加理由：定制的收益落在一个不可分发的位置上。
+So the only mechanism for "a custom flow during requirements discovery" is layer 2 — **and that is gitignored per-person configuration, not shared across projects**. This is the additional reason this repository does not go that way: the benefit of the customization lands somewhere undistributable.
 
-真需要在简报阶段给 agent 加规则时，**先用下面两个轻得多的东西**，别动 workflow。
+When the brief stage genuinely needs extra rules for the agent, **reach for the two much lighter things below** before touching the workflow.
 
-在那之前，需要的那一段提示语靠手工粘进 `[workflow-state:no_task]`，见 [`../playbook/00-setup.md`](../playbook/00-setup.md) 步骤 5。
+Until then, the needed prompt text is pasted by hand into `[workflow-state:no_task]` — see step 1 of [`../playbook/setup/04-workflow-prompts.md`](../playbook/setup/04-workflow-prompts.md).
 
-### 实测：它提供什么，不提供什么
+### Measured: what it provides, and what it does not
 
-> 本机版本 **v0.7.0-beta.3**。以下每条都有出处，上游变了回来改这里。
+> Local version **v0.7.0-beta.3**. Every row has a source; when upstream changes, come back and fix this.
 
-| 事实 | 出处 | 对本仓的后果 |
+| Fact | Source | Consequence here |
 |---|---|---|
-| `trellis-brainstorm` 已做需求收敛，且有硬门禁：没显式批准 planning summary 就不许 `task.py start` | `.agents/skills/trellis-brainstorm/SKILL.md` | **不自造门禁**，把原型接在它前面 |
-| 它的前置是「task-creation consent 已给出」，先 `task.py create` 再问 | 同上 · Preconditions | task 之前是真空——简报的位置 |
-| *"Do not invent a project-specific product/spec hierarchy. If the repository already has product docs, use them."* | 同上 | Trellis **主动**把产品层留给你 |
-| 强制**一次一问**（"Ask only one question per message"） | 同上 · Question Rules | 见下「两套提问纪律」 |
-| `.trellis/spec/` = *"Maintain coding standards"*，目录只有 frontend/backend/unit-test/guides | `trellis-meta/references/core/specs.md` | **纯编码规范，零产品内容**；也没有 `architecture/` |
-| `finish-work` 四步：`get_context.py --mode record` → `git status` → `task.py archive` → `add_session.py` | `.agents/skills/trellis-finish-work/SKILL.md` | 归档 + journal，**零产品问题**，且 task-scoped |
-| workflow-state hook 是 **parser-only**（*"reads whatever you put in the block"*） | `trellis-meta/references/customize-local/change-workflow.md` | 任何「门禁」都只是提示语 |
-| **`--registry` 只认 `type: spec`，其他类型直接返回失败** | `dist/utils/template-fetcher.js:828` | `index.json` 只登记一条 |
-| **`no-trellis` 是自带逃生舱**：prompt 里含这个独立词（词边界匹配，`no-trellisfoo` 不算），当轮 breadcrumb 完全不注入；不影响 SessionStart 与子 agent 注入 | `config.yaml` 的 `prompt_injection.skip_keyword`，**实测注入为空** | 写简报被反复问「要不要建 task」时的正解，见 [`../playbook/01-new-product.md`](../playbook/01-new-product.md) 常见卡点 |
-| **spec 注入按 frontmatter `paths:` glob 触发，glob 不限于代码路径** | 实测：写一份 `paths: ["docs/discovery/**"]` 的 spec，`get_context.py --mode spec --file docs/discovery/brief.md` 命中；反向对照 `src/a.ts` 不命中 | 想给需求探索期加规则，这是**比 workflow 变体轻一个量级**的落点：一个文件、随 registry 分发、跨项目共享 |
+| `trellis-brainstorm` already converges requirements, and has a hard gate: no `task.py start` without explicit approval of the planning summary | `.agents/skills/trellis-brainstorm/SKILL.md` | **Do not invent a second gate**; attach the prototype ahead of it |
+| Its precondition is that task-creation consent has been given — it runs `task.py create` first and asks afterwards | Same file, Preconditions | Before a task there is a vacuum: that is where the brief goes |
+| *"Do not invent a project-specific product/spec hierarchy. If the repository already has product docs, use them."* | Same file | Trellis **deliberately** leaves the product layer to you |
+| It enforces **one question per message** ("Ask only one question per message") | Same file, Question Rules | See "Two questioning disciplines collide" below |
+| `.trellis/spec/` means *"Maintain coding standards"*, and its directories are only frontend, backend, unit-test and guides | `trellis-meta/references/core/specs.md` | **Coding rules only, zero product content**; there is no `architecture/` either |
+| `finish-work` is four steps: `get_context.py --mode record` → `git status` → `task.py archive` → `add_session.py` | `.agents/skills/trellis-finish-work/SKILL.md` | Archiving plus a journal, **zero product questions**, and task-scoped |
+| The workflow-state hook is **parser-only** (*"reads whatever you put in the block"*) | `trellis-meta/references/customize-local/change-workflow.md` | Any "gate" of your own is only prompt text |
+| **`--registry` accepts `type: spec` only and returns failure for anything else** | `dist/utils/template-fetcher.js:828` | `index.json` registers that type alone |
+| **`no-trellis` is a built-in escape hatch**: a prompt containing that standalone word (word-boundary match, so `no-trellisfoo` does not count) suppresses that turn's breadcrumb entirely; SessionStart and sub-agent injection are unaffected | `prompt_injection.skip_keyword` in `config.yaml`, **measured: injection was empty** | The right answer when converging requirements and being asked repeatedly whether to create a task — see the pitfalls in [`../playbook/setup/04-workflow-prompts.md`](../playbook/setup/04-workflow-prompts.md) |
+| **Spec injection is triggered by the frontmatter `paths:` globs, and a glob is not restricted to code paths** | Measured: a spec with `paths: ["docs/discovery/**"]` is matched by `get_context.py --mode spec --file docs/discovery/slices.md`; the control case `src/a.ts` is not | For adding rules to requirements discovery, this is **an order of magnitude lighter than a workflow variant**: one file, distributed with the registry, shared across projects |
+| **`paths: [".trellis/tasks/**"]` matches too** — a glob can point at Trellis's own artifact directory | Measured 2026-08-21: in a temporary project, after `task.py create`, `get_context.py --mode spec --file .trellis/tasks/08-21-probe/prd.md` matched that spec; `src/a.ts` did not | This is how `specs/universal/guides/task-artifacts.md` is injected automatically when an agent touches task artifacts |
+| **A spec with no `paths:` does not take part in path routing** — it is reached through the `guides/index.md` pointer instead | `scripts/common/spec_match.py` accepts only files whose first line is `---`; `spec_inject.py` handles only a `SpecMatch` | Two delivery channels coexist: **what must appear at a specific moment** gets `paths:`, **what is consulted on demand** stays in the index |
+| **On the Claude Code side the injection is PostToolUse, matcher `Read\|Edit\|Write\|MultiEdit`** (on Codex it is PreToolUse, with a deny-once that makes the model re-read) | The Triggers section of `shared-hooks/inject-spec-context.py`; the matcher itself in `dist/templates/claude/settings.json` | "Read before writing" is **not guaranteed** on Claude Code, but reading a governed path triggers it too — so the case that genuinely arrives too late is a **file created from nothing**. The `workflow.md` prompt is the backstop |
+| **SessionStart already hands over the index paths**: `<guidelines>` carries `## Available indexes (read on demand)`, one line per `.trellis/spec/**/index.md` | `shared-hooks/session-start.py:666` collects them and `:920` writes them; wired at `SessionStart` matchers `startup`, `clear` and `compact` in `dist/templates/claude/settings.json` — the latter two re-run `inject-spec-context.py` as well | Before its first write an agent already knows **where** the indexes are; what it lacks is an imperative to open one. That sentence has to load earlier than any hook, so it lives in each starter's `AGENTS.md` |
+| **A sub-agent's context is assembled at PreToolUse from `implement.jsonl`** and inlined into its dispatch prompt, which then tells it *"All the information you need has been prepared for you"* | `shared-hooks/inject-subagent-context.py:490`; the marker branch of `dist/templates/claude/agents/trellis-implement.md` says *proceed directly* | For a sub-agent the jsonl is the **only** pre-write channel — a spec it does not list arrives PostToolUse at best. Hence the `implement.jsonl` rule in [`../specs/universal/guides/task-artifacts.md`](../specs/universal/guides/task-artifacts.md) |
 
-以下五条来自**第一次完整实跑**（2026-08-16，一个切片走完 Plan/Execute/Finish 并归档）：
+The five rows below come from the **first complete run** (2026-08-16: one slice taken through Plan/Execute/Finish and archived):
 
-| 事实 | 出处 | 对本仓的后果 |
+| Fact | Source | Consequence here |
 |---|---|---|
-| **`trellis-update-spec` 不知道 spec 是不是装来的**，全文无 registry / 源仓 / 上游字样，只写 `.trellis/spec/` | 该 SKILL.md 全文（357 行） | 经 registry 装的 spec，写回权威源**没有任何机制在守**——规则只能靠 [`../specs/universal/guides/review-adjudication.md`](../specs/universal/guides/review-adjudication.md) 的落点表 |
-| **Phase 2 → Phase 3 是连着自动跑完的**，唯一会停下来问用户的是 3.4 的提交计划（*"Present the plan once, ask for one-shot confirmation"*） | `workflow.md` 3.4 step 5 | **人工验收没有位置**，必须手动插在 check 之后。这就是拍板 5 的由来 |
-| **3.4 的脏文件分类依赖会话记忆**：分「AI-edited **this session**」与「Unrecognized」两堆 | `workflow.md` 3.4 step 3 | 实现到提交之间**不要换 session**，换了所有文件都变成「不认识的」，那份提交计划就废了 |
-| **换 session 靠单文件 fallback 续上**：`.trellis/.runtime/sessions/` 里**恰好 1 个**文件才认，0 个或 ≥2 个直接返回「无活跃 task」（源码注释：*refuses to guess across windows*） | `scripts/common/active_task.py:599-621` | 单窗口串行干活无缝；**同时开两个窗口对同一个仓库，换 session 就丢活跃 task** |
-| **`task.py start` 不校验任何产物**——只解析路径、写指针、翻状态，不看 `prd.md` 在不在、不看 jsonl 填没填 | `scripts/task.py` `cmd_start` | 推论：**别用 `start` 去修丢失的指针**，它会顺手把 `planning` 翻成 `in_progress`，把开工闸门跳过去且不报错 |
+| **`trellis-update-spec` does not know whether a spec was installed from somewhere.** The whole file never mentions a registry, a source repository or upstream; it only writes `.trellis/spec/` | That SKILL.md in full (357 lines) | For a registry-installed spec, **nothing enforces writing back to the source of truth** — the rule can only live in the table in [`../specs/universal/guides/review-adjudication.md`](../specs/universal/guides/review-adjudication.md) |
+| **Phase 2 runs straight into Phase 3.** The only stop for user input is the commit plan in 3.4 (*"Present the plan once, ask for one-shot confirmation"*) | `workflow.md` 3.4 step 5 | **There is no slot for human acceptance**; it has to be inserted by hand after the checks. That is where sign-off 5 comes from |
+| **3.4's dirty-file classification depends on session memory**: it splits them into "AI-edited **this session**" and "Unrecognized" | `workflow.md` 3.4 step 3 | **Do not switch sessions between implementing and committing** — after a switch every file becomes "unrecognized" and that commit plan is worthless |
+| **Switching sessions is resumed through a single-file fallback**: `.trellis/.runtime/sessions/` must contain **exactly one** file; zero or two or more returns "no active task" (the source comment says it *refuses to guess across windows*) | `scripts/common/active_task.py:599-621` | Serial work in one window is seamless; **two windows open on the same repository loses the active task on a session switch** |
+| **`task.py start` validates no artifacts** — it resolves paths, writes a pointer and flips state, without checking whether `prd.md` exists or whether the jsonl was filled in | `scripts/task.py`, `cmd_start` | It follows that **`start` is not the way to repair a missing pointer**: it also flips `planning` to `in_progress`, skipping the start gate without reporting anything |
 
-**推论：纯用 Trellis 看不到产品全貌。** 跑五十个 task 之后你有一堆编码规范 + 一堆已归档的单次改动 + 一条时间流水，没有一处回答「这个产品现在整体是什么」。所以 `docs/discovery/brief.md` **不是消耗品**——它是这一层唯一的宿主，跟着阶段目标更新，不随发布删除。
+**It follows that Trellis alone never shows the product as a whole.** After fifty tasks you have a pile of coding rules, a pile of archived one-off changes and one timeline, and nowhere that answers "what is this product, overall, right now". So the full PRD and `docs/discovery/slices.md` **are not consumables** — they are the only hosts at that level, updated with the phase goal and never deleted at a release.
 
-### 四种分发机制（最容易踩的一处）
+### Four distribution mechanisms (the easiest thing here to get wrong)
 
-它们长得都像「装个东西进来」，落点和机制完全不同：
+They all look like "install something", and their destinations and mechanisms are entirely different:
 
-| 装什么 | 用什么装 | 落到哪 |
+| What is installed | Installed by | Lands in |
 |---|---|---|
-| **一个** `specs/<track>`（自带 guides） | `trellis init --registry ... --template <id>` | 项目 `.trellis/spec/` |
-| **本仓 skill + vendor skill** | **`scripts/install-skills.sh`**（全局软链） | `~/.claude/skills/` |
-| Trellis 自带 skill | `trellis init --claude` | 项目 `.claude/skills/` |
-| workflow 模板 | `--workflow` / `--workflow-source` / `trellis workflow` | 项目 `.trellis/workflow.md` |
+| **One** `specs/<track>` (which brings its own guides) | `trellis init --registry ... --template <id>` | The project's `.trellis/spec/` |
+| **This repository's own skills plus the vendored ones** | **`scripts/install-skills.sh`** (global symlinks) | `~/.claude/skills/` |
+| Trellis's bundled skills | `trellis init --claude` | The project's `.claude/skills/` |
+| Workflow templates | `--workflow` / `--workflow-source` / `trellis workflow` | The project's `.trellis/workflow.md` |
 
-**registry 模板的路径会被抹平**：`specs/<id>/` 的**内容**复制进 `.trellis/spec/`，`<id>/` 那一层不保留。所以 `specs/web-fullstack/frontend/index.md` 落成 `.trellis/spec/frontend/index.md`（正好是 Trellis 自己的目录约定），而**不是** `.trellis/spec/web-fullstack/frontend/index.md`。
+**A registry template's path layer is flattened**: the **contents** of `specs/<id>/` are copied into `.trellis/spec/`, and the `<id>/` layer is not preserved. So `specs/web-fullstack/frontend/index.md` becomes `.trellis/spec/frontend/index.md` — which happens to be Trellis's own directory convention — and **not** `.trellis/spec/web-fullstack/frontend/index.md`.
 
-#### 一个项目只能装一个 spec 模板
+#### A project can install only one spec template
 
-**跑第二次 init 追加模板，会让先装的那个静默失去更新来源。** 源码证据：
+**Running init a second time to append a template silently cuts off updates to the first one.** The source evidence:
 
-| 事实 | 出处 |
+| Fact | Source |
 |---|---|
-| `.trellis/config.yaml` 的 `registry.spec` 只有**单数**的 `template` 字段 | `dist/utils/registry-config.js:12-18` |
-| `writeSpecRegistryConfig` 命中已有的 `template:` 行就**整行替换** | 同文件 `:121-126` |
-| 每次带 `--template` 的 init 都会写这份配置 | `dist/commands/init.js:1384, 1512` |
-| `trellis update` 只读 `config.template` 那**一个** id 去刷新 | `dist/commands/update.js:469, 505, 510` |
+| `registry.spec` in `.trellis/config.yaml` has only a **singular** `template` field | `dist/utils/registry-config.js:12-18` |
+| `writeSpecRegistryConfig` **replaces the whole line** when it finds an existing `template:` | Same file, `:121-126` |
+| Every init carrying `--template` writes that config | `dist/commands/init.js:1384, 1512` |
+| `trellis update` reads that **one** id from `config.template` to refresh | `dist/commands/update.js:469, 505, 510` |
 
-所以先装轨规范、再装 `universal-guides` 之后，`trellis update` 从此只刷新 guides，**含安全规则的轨规范再也收不到修复**。而 update 命令仍然成功、仍然打印绿色——这就是它能藏住的原因。
+So after installing the track spec and then `universal-guides`, `trellis update` refreshes only the guides from then on, and **the track spec — the one with the security rules — never receives another fix**. Meanwhile the update command still succeeds and still prints in green, which is how it stays hidden.
 
-**做法：轨模板自带 guides，只跑一次 init。** `specs/<track>/guides/` 是 `specs/universal/guides/` 的生成副本，由 `scripts/sync-spec-guides.sh` 同步、`scripts/test-spec-templates.sh` 卡住漂移。`universal-guides` 模板仍然保留，但它的用途窄了一条：**只给还没有轨规范的项目单独装**，永远不和轨模板一起装。
+**The approach: the track template brings its own guides, and init runs once.** `specs/<track>/guides/` is a generated copy of `specs/universal/guides/`, synced by `scripts/sync-spec-guides.sh` and held against drift by `scripts/test-spec-templates.sh`. The `universal-guides` template still exists, but its purpose narrowed: **it is installed only by projects that have no track spec**, and never alongside a track template.
 
-顺带解决了一个只在安装态才暴露的断链：`<id>/` 被抹平之后，`../../universal/guides/x.md` 会解析到 `.trellis/universal/guides/x.md`（不存在）。guides 与轨规范同级之后，`../guides/x.md` **在源码树和安装树里指的是同一个东西**。这类缺陷在仓库里跑任何常规链接检查都是绿的，所以必须按安装树查——`test-spec-templates.sh` 用例 1 做的就是这件事。
+That also fixed a broken link that only appeared once installed: with `<id>/` flattened, `../../universal/guides/x.md` resolves to `.trellis/universal/guides/x.md`, which does not exist. With guides as a sibling of the track rules, `../guides/x.md` **means the same thing in the source tree and in the installed tree**. Any ordinary link check run inside the repository is green against this class of defect, which is why it has to be checked against the installed tree — that is what case 1 of `test-spec-templates.sh` does.
 
-**registry 为什么装不了 skill**——`dist/utils/template-fetcher.js:828`：
+**Why the registry cannot install a skill** — `dist/utils/template-fetcher.js:828`:
 
 ```js
 // Only support spec type in MVP
@@ -121,185 +126,267 @@ if (resolved.type !== "spec") {
 }
 ```
 
-同文件 `:18` 的 `INSTALL_PATHS` 里确实有 `skill: ".agents/skills"`，但类型闸在前面，那行是死代码。即便上游将来打开，落点也是**项目内**的 `.agents/skills`，不是 `~/.claude/skills/`——跨项目的 skill 还是得软链。`dist/configurators/claude.js:96` 写的是项目内 `.claude/skills/`，但只装 Trellis 自己的 bundled skill。
+`INSTALL_PATHS` at `:18` in the same file does contain `skill: ".agents/skills"`, but the type gate comes first, so that line is dead code. Even if upstream opened it up, the destination would be the **project's** `.agents/skills`, not `~/.claude/skills/` — a skill shared across projects would still need a symlink. `dist/configurators/claude.js:96` writes to the project's `.claude/skills/`, but installs only Trellis's own bundled skills.
 
-**所以 `index.json` 只登记 `type: spec`**（现在三条：`universal-guides`、`web-fullstack` 与 `java-stack`）。上游支持非 spec 类型之后，才可以把 skill 加进去。
+**So `index.json` registers `type: spec` only** — currently three entries: `universal-guides`, `web-fullstack` and `java-stack`. Adding skills becomes possible only once upstream supports non-spec types.
 
-### 两套提问纪律会打架
+### Two questioning disciplines collide
 
-| 来源 | 节奏 | 停止规则 |
+| Source | Rhythm | Stopping rule |
 |---|---|---|
-| Trellis `trellis-brainstorm` | **一次一问** | 用户显式批准 planning summary |
-| mattpocock `grilling` | 一轮问完 frontier | frontier 空（无界） |
+| Trellis `trellis-brainstorm` | **One question at a time** | The user explicitly approves the planning summary |
+| mattpocock `grilling` | The whole frontier in one round | The frontier is empty (unbounded) |
 
-**本仓取 Trellis 的**，理由是它在 planning 阶段是强制的，另一套只会跟它对着来。`grilling` 仍然有用——用在**写简报**那一步（还没建 task，brainstorm 没上场），frontier 让一轮问得更饱满。
+**This repository takes Trellis's**, because it is mandatory during planning and a second discipline would only work against it. `grilling` is still useful — during **writing the brief**, before a task exists and before brainstorm is in play, where the frontier makes one round more complete.
 
-赌注是：**brainstorm 问的每个问题都是简报里缺的一条，补进简报之后下一片会明显变短**（它的 Evidence Rule 要求「能从仓库文档查到的就别问用户」）。**这是推测，实跑后回来修正。**
+The bet is that **every question brainstorm asks is one the brief was missing, so filling the brief makes the next slice noticeably shorter** — its Evidence Rule already requires not asking the user what the repository's documents can answer. **This is a prediction; come back and correct it after a real run.**
 
-### `trellis update` 的双向性
+### `trellis update` cuts both ways
 
-`.trellis/.template-hashes.json` 记录每个生成文件的 SHA256，`update` 靠它识别本地改动、**不覆盖你改过的文件**。
+`.trellis/.template-hashes.json` records each generated file's SHA256, and `update` uses it to recognize local changes and **not overwrite files you have edited**.
 
-反面：**你改过的文件，上游改进你也拿不到**。所以需要定期 diff 复核，范围只盯 `workflow.md` 与 `spec/guides/`——不必盯整棵树。
+The other side: **upstream improvements to a file you have edited never reach you either.** So a periodic diff review is needed, scoped to `workflow.md` and `spec/guides/` — not the whole tree.
 
-如果想留后路：fork 一份**只读镜像**（不改、不发包），只用来 diff 和查源码，零维护。
+To keep an escape route, fork a **read-only mirror** — never edited, never published — purely for diffing and reading source. Zero maintenance.
 
-## mattpocock/skills — 只取两个（已 vendor）
+## mattpocock/skills — six of them, already vendored
 
-### 装
+### Installed
 
-| skill | 取它什么 | 附带依赖 |
+| Skill | What we take from it | Dependencies |
 |---|---|---|
-| `grilling` | design tree + frontier 分轮批量提问：一轮问完整个 frontier、编号 + **每题附推荐答案**、依赖未决的排到下一轮、「Finding facts is your job, never the user's」（环境事实派子 agent 查，不问用户） | 无 |
-| `grill-me` | 用户可调用薄壳（147 字节：`disable-model-invocation: true` + 一句 `Run a /grilling session`） | 依赖 `grilling` |
+| `grilling` | Design tree plus frontier-based batched questioning: one round covers the whole frontier, questions are numbered and **each carries a recommended answer**, anything blocked on an open question moves to the next round, and "Finding facts is your job, never the user's" (environment facts are looked up by a sub-agent, never asked of the user) | None |
+| `grill-me` | A thin user-invocable shell (`disable-model-invocation: true` plus one line, `Run a /grilling session`) | Depends on `grilling` |
+| `grill-with-docs` | Grilling while writing terminology and decisions to disk. **The whole file is one line**: `Call the Skill tool twice, for "grilling" and "domain-modeling"` | **Hard dependency on `domain-modeling`**; without it the second call points at nothing |
+| `domain-modeling` | The `CONTEXT.md` glossary (*"a glossary and nothing else"*), `docs/adr/`, and **the original text of the three ADR criteria** | None |
+| `prototype` | **The LOGIC branch only**: build a single shareable HTML file to answer "is this logic or state model right", pushing the state machine through cases that cannot be reasoned about on paper, drivable by a non-developer | None |
+| `writing-for-agents` | The meta-rules for documents an agent reads: a context pointer's wording decides how reliably it fires, the two load budgets, the information hierarchy and progressive disclosure, a completion criterion's clarity and demand, leading words | A sibling `SKILL-MECHANICS.md` |
 
-**它的停止条件是「frontier 空」，无界。** 本仓不给提问加轮次上限。
+**Its stopping condition is "the frontier is empty", which is unbounded.** This repository puts no round cap on questioning.
 
-**那它在简报阶段靠什么收敛？** 靠它自己的两条：frontier 空即停，以及 *"Finding facts is your job, never the user's"*（环境事实派子 agent 查，不问用户）。这一步在 task 之外，Trellis 的 brainstorm 还没上场，所以确实没有外部闸——**这是有意接受的**：简报阶段问题问不够，代价会在后面每一片重复付。真正需要有界的是走查轮次和选案次数，那两条纪律落在 `lofi-prototype` 里。
+**So what makes it converge during the PRD stage?** Its own two rules: stop when the frontier is empty, and *"Finding facts is your job, never the user's"*. That step is outside any task, before Trellis's brainstorm is in play, so there genuinely is no external gate — **and that is accepted deliberately**: questions not asked during requirements get paid for again in every slice that follows. What genuinely needs bounding is walkthrough rounds and option selection, and those two disciplines now live in `skills/vertical-slicing/` and in the conventions for using `ui-ux-pro-max`.
 
-**ADR 三判据**（难以回退 + 没上下文会困惑 + 真有取舍，三条全中才写）原本抄自已退役的 `domain-modeling`，曾经暂住本文件。**现在正文归 [`../playbook/assets/decisions-template.md`](../playbook/assets/decisions-template.md)**——它是决策记录的准入闸，判据得写在照着做的地方才会被真读到。改判据改那里。
+**The three ADR criteria** — hard to reverse, confusing without context, and a genuine trade-off; all three must hold before writing one — **live in the upstream original**, `vendor/mattpocock-skills/domain-modeling/SKILL.md`. This repository once maintained a transcription (`playbook/assets/decisions-template.md`), deleted on 2026-08-21 along with reinstalling `domain-modeling`: **one set of criteria in two places will diverge**. Changing the criteria means changing how they are used, never the original, because `vendor/` is read-only.
 
-### 明确不装
+### Explicitly not installed
 
-| 不装 | 理由 |
+| Not installed | Reason |
 |---|---|
-| **`to-spec`（本体）** | 其 SKILL.md **硬依赖 issue tracker**：步骤 3 要求 publish 到 issue tracker 并打 `ready-for-agent` 标签，且要求先跑 `setup-matt-pocock-skills`。装了就与 `.trellis/tasks/` 构成两个任务系统 |
-| **`setup-matt-pocock-skills`** | 它配置的正是 issue tracker 与 label 词表。**上游 README 提示必装，我们必须不装** |
-| `tdd` / `code-review` / `triage` / `to-tickets` | 同上，都建立在 issue tracker 工作流上 |
+| **`setup-matt-pocock-skills`** | What it configures is exactly the issue tracker and its label vocabulary. **The upstream README says to install it; we must not** |
+| **`to-spec` itself** | Step 3 of its SKILL.md requires publishing to an issue tracker and applying a `ready-for-agent` label, and requires `setup-matt-pocock-skills` to have run first |
+| **`to-tickets`** | **Criteria updated 2026-08-21**: upstream now has a local-file mode (`.scratch/<feature>/issues/<NN>-<slug>.md`) and `disable-model-invocation: true`, so only the user can invoke it and it never grabs control on its own. The conflict is **reduced but not gone** — `.scratch/.../issues/` and `.trellis/tasks/` are still two task systems. **The conclusion is unchanged; the reason has been replaced.** Its four disciplines are borrowed below |
+| `tdd` / `code-review` / `triage` | All built on the issue-tracker workflow |
+| **`wayfinder`** (assessed 2026-08-24) | The closest thing upstream has to `vertical-slicing` — it uses blocking edges and a frontier by name. Two reasons it still cannot replace it: ① its map lives on the **issue tracker**, and it tells you to run `/setup-matt-pocock-skills` when none is configured, which is the same second-task-system conflict as `to-tickets` ② its unit is a **decision ticket** — a question to resolve before building — not a slice that delivers something verifiable end to end |
+| **`improve-codebase-architecture`** (assessed 2026-08-24) | Audit → HTML report → grilling loop, with **no severity levels and no stopping rules**. Those two are the entire reason `design-review` exists, so it is not a substitute. Its write targets (`CONTEXT.md`, `docs/adr/`) do match this repository's, so it stays a candidate for a different job |
+| **`codebase-design`** (assessed 2026-08-24) | Shared vocabulary for deep modules — a design-authoring tool, explicitly not a review gate. Nothing here needs replacing with it |
+| **`planning-and-task-breakdown` from `addyosmani/agent-skills`** (MIT, 2026-08-14) | Three reasons: ① `tasks/plan.md` plus `tasks/todo.md` is a second task system, and it states outright that `/build` and downstream tools expect that path ② **its granularity is anchored on file count** (≤5 files), while a genuine vertical slice — table, migration, service, route, page — starts at five files, so its table judges one M or L and pushes you toward horizontal slicing ③ its `## See Also` references `../../references/definition-of-done.md`, and **a cross-directory reference breaks once installed into `~/.claude/skills/`** |
 
-**但要借 `to-spec` 的两条纪律**（不是它的代码）。逐片之后本仓没有「合成」这一步了——需求收敛由 Trellis 的 brainstorm 在 task 内做——但这两条对写 `prd.md` 仍然成立：
+**Their disciplines are still worth borrowing**, just not their code.
 
-- 不写具体文件路径和代码片段（会很快过时）；例外是比散文更精确的 schema / 状态机 / 类型形状
-- 只合成已有共识，不新问问题——要问的在 grilling 阶段已经问完
+**Two from `to-spec`**, which still hold for writing `prd.md` and `design.md`:
 
-差异只有一处：**发布目标是 `.trellis/tasks/<task>/prd.md`，不是 issue tracker**。
+- Do not write out specific file paths or code fragments; they go stale quickly. The exception is anything more precise than prose: a schema, a state machine, a type shape.
+- Synthesize only what is already agreed; do not raise new questions — those were asked during grilling.
 
-### 装法：vendor 进本仓，不用上游安装器
+**Four from `to-tickets`**, all of which landed in this repository's `skills/vertical-slicing/`:
 
-**本仓已经把两个 skill 落在 [`../vendor/mattpocock-skills/`](../vendor/mattpocock-skills/)**，跑 `scripts/install-skills.sh` 一并软链到 `~/.claude/skills/`。不需要跑 `npx skills add`。
+| Borrowed | Why it is valuable |
+|---|---|
+| **The size anchor is one fresh context window** (*"sized to fit in a single fresh context window"*) | The criteria this repository already had answer "is this a slice", not "is it the right size". This anchor is better than file count or hours — Trellis's implementation really is a sub-agent running in a fresh context |
+| **A wide refactor is an explicit exception to vertical slicing, handled with expand–contract** | A mechanical change spread across the whole repository cannot be cut into vertical slices, and forcing it makes every slice red. The criteria this repository already had judge it "not a slice" and then **say nothing further** |
+| **Blocking edges plus a frontier, instead of an ordered list** | Each slice declares what blocks it, and the frontier is every slice whose blockers are all complete. More precise than a "dependencies" column, and it fills exactly the hole Trellis leaves (*"Parent/child structure is not a dependency system"*) |
+| **Step 4, "Quiz the user"** | A numbered list, three questions — granularity, blocking edges, merge or split — iterated to approval. That is precisely the shape sign-off takes here |
 
-**为什么 vendor 而不是各项目各装一份**：
+**One from `addyosmani`**: **a title containing a conjunction describes two tasks** — a zero-cost, decidable signal for splitting. Upstream tests for `"and"`; this repository tests for `"and" / "和" / "与"`, because `slices-template.md` is Chinese and so are the titles it produces. Its size table is not borrowed; that anchor is wrong.
 
-| | 上游安装器 | vendor 进本仓 |
+**`wayfinder` is worth more as corroboration than as a rejection.** It was written independently and arrived at the same mechanism — each item declares what blocks it, and the frontier is everything whose blockers are closed. That is the part of `vertical-slicing` most likely to be argued away as over-engineering by somebody who has only seen an ordered list, and there is now a second, unrelated implementation of it to point at. What differs is only the host and the unit: a tracker versus `slices.md`, a decision versus a deliverable slice.
+
+**What is not borrowed is the publishing step**: the publishing targets here are `docs/discovery/slices.md` (the slice map) and `.trellis/tasks/<task>/prd.md`, not an issue tracker and not `tasks/todo.md`.
+
+### How they are installed: vendored here, not through the upstream installer
+
+**All six skills already sit in [`../vendor/mattpocock-skills/`](../vendor/mattpocock-skills/)**, and `scripts/install-skills.sh` symlinks them into `~/.claude/skills/` along with this repository's own. There is no need to run `npx skills add`.
+
+**Why vendor rather than install a copy per project:**
+
+| | The upstream installer | Vendored here |
 |---|---|---|
-| 落点 | **项目仓库**（上游 README：*"It writes the skills into your repo"*） | `~/.claude/skills/`，全局一份 |
-| N 个项目 | N 份拷贝、N 次 `npx skills update` | 一份 |
-| 装错的机会 | 40 选 2、**安装器明确提示 `setup-matt-pocock-skills` 必选**（原文 *"make sure `setup-matt-pocock-skills` is one of them"*）而我们必须不勾 | 0 |
-| 与本仓自有 skill 的分发 | 不一致（一半在项目、一半在全局） | 一致 |
+| Destination | **The project repository** (upstream README: *"It writes the skills into your repo"*) | `~/.claude/skills/`, one global copy |
+| With N projects | N copies, N runs of `npx skills update` | One |
+| Chances to get it wrong | Two picked out of forty, with **the installer explicitly telling you `setup-matt-pocock-skills` is required** (*"make sure `setup-matt-pocock-skills` is one of them"*) — and we must leave it unchecked | Zero |
+| Consistency with this repository's own skills | Inconsistent: half in the project, half global | Consistent |
 
-这两个跟**流程**走不跟技术栈走，本来就该跨项目。体量约 5 KB / 4 个文件，diff 成本几乎为零。
+These follow the **process**, not the tech stack, so they belong across projects to begin with. The tree is about 96 KB across 20 files, so the diff cost is negligible.
 
-**规矩**：
+**The rules:**
 
-- `vendor/` 是**只读**拷贝，改了就跟上游 diff 不上。版本固定在 `vendor/mattpocock-skills/.upstream-sha`。
-- **`.upstream-manifest` 是漂移判据**（每个受管文件一行 sha256）。为什么不能只比 `.upstream-sha`：文件被误改、被误删、被塞进新文件时那个 sha 一个字都不会变，只看它就会把漂移报成「已是最新」。清单让这个检查**离线**，因而能被回归测试（`scripts/test-sync-vendor.sh`）——依赖网络的检查会抖，当不了测试。
-- **必须保留上游 LICENSE**（`vendor/mattpocock-skills/LICENSE`，MIT）。这不是礼节而是再分发条件：MIT 原文要求「副本或实质部分必须保留版权与许可声明」，而 `vendor/` 就是一份副本。`scripts/sync-vendor.sh` 启动时硬断言该文件存在，缺了直接 exit 1——靠人记得是不够的。
-- 上游改 LICENSE 时同步脚本会把 diff 打出来。**那种 diff 要单独判读**：许可条款变了可能意味着不能再 vendor 了，不是普通内容变更。
+- `vendor/` is a **read-only** copy; edit it and it can no longer be diffed against upstream. The version is pinned in `vendor/mattpocock-skills/.upstream-sha`.
+- **`.upstream-manifest` is what detects drift** — one sha256 line per managed file. Why comparing `.upstream-sha` alone is not enough: that sha does not change by a single character when a file is edited by mistake, deleted by mistake, or when a new file is dropped in, so watching it alone reports drift as "already up to date". The manifest makes this check **offline**, which is what makes it testable in regression (`scripts/test-sync-vendor.sh`) — a check that depends on the network is flaky and cannot be a test.
+- **The upstream LICENSE must be kept** (`vendor/mattpocock-skills/LICENSE`, MIT). This is not a courtesy but a redistribution condition: MIT requires that copies and substantial portions retain the copyright and licence notice, and `vendor/` is a copy. `scripts/sync-vendor.sh` hard-asserts that the file exists at startup and exits 1 without it — remembering is not enough.
+- When upstream changes the LICENSE, the sync script prints the diff. **That diff gets read separately**: changed licence terms can mean vendoring is no longer permitted, which is not an ordinary content change.
 
-**跟随上游**：
+**Following upstream:**
 
 ```bash
-scripts/sync-vendor.sh --verify   # 只查本地漂移，完全离线（CI 与测试走这条）
-scripts/sync-vendor.sh            # 查漂移 + 报告上游差异，不改任何东西
-scripts/sync-vendor.sh --pull     # 读完 diff、确认要跟随，才更新（并重建校验和清单）
+scripts/sync-vendor.sh --verify   # local drift only, fully offline (this is what CI and the tests run)
+scripts/sync-vendor.sh            # drift plus a report of upstream differences; changes nothing
+scripts/sync-vendor.sh --pull     # update only after reading the diff and deciding to follow (also rebuilds the checksum manifest)
 ```
 
-**先查漂移再查上游，顺序不能反。** 「本地被改过」和「上游前进了」是两回事，混进同一个 diff 就读不出谁是谁——所以漂移状态下只读模式直接停住，不做上游比对。
+**Drift is checked before upstream, and the order cannot be reversed.** "Someone changed this locally" and "upstream moved forward" are two different things, and mixing them into one diff makes neither readable — so read-only mode stops outright while drift exists, and does not compare against upstream.
 
-默认只读是有意的：自动跟随上游等于让别人的改动在你不知情时改变你的工作流。**每晚的 GitHub workflow 也守这条**——它只开 PR，不自动 merge，见本文件末「上游同步」。
+Read-only by default is deliberate: automatically following upstream lets somebody else's changes alter your workflow without your knowing. **The nightly GitHub workflow holds the same line** — it only opens a PR and never merges; see "Following upstream" at the end of this file.
 
-**两种上游装法本身也不能兼用**（README 原文：*"Pick one — installing both leaves you with every skill twice."*）。如果你以前装过，先卸掉再跑本仓脚本：
+**The two upstream installation methods cannot be combined either** (upstream README: *"Pick one — installing both leaves you with every skill twice."*). If you installed one previously, remove it before running this repository's script:
 
 ```bash
-# claude plugins install mattpocock-skills   ← 受管只读全量装，无法挑选
-# npx skills@latest add mattpocock/skills    ← 拷进项目仓库，per-repo
+# claude plugins install mattpocock-skills   ← managed, read-only, all of them, no way to pick
+# npx skills@latest add mattpocock/skills    ← copies into the project repository, per-repo
 ```
 
-**还需不需要 `grilling`——待实跑验证。** 本仓已决定提问纪律取 Trellis 的（见上「两套提问纪律会打架」），而 Trellis 的 brainstorm 已经有了 grilling 的两条核心（Evidence Rule、每题附推荐答案），差别只剩 frontier 批量 vs 一次一问。所以 grilling 的净增量只剩「**写简报那一步、brainstorm 还没上场时的批量提问**」——真实但很窄。
+**Whether `grilling` is still needed has not been settled by a real run.** This repository has decided to take Trellis's questioning discipline (see "Two questioning disciplines collide" above), and Trellis's brainstorm already has two of grilling's core ideas — the Evidence Rule, and a recommended answer per question — leaving only frontier batching versus one question at a time. So grilling's net addition is down to **batched questioning during the step that produces the full PRD, before brainstorm is in play** — real, but narrow.
 
-实跑一次简报之后再定去留。不需要了就删掉 `vendor/mattpocock-skills/<name>/`、从 `scripts/install-skills.sh` 的 `VENDORED` 数组移除、**并加进 `RETIRED` 数组**（否则已存在的软链会留着继续被触发），同时从 `scripts/sync-vendor.sh` 的 `SKILLS` 数组移除。
+**Under the current flow that net addition grew slightly**: the first four steps of 0-to-1 — discussing requirements, the full PRD, verifying fields, writing back — are all outside any task, and `grill-with-docs` has no competitor there. Decide whether to keep it after running one full PRD for real. If it is not needed, follow "Retiring and reinstating a vendored skill" below.
 
-### 已退役：`domain-modeling`
+### Retiring and reinstating a vendored skill
 
-**曾经装过，现已整个删除。** 它的问题是机制性的，不是好不好用：
+**Retiring one touches four places.** Skip the third and a live symlink stays behind, still being triggered:
 
-它的 SKILL.md 明确要求「首次术语裁决时创建 `CONTEXT.md` 并即时更新」，且规定 *"It is a glossary and nothing else"*。而本仓的术语结论落 **brief §5「措辞」**。两处都自称术语权威，正常的一次术语讨论就能产生两个互相漂移的事实源——而安装脚本是**全局**启用它的，也就是说这个冲突默认就会发生。
+1. Delete `vendor/mattpocock-skills/<name>/`.
+2. Remove the name from `VENDORED` in [`../scripts/install-skills.sh`](../scripts/install-skills.sh).
+3. **Add it to `RETIRED`** in the same file — that array is how the installer knows to clean up the existing symlink.
+4. Remove it from `SKILLS` in [`../scripts/sync-vendor.sh`](../scripts/sync-vendor.sh).
 
-三条候选路径里选了删除：
+**Reinstating one is the reverse, and only one step of it is easy to lose**: the name must go back into `sync-vendor.sh`'s `SKILLS` array. `managed_in()` enumerates managed files by walking that array, so a name missing from it means the directory is never scanned, its files never enter the manifest, and the drift check prints `✓ 与固定版本一致` while the skill is symlinked out and being triggered. The nightly upstream diff never looks at it either. Rebuilding `.upstream-manifest` needs no reminder — a missing manifest entry makes `verify_local` report every file in the new directory as unmanaged, loudly, with the fix command printed.
 
-| 路径 | 为什么不选 |
-|---|---|
-| 改 vendor 原件让它写 brief §5 | 违反 `vendor/` 只读——改了就跟上游 diff 不上 |
-| 新写一个本仓包装 skill 转移落点 | 为一个净增量很窄的能力新增一份要维护的 skill |
-| **删掉**（选中） | 它的两样干货已经在本仓有家：ADR 三判据在本文件，术语裁决手法在 brief 模板注释 |
+Reinstatement is not hypothetical: `domain-modeling` was retired and moved back in the same commit that recorded this (`e38ea15`), because `grill-with-docs` is one line that calls it. An upstream dependency forcing a skill back in is the main way a retirement decision gets reversed.
 
-**`grill-with-docs` 不能拿来替代它。** 上游那个 skill 全文只有一句 —— `Run a /grilling session, using the /domain-modeling skill.` —— 它是 `domain-modeling` 的**入口**，description 还明写 *"creates docs (ADR's and glossary) as we go"*。装它等于把冲突装回来并加一个显式入口。想要「简报阶段批量提问」，`grill-me` 已经在做，两者的差别正好就是 `domain-modeling`。
+**Before changing either array, read the fixture warning above `RETIRED`** — `test-install-skills.sh` pins three specific skill names as test fixtures, and moving one produces a failure message that reads like a broken installer.
 
-要回退这个决定：把 `domain-modeling:skills/engineering/domain-modeling` 加回 `sync-vendor.sh` 的 `SKILLS`、跑 `--pull` 取回目录，再在 `install-skills.sh` 里从 `RETIRED` 挪回 `VENDORED`。**但先解决 `CONTEXT.md` 与 brief §5 谁是源真**，不然装回来还是同一个问题。
+### `domain-modeling`: retired once, reinstalled 2026-08-21
 
-## spec-anchor — 整体不装
+**It was deleted outright at one point**, because it requires maintaining `CONTEXT.md` as the source of truth for terminology, while this repository's terminology conclusions then lived in the product brief. Both claimed to be authoritative, so one ordinary discussion about terminology could produce two mutually drifting sources of truth.
 
-[`linziyanleo/spec-anchor`](https://github.com/linziyanleo/spec-anchor)：375 文件 / 7.2 MB、23 个 shell 脚本、12+ 命令、82 个测试、54 份 reference。
+**It came back because `grill-with-docs` depends on it**: that upstream skill is one line, `Call the Skill tool twice, for "grilling" and "domain-modeling"`, and without it the second call points at nothing.
 
-它是 **Trellis 的竞品而非补充**。两套 spec 系统 = 两套命令 + 两棵文档树 + 两处记任务，solo 维护不动。
+There are now **two** conflicts, where the original record listed one:
 
-它做得并不差——比 Trellis 严谨得多（有 schema 校验和测试）。问题是**海拔不匹配**：为多人、多模块、长期演进设计。两条来自它**自身仓库**的证据：
-
-1. 它的 `.specanchor/module-index.md` 显示自己两个模块**全是 `DRIFTED`**——漂移检测工作正常（准确报出了漂移），但没人去修。对 solo 来说，装一个永远亮黄灯的仪表盘是负价值：要么去修（成本），要么学会无视（那就没用了）。
-2. 它自己的 finding `F-20260530-001` 记录：boot/assemble 每次调用重复输出 Global summary，同一 session 多轮激活会**线性撑大上下文**。一个管理上下文的系统在制造上下文膨胀。
-
-### 但借两个概念（只借概念，不借实现）
-
-| 概念 | 落点 | 克制 |
+| What it produces | What this repository once had | Conflict |
 |---|---|---|
-| **findings 分层**：编码期发现先落 finding，确认后才升级进 spec，不允许 AI 直接改 spec | `specs/universal/guides/review-adjudication.md` | 字段**只要 4 个**（现象 / 证据 / 该改哪个 spec / 状态）。原版是 11 个 frontmatter 字段 + 6 个小节，那是多人海拔 |
-| **模块覆盖索引**：哪些模块有 spec、哪些没有、上次同步日期 | 待定，**还没有宿主** | 落地时是手工维护的三列小表，**不要那 23 个脚本** |
+| `CONTEXT.md`, with terminology required to be updated **immediately** on a decision rather than batched | §5 "Wording" in the brief | Two sources of truth for terminology |
+| `docs/adr/` plus the three criteria | `docs/discovery/decisions.md` plus **the same three criteria**, transcribed from it | Two homes for decisions, plus a transcription |
 
-## 已退役（软链要删掉）
+**The resolution: this repository yields.** The reason is mechanical rather than "upstream is better" — when it was first judged, three paths were listed, and "edit the vendor original so it writes somewhere else" was rejected for **violating vendor read-only**. That reason holds unchanged today. Since it is being installed, its destinations have to be accepted.
 
-旧仓 `~/Developer/skills` 的这些 skill 已退役。**它们的软链如果还在 `~/.claude/skills/`，会继续被触发**——最典型的后果是你描述一个需求，被旧的 PRD skill 接走去走已经废弃的流程。
+- **Terminology's source of truth is `CONTEXT.md`.** The full PRD's terminology section **points at it** rather than keeping its own copy.
+- **Decisions' source of truth is `docs/adr/`.** `docs/discovery/decisions.md` and `playbook/assets/decisions-template.md` **have been deleted**, and the three ADR criteria — hard to reverse, confusing without context, a genuine trade-off, all three required — go back to the upstream original at `vendor/mattpocock-skills/domain-modeling/SKILL.md`. This repository no longer maintains a transcription.
 
-| 退役的 | 掉下来的能力去哪了 |
-|---|---|
-| `product-brief` | 降级成 [`playbook/assets/brief-template.md`](../playbook/assets/brief-template.md)，一份模板不是 skill。逐片之后它只剩「方向 + 阶段目标 + 切片清单」，一页纸的事 |
-| `prd-generator` / `-noweb` | 字段级需求不再预先穷举，随 task 在 `prd.md` 里就近定义（Trellis 的 `task.py create` 自带模板，本仓**不再提供** task 级 PRD 模板） |
-| `system-design` / `design-system-java` | 承重决策落 `docs/discovery/decisions.md`（模板 [`decisions-template.md`](../playbook/assets/decisions-template.md)）；切片顺序落简报 §4 |
-| `domain-modeling`（原 vendor 项，不属于旧仓） | ADR 三判据落 [`decisions-template.md`](../playbook/assets/decisions-template.md)、术语裁决手法落 brief 模板注释。理由见上面「已退役：`domain-modeling`」 |
+**The cost, stated plainly**: `decisions.md` was added on 2026-08-13, because measurement confirmed that none of Trellis's four candidate hosts records "what was rejected and why". Switching to `docs/adr/` **still satisfies that need** — an ADR is exactly what records it — with the host and the format now upstream's. **The need survives, the host changes**, and there is one fewer source of drift.
 
-清理命令见 [`../playbook/00-setup.md`](../playbook/00-setup.md) 步骤 2。**脚本只删软链**：退役名如果在 `~/.claude/skills/` 下是真目录（可能是你自己的同名 skill），它报错退出而不是删除。这条由 `scripts/test-install-skills.sh` 用例 1 卡住。
+**To retire it again**: first settle what happens to `grill-with-docs` (retire it too, or write a shell that calls `grilling` only), then follow "Retiring and reinstating a vendored skill" above.
 
-## 仍在用的其他第三方
+### `prototype`: the LOGIC branch only
 
-| skill | 何时用 | 边界 |
+This upstream skill has two branches, and **its first step is "Pick a branch"**:
+
+| Branch | Output | Here |
 |---|---|---|
-| `ui-ux-pro-max` | 结构定了之后的视觉与设计系统 | **不得下沉到低保真阶段**——骨架只准灰阶 + 一个强调色 |
-| `code-review-skill`（awesome） | 通用代码正确性/可读性评审 | 轨不变量由 `specs/<track>/` 的 Pre-Development Checklist 与 Quality Check 管，不混用 |
-| `skill-creator` | 改完 skill 校验 frontmatter 与相对链接 | — |
+| **LOGIC** (*"Does this logic / state model feel right?"*) | One shareable HTML file, a free-play button plus a paginated guided walkthrough, pushing the state machine through cases that cannot be reasoned about on paper | **Used** — it is the 0-to-1 step "throw a prototype at each module to verify fields" |
+| UI (*"What should this look like?"*) | Several variants on real project routes, switched by a URL search param | **Not used** — that belongs to `ui-ux-pro-max`. Both answer "what should this look like", but one opens variants inside the real project while the other produces full hi-fi plus a design system, and mixing them grows two sources of visual truth |
 
-## 上游同步
+**This discipline is prompt text, not an enforcement.** The skill is installed whole, and no mechanism stops it choosing the UI branch. When it does, pull it back on the spot and record how it actually behaved here.
 
-分两半，**状态不同**：
+**Its rule 1 and rule 6 collide with this repository's exploration discipline, and the collision is live** — *"Locate the prototype code close to where it will actually be used"* and *"commit it to a throwaway branch"*, against this repository's "never in `src/`, delete it once verified".
 
-### vendor skill —— 已建（`.github/workflows/sync-vendor.yml`）
+An earlier record here claimed the conflict had dissolved because field verification ran before a track was picked, so there was no `src/` to land in. **That reasoning described a 0-to-1 flow that no longer exists.** Under the current order, `setup` completes first — the repository is created, one track template is installed, and the starter skeleton is on disk — and only then does `build` reach field verification. There is a `src/` (or a `frontend/`) by then; the measured note in step 2 of [`../playbook/setup/03-third-party.md`](../playbook/setup/03-third-party.md) is about that very skeleton.
 
-每晚 03:00（Asia/Shanghai）跑一次 `scripts/sync-vendor.sh --pull`，**只在 skill 内容或 LICENSE 真的变了时开 PR**，绝不自动 merge。你在 PR 里读 diff，决定跟不跟。
+**The resolution is the same kind as the LOGIC-branch one: this repository overrides those two rules by prompt, and nothing enforces it.** The prompt in step 3 of [`../playbook/build/01-discovery.md`](../playbook/build/01-discovery.md) states all three boundaries in one line — no task, not in `src/`, LOGIC branch — and the skill is installed whole, so it can still ignore them. Editing the vendor original to say otherwise stays rejected for the same reason as before: it violates vendor read-only and makes the upstream diff meaningless.
 
-三个设计取舍，都不是随手定的：
+**Why the override rather than upstream's rule**: upstream's rule 6 optimizes for a team that needs the spike recoverable months later. Here the artifact that must survive is the **write-back into the PRD**, not the spike, and a throwaway branch full of prototypes is a second place to look for requirements. When the prototype does land somewhere real, pull it back on the spot and record how it actually behaved.
 
-| 取舍 | 为什么 |
+## spec-anchor — not installed at all
+
+[`linziyanleo/spec-anchor`](https://github.com/linziyanleo/spec-anchor): 375 files, 7.2 MB, 23 shell scripts, 12+ commands, 82 tests, 54 reference documents.
+
+It is **a competitor to Trellis, not a complement**. Two spec systems means two sets of commands, two documentation trees and two places tasks are recorded — unmaintainable solo.
+
+It is not badly built; it is considerably more rigorous than Trellis, with schema validation and tests. The problem is that **it is built for a much larger scale**: several people, several modules, long-term evolution. Two pieces of evidence from **its own repository**:
+
+1. Its `.specanchor/module-index.md` shows both of its own modules as `DRIFTED` — drift detection works correctly, reporting the drift accurately, and nobody fixed it. For solo work, installing a dashboard whose warning light is permanently on is negative value: either you fix it (a cost) or you learn to ignore it (and then it does nothing).
+2. Its own finding `F-20260530-001` records that boot and assemble re-emit the global summary on every call, so several activations in one session **grow the context linearly**. A system for managing context, producing context bloat.
+
+### But two concepts are borrowed (the concepts only, never the implementation)
+
+| Concept | Where it lands | Restraint |
+|---|---|---|
+| **Layered findings**: a discovery made while coding becomes a finding first, and is promoted into the spec only after confirmation; an AI never edits the spec directly | `specs/universal/guides/review-adjudication.md` | **Four fields only** — observed, evidence, which spec should change, status. The original has 11 frontmatter fields plus 6 sections, which is a much larger scale |
+| **A module coverage index**: which modules have a spec, which do not, and when each was last synced | Undecided; **it has no host yet** | When it lands it is a hand-maintained three-column table, **not those 23 scripts** |
+
+## Retired (their symlinks need removing)
+
+These skills from the old `~/Developer/skills` repository are retired. **A leftover symlink in `~/.claude/skills/` keeps triggering them** — the classic consequence is describing a requirement and having the old PRD skill pick it up and run an abandoned flow.
+
+| Retired | Where its capability went |
 |---|---|
-| **开 PR，不直接提交 main** | 自动跟随上游等于让别人的改动在你不知情时改变你的工作流。PR 保留「读完 diff 再决定」这个动作，只是把 diff 送到你面前 |
-| **只有内容变了才开 PR**（`.upstream-sha` 被排除在判据外，然后整棵 vendor 回滚） | 上游在别处提交时 `--pull` 只会 bump sha，那种 PR 是纯噪音。代价是 sha 会停在旧值、每晚重新拉一次——**换零噪音，划算** |
-| **固定分支名 `chore/sync-vendor`** | 每晚复用同一个 PR，不堆一串 |
+| `product-brief` | Downgraded to [`skills/vertical-slicing/assets/slices-template.md`](../skills/vertical-slicing/assets/slices-template.md), a template rather than a skill. It has three sections left: the phase goal, the slice list and the frontier |
+| `prd-generator` / `-noweb` | The full PRD, converged to field level **before the hi-fi is approved**, is produced by `create-prd-skill` instead — see step 1 of [`../playbook/setup/03-third-party.md`](../playbook/setup/03-third-party.md). A task's `prd.md` scopes one slice on top of that, from Trellis's own `task.py create` template. This repository provides **neither** template |
+| `system-design` / `design-system-java` | Load-bearing decisions go to `docs/adr/` (maintained by `domain-modeling`); slice ordering goes to `docs/discovery/slices.md` |
+| **`lofi-prototype`** (this repository's own, retired 2026-08-21) | Under the current flow the full hi-fi is approved **before** slicing, so producing lo-fi again inside a task creates a second structural source of truth beside the approved one. The measured conclusion it carried — **the approved screens must go into `implement.jsonl`** — is now carried by `vertical-slicing` (the fourth column of the slice list in `slices.md`, filled into the jsonl as each slice becomes a task). Its fidelity red lines and walkthrough round caps are void with it |
 
-两条运行时注意：GitHub 定时任务在整点高峰会被**延迟**，别当准点闹钟；**仓库连续 60 天无提交活动，GitHub 会自动停用 schedule**，到时要手动 `workflow_dispatch` 或去 Actions 页面重新启用。
+The cleanup commands are in step 2 of [`../playbook/setup/01-trellis-skills.md`](../playbook/setup/01-trellis-skills.md). **The script removes symlinks only**: when a retired name is a real directory under `~/.claude/skills/` — possibly your own skill of the same name — it errors out rather than deleting. Case 1 of `scripts/test-install-skills.sh` holds this.
 
-**⚠️ 未实跑验证**：这份 workflow 写成时本仓还没有 GitHub remote，一次都没跑过。第一次推上去后用 `workflow_dispatch` 手动触发一次，对不上的地方当场改。
+## Other third parties still in use
 
-### Trellis 本体 —— 仍未建（有意的）
+| Skill | When | Boundary |
+|---|---|---|
+| `ui-ux-pro-max` | Full hi-fi and the design system, once the PRD has converged to field level | **Never before the PRD converges** — drawing early means guessing structure for requirements that are not settled, and once a guessed structure becomes the approved design, every slice implements against it. Component APIs are not its job; they belong to the shadcn skill / MCP |
+| `code-review-skill` (awesome) | General code correctness and readability review | Track invariants are governed by the Pre-Development Checklist and Quality Check in `specs/<track>/`; the two are not mixed |
+| `skill-creator` | Validating frontmatter and relative links after editing a skill | — |
+| The official `shadcn/ui` skill plus the shadcn MCP | Writing frontend components on either track | **Installed per project; this repository does not distribute them** and only says how to use them — see below |
 
-Trellis 更新频繁（1300+ commits）。将来同样是 GitHub Action 定期 diff 上游、自动提 PR、人工审核是否跟随。
+### The official shadcn skill and MCP: not distributed here, only governed
 
-**范围只盯两处**：`.trellis/workflow.md` 与 Trellis 内置的 `spec/guides/`。整棵树没必要跟——`.template-hashes.json` 已经护住了你改过的文件，你需要知道的只是「上游把我改过的那几个文件改了什么」。
+Both are installed **per project**, so neither of this repository's two distribution mechanisms reaches them:
 
-**先不建**，等这套流程实跑过一遍再说——现在不知道该盯什么。和 vendor 那半的区别在这里：vendor 是三个固定文件的字面 diff，盯什么是确定的；Trellis 那半盯的是「我改过的文件被上游改了什么」，而**我还没改过任何一个**，现在建等于建一个永远报空的任务。
+| Thing | Installed to | Why this repository cannot manage it |
+|---|---|---|
+| The official skill (`skills add shadcn/ui`) | **The project repository's** `.claude/skills/` | Same installer as mattpocock's; upstream's words are *"writes the skills into your repo"*. `scripts/install-skills.sh` manages only the global symlink layer under `~/.claude/skills/` |
+| The MCP (`shadcn@latest mcp init --client claude`) | The **project root's** `.mcp.json` | It is executable configuration, which belongs to the starter under `AGENTS.md`'s placement table |
+
+`index.json` cannot hold them either — the registry accepts `type: spec` only.
+
+So this repository does exactly one thing: **each track's `frontend/index.md` states how to use them, and what to do instead when they are not installed**. The installation steps are in step 2 of [`../playbook/setup/03-third-party.md`](../playbook/setup/03-third-party.md).
+
+**Why it is worth wiring up**: the web-fullstack track's `components.json` is `style: base-nova`, the Base UI kernel, while almost every shadcn example in public material is from the Radix era. The track rules banned `@radix-ui/*` long ago, but that is a prohibition — it says what may not be written, not where correct usage comes from. The official skill reads `components.json`, so it knows which kernel this is, and that is the half it supplies.
+
+**It does not replace `ui-ux-pro-max`, and must not be replaced by it**: that skill's description claims shadcn MCP integration, but its body makes no MCP call — it reads a bundled `data/stacks/shadcn.csv`, a static snapshot. Visual design belongs to `ui-ux-pro-max`, component APIs belong to the shadcn skill / MCP, and that boundary is written into both tracks' rules for the same reason `prototype` uses the LOGIC branch only: two sources answering one question grow two sources of truth.
+
+**No machine enforces this rule.** "Did you consult the MCP first" is not decidable; it is a checkpoint, not a gate. The decidable half — never hand-edit `components/ui/*` — is already in the rules.
+
+## Following upstream
+
+Two halves, in **different states**:
+
+### Vendored skills — built (`.github/workflows/sync-vendor.yml`)
+
+It runs `scripts/sync-vendor.sh --pull` nightly at 03:00 Asia/Shanghai, and **opens a PR only when a skill's content or the LICENSE genuinely changed**. It never merges automatically. You read the diff in the PR and decide whether to follow.
+
+Three design trade-offs, none of them casual:
+
+| Trade-off | Why |
+|---|---|
+| **Open a PR rather than commit to main** | Automatically following upstream lets somebody else's changes alter your workflow without your knowing. A PR preserves the act of reading the diff before deciding, and merely delivers the diff to you |
+| **Open a PR only when content changed** (`.upstream-sha` is excluded from the criteria, and the whole vendor tree is then rolled back) | When upstream commits elsewhere, `--pull` only bumps the sha, and that PR is pure noise. The cost is that the sha sits at an old value and the fetch repeats nightly — **worth it for zero noise** |
+| **A fixed branch name, `chore/sync-vendor`** | The same PR is reused nightly instead of accumulating a stack |
+
+Two runtime notes: GitHub's scheduled jobs are **delayed** at peak times on the hour, so do not treat it as a punctual alarm; and **60 consecutive days without commit activity makes GitHub disable the schedule automatically**, after which it needs a manual `workflow_dispatch` or a re-enable from the Actions page.
+
+**Verified by real runs.** The scheduled job has been running nightly and succeeding since 2026-08-15, and it has opened its follow-upstream PR on `chore/sync-vendor` for real — twice by 2026-08-24. Both halves of the design are therefore confirmed in practice, not just on paper: the nightly schedule fires, and a genuine content change produces a PR rather than a commit. `gh run list --workflow sync-vendor` is the current record; read it rather than trusting this paragraph's dates.
+
+### Trellis itself — still not built (deliberately)
+
+Trellis updates frequently, 1300+ commits. The eventual shape is the same: a scheduled GitHub Action diffing upstream, opening a PR automatically, with a human deciding whether to follow.
+
+**The scope is only two things**: `.trellis/workflow.md` and Trellis's built-in `spec/guides/`. There is no need to track the whole tree — `.template-hashes.json` already protects files you have edited, and all you need to know is what upstream changed in those particular files.
+
+**Not building it yet**, until this flow has been run for real — right now it is not clear what to watch. That is the difference from the vendored half: vendoring is a literal diff of a fixed set of files, so what to watch is settled; the Trellis half watches "what upstream changed in the files I edited", and **nothing has been edited yet**, so building it now would build a job that reports nothing forever.

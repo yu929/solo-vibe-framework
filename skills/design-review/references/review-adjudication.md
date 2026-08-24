@@ -1,81 +1,98 @@
-# 评审收敛纪律（权威源）
+# Review Convergence Discipline (authoritative)
 
-> **这份文件治的是一个具体的病**：反复换 session 或 agent 审同一份东西，每次都能冒出新意见，问题越修越多，停不下来——**无限审计循环**。
+> **This file treats one disease**: reviewing the same artifact across sessions and agents, every pass turning up fresh opinions, the fix list growing rather than shrinking, no way to say when it is done — **runaway auditing**.
 >
-> 它是**评审协议**在本框架内的唯一权威表述。`SKILL.md` 只放摘要，冲突时以本文件为准。
+> It is the authoritative statement of the review protocol. `SKILL.md` carries a summary; on a conflict this file wins.
 >
-> **为什么正文在 skill 里而不在 `specs/` 里**：skill 会被软链或拷贝到 `~/.claude/skills/`，那里读不到仓库的 `specs/` 目录。跨目录引用的 skill 到了那里就是一个缺了核心规则的空壳，评审结果会退化成模型自行补全。所以协议正文必须跟 skill 走。
+> **Why the protocol lives inside the skill**: a skill is symlinked into `~/.claude/skills/`, where this repository's `specs/` cannot be reached. A skill that points across directories arrives there missing its core rules, and the review degrades into whatever the model fills in.
 >
-> 另有两条**每个 session 都需要**的规则不在这里——编码期 finding 与需求探索期轻量收敛，它们在 `specs/universal/guides/review-adjudication.md`，由 Trellis 按需注入。两边管的事不同，不是同一份正文的两个副本。
+> Two rules every session needs are deliberately elsewhere — the four-field finding recorded while coding, and lightweight convergence during requirements discovery. They live in `specs/universal/guides/review-adjudication.md`, injected by Trellis. Different subjects, not two copies of one text.
 
-## 为什么开放式评审必然发散
+## Why open-ended review diverges
 
-不同 session、不同 agent 会关注不同的隐含假设。对同一份设计做开放式审查，**永远能找出新东西**——这不代表设计在变差，而是审查本身没有终点。
+Different sessions sample different implicit assumptions, so **something new always turns up**. That is not the design getting worse; the activity simply has no end state.
 
-无限审计的代价不只是时间：它让人失去对"什么时候可以开工"的判断，最后要么无限期不开工，要么干脆跳过评审。两个结局都比"有界评审"差。
+The cost is not only time. It destroys your ability to say when building can start, and both available endings — never starting, or skipping review — are worse than a bounded review. So the target is not "no problems remain":
 
-所以目标不是"审到没有任何问题"，而是：
+> **Converge on "no new, well-evidenced blocking problems".**
 
-> **收敛到「没有新的、证据充分的阻塞问题」。**
+## The ten disciplines
 
-## 十条纪律
+1. **Freeze the input set.** Fix, before each round: requirements version, load-bearing decisions version, engineering baseline version, in scope, out of scope, the log's path. **Enter no review before this is frozen** — a review whose scope can drift will diverge.
+2. **Keep an issue log.** Ten fields per entry: `id / category / evidence / trigger / impact / affected_requirement / severity / blocking_reason / status / reopen_condition`, with `status ∈ {ACCEPTED_BLOCKING, ACCEPTED_NON_BLOCKING, DEFERRED, DUPLICATE, REJECTED_OUT_OF_SCOPE, REJECTED_UNSUPPORTED, ACCEPTED_RISK, CLOSED}`. The log is **memory across sessions**; without it every new session starts from zero, so commit it.
+3. **Read before reviewing.** Read the whole log first. A `REJECTED_*`, `DEFERRED` or `ACCEPTED_RISK` entry whose `reopen_condition` is unmet **stays closed**; only a diff against the log proves an entry is new.
+4. **Hold the evidence threshold.** A finding without a locatable design basis, a trigger, a consequence and an affected requirement **cannot block**, and caps at P3. "There might be a scalability problem" is not a finding.
+5. **Gate on severity.** P0–P3 below. Clear every P0 before coding; give every P1 an explicit disposition — fix, defer with a `reopen_condition`, or accept the risk with the reason recorded. No choice means no disposition.
+6. **Reporting is not deciding.** A reviewer **reports** against a fixed checklist; the main agent or a human adjudicator merges, de-duplicates, re-verifies and **decides**. **Never fix the union of several reviewers' findings**, and never settle true-versus-false by majority vote. Budget an AI reviewer's false-positive rate at around one in three, and re-open the source text for every blocking finding.
+7. **Escalate within bounds.** One agent and two rounds by default. Escalate to independent reviewers only for authorization, data migration, irreversible operations, money, or cross-system consistency. After escalating, three things hold unchanged: the two-round budget, the evidence threshold, and **exactly one adjudication point**. More reviewers buy recall and nothing else.
+8. **Stop on the rule, not on exhaustion.** Two rounds of pure design review, maximum; **re-verifying a fix does not spend one**. Build when **three** things hold: Accepted P0 is empty, every Accepted P1 has a disposition, and at least one vertical slice is implementable. A full round producing **no new Accepted P0/P1** is the converged exit and the better one — but it is **not a fourth condition**: a P1 first raised in the last round is closed by its disposition, not by another round, and treating it as a gate is how a bounded review becomes an unbounded one. Name the exit in the report. Past the budget, route feedback into slice implementation and tests — cheaper feedback, and truer.
+9. **Hold the altitude.** Design locks data ownership, permission and trust boundaries, the shape of the key models, module and slice boundaries, long-term contracts, consistency requirements, and the migration and deletion strategy. Everything below that line goes to coding time; the worked comparison is the altitude table in [`reviewer-checklist.md`](reviewer-checklist.md). The inverse earns a real P0/P1: a load-bearing decision missing or vague.
+10. **Converge at release.** Open risks and deferred items move, with their `reopen_condition`, into the target repository's known-issues file; Git keeps the history of what was closed and rejected; the log is deleted or archived on that repository's documentation lifecycle.
 
-1. **冻结输入包**。每轮评审前固定：需求版本、设计版本、工程基线版本、评审范围、非范围、台账路径。**不冻结就不进入评审**——范围会飘的评审必然发散。
-2. **问题台账**。每条记录**十个字段**：`id / category / evidence / trigger / impact / affected_requirement / severity / blocking_reason / status / reopen_condition`；`status ∈ {ACCEPTED_BLOCKING, ACCEPTED_NON_BLOCKING, DEFERRED, DUPLICATE, REJECTED_OUT_OF_SCOPE, REJECTED_UNSUPPORTED, ACCEPTED_RISK, CLOSED}`。台账是**跨 session 记忆**，没有它每个新 session 都从零开始。
-3. **先读再审**。每轮先读完整台账。`REJECTED_*`、`DEFERRED`、`ACCEPTED_RISK` 未满足 `reopen_condition` **不得重提**；只有台账 diff 能证明一个条目是"新"的。
-4. **证据门槛**。没有可定位设计依据、触发条件、后果和受影响需求的发现，**不得作为阻塞项**，至多 P3。"可能有扩展性问题"不是发现。
-5. **严重度闸门**。设计侧 P0–P3：P0 编码前清零，P1 必有明确处置（未必全改），P2 进 backlog，P3 不阻塞。代码侧只有明确标为 blocking 的问题阻断合并。
-6. **召回与裁决分离**。reviewer 负责按固定清单**召回**；主 agent 或人类 adjudicator 负责合并、去重、二次核实和**裁决**。**不得把多 reviewer 的发现取并集全改**，也不用多数投票判断真假——AI reviewer 的假阳性率按 ~1/3 预算，每条阻塞项都要回原文核实。
-7. **有界升级**。低风险默认单 agent 两轮。只有鉴权、数据迁移、不可逆操作、涉钱等高风险设计才升级为独立 reviewer。无论几个 reviewer，**裁决只有一处**。
-8. **停止规则**。最多两轮纯设计评审。Accepted P0 清零、Accepted P1 有处置、至少一个垂直切片可实施，且**连续一轮没有新的 Accepted P0/P1** 时开工。超过预算后把反馈渠道转向切片实现和测试——那里的反馈更便宜也更真。
-9. **海拔纪律**。设计只锁：数据所有权、权限与信任边界、关键模型形状、模块与切片边界、长期契约、一致性及迁移删除策略。锁/CAS/重试曲线、局部算法、可由类型或测试收敛的分支**下放编码期**。反过来，承重决策缺失或含糊才是真 P0/P1。
-10. **发布收敛**。开放风险和推迟项连同 `reopen_condition` 迁入目标仓库的已知问题；已关闭和已拒绝的历史由 Git 保存；台账按项目文档生命周期删除或归档。
+## Status values
 
-## 严重度
+Discipline 2's enum, with what each one means. Pick from these and nothing else — a log whose statuses drift is memory that drifts.
 
-| 级别 | 定义 | 处置 |
+| status | Meaning |
+|---|---|
+| `ACCEPTED_BLOCKING` | P0/P1, blocks building |
+| `ACCEPTED_NON_BLOCKING` | P2, goes to the backlog. **This, not `DEFERRED`, is where an accepted P2 lands** — `DEFERRED` is for a decision postponed, not for work queued |
+| `DEFERRED` | The decision itself is postponed. **Requires an objective `reopen_condition`** |
+| `ACCEPTED_RISK` | Knowingly accepted; record the reason |
+| `DUPLICATE` | Same as an existing id |
+| `REJECTED_OUT_OF_SCOPE` | Outside the scope frozen in Step 0 |
+| `REJECTED_UNSUPPORTED` | No evidence, or no path that triggers it |
+| `CLOSED` | The fix landed, or the reopen condition came true and was handled. Record `resolution` — which document or which piece of implementation did it |
+
+**A `reopen_condition` has to be decidable.** "Requirements add cross-region failover" and "a measured run shows concurrency can break the business invariant" both work; "revisit later" does not. Discipline 3 keeps a deferred entry closed until its condition is met, so **an undecidable condition is a permanent close wearing a postponement's clothes** — which is the exact failure the log exists to prevent.
+
+## Severity
+
+| Level | Definition | Disposition |
 |---|---|---|
-| **P0** | 安全漏洞、数据损坏或核心方案不可行 | 编码前清零 |
-| **P1** | 主流程错误或大规模返工 | 必须有明确处置 |
-| **P2** | 局部缺陷，可重构修复 | 进 backlog |
-| **P3** | 风格、偏好或无证据的理论扩展性 | 不阻塞 |
+| **P0** | A security hole, data corruption, or a core approach that cannot work | Clear before coding |
+| **P1** | A main-path error, or large-scale rework | Must have an explicit disposition |
+| **P2** | A local defect a refactor can fix | Backlog |
+| **P3** | Style, preference, or theoretical extensibility with no evidence | Does not block |
 
-## 证据格式
+## Evidence format
 
-每条发现至少包含**八个字段**：
+Every finding carries at least **eight fields**. Missing any of `evidence`, `trigger` or `impact`, it cannot block.
 
 ```yaml
 id: FINDING-012
 category: concurrency
 severity: P1
-evidence: "技术设计 §3.3 规定先查 active 数再 insert"   # 可定位的原文位置
-trigger: "两个标签页同时对同一对象发起操作"
-impact: "可能突破并发配额 / 重复执行"
-affected_requirement: "需求编号或章节"
-blocking_reason: "破坏核心数据正确性"                     # 不阻塞则写 why-not
+evidence: "Design §3.3 counts active rows, then inserts"   # a locatable position in the source
+trigger: "Two tabs act on the same object at once"
+impact: "The concurrency quota can be exceeded; the action can run twice"
+affected_requirement: "requirement id or section"
+blocking_reason: "Breaks core data correctness"            # if it does not block, write the why-not
 ```
 
-缺 `evidence` + `trigger` + `impact` 任一项的，**不得作为阻塞项**。
+> **Two field sets — do not conflate them.** These **eight** are the minimum a finding must state. Discipline 2's **ten** are those plus `status` and `reopen_condition`, which only exist after adjudication. Wherever this framework contrasts the heavy format against the lightweight four-field one, it means the eight: the two lightweight occasions never reach adjudication.
 
-> **两个字段集，别数混**：这里的**证据格式八字段**是一条发现最少要说清的东西；纪律 2 的**台账十字段**是它加上 `status` 与 `reopen_condition`（裁决之后才填得出来）。全框架对比"轻量 4 字段"时说的都是**八字段**——因为轻的那两个场合根本走不到裁决那一步。
+## Where the eight fields do not apply
 
-## 这套不适用的两个场合
+A finding recorded **while coding**, and convergence **during requirements discovery**, both use four fields. Their rules live in `specs/universal/guides/review-adjudication.md`.
 
-**编码和调试期间**的发现（「这个约定其实不对」「这里有坑 spec 没写」）走 4 字段 finding，**不套八字段**。
+The reason is **altitude**: the eight fields demand a locatable design basis, a trigger and the affected requirements, while those two occasions produce "when I ran it I hit X" and "this step is convoluted". Demand a case file for every hands-on observation and you get either nothing recorded, or an AI inventing evidence to fill the shape — both worse than having no format.
 
-**需求探索期**（写简报、原型走查）走轻量收敛：**走查** ≤2 轮、方案一次拍板、问题记录只 4 字段。
+> **Question rounds are not bounded here — do not add a rule for them.** Trellis's `trellis-brainstorm` enforces one question per message during planning, and a second cap on batched questions would work against it. What is bounded is walkthrough rounds and option selection.
 
-> **提问轮次不由本框架管**，别在这里加一条。Trellis 的 `trellis-brainstorm` 在 planning 阶段强制「每条消息只问一个问题」，本框架再规定一套 ≤2 轮批量提问只会跟它对着来。有界的是**走查轮次**和**选案次数**，不是提问。
+## Common misuses
 
-两者的规则正文在 `specs/universal/guides/review-adjudication.md`，由 Trellis 注入每个 session。共同的理由是**海拔**：八字段要求可定位设计依据、触发条件和受影响需求；而那两个场合的发现形态是「跑的时候发现 X」「这步太绕」。套八字段等于要求为每条实战观察或直觉反馈写举证材料——人会干脆不记，或者让 AI 编证据来凑格式。两个结果都比没有格式更糟。
-
-## 常见误用
-
-| 误用 | 为什么错 |
+| Misuse | Why it is wrong |
 |---|---|
-| 把多个 reviewer 的发现取并集全改 | 召回不等于裁决。AI reviewer 有可观的假阳性率，全改等于让假阳性驱动设计 |
-| 用多数投票判断发现真假 | 三个 reviewer 犯同一个错很常见（它们看的是同一份文本） |
-| 每次换个新 session 重审一遍 | 不读台账 = 没有跨 session 记忆 = 无限审计的标准起手式 |
-| 把实现细节报成 P0 | 锁/重试/算法归编码期。真 P0 是承重决策缺失 |
-| 因为"还能找出问题"就不开工 | 永远能找出问题。判据是「有没有**新的、证据充分的**阻塞问题」 |
-| 需求阶段或编码期套八字段证据格式 | 见上一节 |
+| Fixing the union of several reviewers' findings | Recall is not adjudication. Fixing everything lets false positives drive the design |
+| Settling whether a finding is real by majority vote | Three reviewers making the same mistake is common — they read the same text |
+| Re-reviewing from scratch in each new session | No log read means no memory across sessions, the standard opening move of runaway auditing |
+| Reporting an implementation detail as P0 | Locking, retries and algorithms belong to coding time. A real P0 is a missing load-bearing decision |
+| Refusing to start because problems can still be found | Problems can always be found. The test is whether a **new, well-evidenced** blocking problem exists |
+| Applying the eight fields during requirements or coding | See the section above |
+
+## Two questions this raises
+
+**A different agent still produces new opinions — has the mechanism failed?** No. It controls which new opinions are **strong enough to block**, not whether they appear. They will; the question is whether they clear the evidence threshold.
+
+**When is a full redesign warranted?** Only when requirements change or implementation evidence falsifies a load-bearing assumption. **A fresh batch of preference-level opinions is not a reason to restart** — that is runaway auditing relapsing.
