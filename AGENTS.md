@@ -18,8 +18,8 @@ Specs and process both belong here. One project's product content does not: its 
 | `vendor/` | agent | Read-only third-party skill copies |
 | `playbook/` | **people** | Checklists to follow; templates ship with their skill |
 | `references/` | people, agents via pointer | Background a rule cannot carry |
-| `scripts/` | people | Install, sync, guides distribution, four `test-*.sh` |
-| `.github/workflows/` | CI | The four checks, plus the nightly vendor-drift PR |
+| `scripts/` | people | Install, sync, guides distribution, five `test-*.sh` |
+| `.github/workflows/` | CI | The five checks, plus the nightly vendor-drift PR |
 | `index.json` | Trellis CLI | Registry manifest |
 
 ## Spec templates
@@ -38,7 +38,7 @@ Adding a track: create `specs/<track>/`, register one entry, run `scripts/sync-s
 
 ## Writing
 
-- **Keep each file in one language throughout.** Chinese for product requirements, business rules, manuals and the root `README.md`; English for agent instructions, specs, workflows and conventions. A whole-file switch is a decision; one paragraph in the other language is drift.
+- **Keep each file in one language throughout.** Chinese for product requirements, business rules, manuals and the root `README.md`; English for agent instructions, specs, workflows and conventions. A whole-file switch is a decision; one paragraph in the other language is drift. **A template follows the language of the document it produces, not of the skill it sits in** — so a Chinese asset inside an English skill is correct.
 - **Name `writing-for-agents` explicitly when editing an English spec** — no writing skill triggers there by itself.
 - **Write the playbook as a checklist a person follows**, in its six fixed sections, with only prompts that have actually been run. Those sections, the skill layout and the Chinese linter's false positives: [`references/repo-conventions.md`](references/repo-conventions.md).
 
@@ -72,6 +72,7 @@ Adding a track: create `specs/<track>/`, register one entry, run `scripts/sync-s
 | `test-sync-vendor.sh` | Vendored content equals the pinned upstream, by offline checksum |
 | `test-spec-templates.sh` | Install-tree links, guides match source, `§N` hits a real section, frontmatter has `paths` or nothing |
 | `test-spec-injection.sh` | What an edit delivers: the expected core ranks first, whole and alone |
+| `test-skill-links.sh` | No `](../../` inside a skill, and every relative link resolves |
 
 **Add a check alongside any new cross-file rule, inject a matching bug to prove it goes red, and wire the script into `checks.yml`** — a green run against the real repo proves nothing on its own, and a check nobody runs is the defect it was written to prevent. Traps, and the two checks still to build: [`references/check-design.md`](references/check-design.md).
 

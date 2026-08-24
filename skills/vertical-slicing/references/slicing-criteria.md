@@ -1,102 +1,102 @@
-# 切片判据
+# Slicing Criteria
 
-切之前读这份。SKILL.md 给的是流程，这里是判断。
+Read this before cutting. `SKILL.md` gives the process; this gives the judgement.
 
-## 目录
+## Contents
 
-- [一片到底是什么](#一片到底是什么)
-- [尺度：一个全新 context window](#尺度一个全新-context-window)
-- [共享地基怎么摊](#共享地基怎么摊)
-- [第一片怎么选](#第一片怎么选)
-- [不是切片的几种常见东西](#不是切片的几种常见东西)
-- [阻塞边与 frontier](#阻塞边与-frontier)
+- [What a slice actually is](#what-a-slice-actually-is)
+- [The size anchor: one fresh context window](#the-size-anchor-one-fresh-context-window)
+- [Spreading the shared foundation](#spreading-the-shared-foundation)
+- [Picking the first slice](#picking-the-first-slice)
+- [Things that look like slices and are not](#things-that-look-like-slices-and-are-not)
+- [Blocking edges and the frontier](#blocking-edges-and-the-frontier)
 
-## 一片到底是什么
+## What a slice actually is
 
-一片是**一条窄但完整的路径，穿过所有层**。不是一层的一段。
+A slice is **one narrow but complete path through every layer**. Not a segment of one layer.
 
-横着切，每层做完都验证不了任何东西：
-
-```
-第 1 片：建完所有表
-第 2 片：写完所有接口
-第 3 片：拼完所有页面
-第 4 片：接起来
-```
-
-竖着切，每片做完都有人能做成一件事：
+Cut horizontally, and no layer verifies anything when it finishes:
 
 ```
-第 1 片：用户能登录          （会话表 + 登录接口 + 登录页）
-第 2 片：用户能建一条记录     （记录表 + 建接口 + 表单页）
-第 3 片：用户能看到自己的记录  （查询 + 列表接口 + 列表页）
+Slice 1: all the tables built
+Slice 2: all the endpoints written
+Slice 3: all the pages assembled
+Slice 4: wire it together
 ```
 
-判据只有一句：**做完这一片，有一件什么事是用户能真正做成的？** 答不上来的不是切片。
+Cut vertically, and each one ends with something somebody can do:
 
-注意这条判据问的是「能做成什么」，不是「做了多少」。「把用户模块做完」听起来像交付，但它答的是工作量，不是能力。
+```
+Slice 1: a user can sign in           (session table + sign-in endpoint + sign-in page)
+Slice 2: a user can create a record   (record table + create endpoint + form page)
+Slice 3: a user can see their records (query + list endpoint + list page)
+```
 
-## 尺度：一个全新 context window
+The test is one sentence: **when this slice is done, what is one thing a user can actually do?** No answer, no slice.
 
-**一片要装得进一个全新 context window。**
+Note what the test asks — what becomes possible, not how much got built. "Finish the user module" sounds like delivery, but it answers effort, not capability.
 
-这个锚不是比喻。实现是子 agent 在一个干净的上下文里干的：它拿到这一片的 `prd.md` / `design.md` / `implement.md`、几份 spec、几个定稿屏，然后开始写。装不下就意味着它中途会丢掉前半段的约束——而丢掉的部分不会报错，只会写出一份看起来合理但违反前提的实现。
+## The size anchor: one fresh context window
 
-**别用文件数或工时当锚。** 一个真正的垂直切片天然会碰 5 个以上文件（表 + 迁移 + 服务 + 路由 + 页面），按文件数判会把正常切片误判成「太大」，然后诱导你去横着切——恰好是要避免的方向。
+**A slice must fit in one fresh context window.**
 
-装不下的信号：
+The anchor is not a metaphor. Implementation happens in a sub-agent's clean context: it receives this slice's `prd.md` / `design.md` / `implement.md`, a few specs, a few approved screens, and starts writing. Overflow it and the constraints from the first half fall out mid-way — and what falls out raises no error, it just produces an implementation that looks reasonable and violates its premises.
 
-- 验收标准写不进 3 条 bullet
-- 标题里出现「和 / 与 / and」——那是两片，拆开
-- 它同时动了两个互不相关的子系统（比如认证和计费）
-- 你在描述它的时候需要先讲一段背景
+**Do not anchor on file count or hours.** A genuine vertical slice naturally touches five or more files — table, migration, service, route, page. Judged by file count, a normal slice reads as "too big", which pushes you toward horizontal slicing: exactly the direction to avoid.
 
-## 共享地基怎么摊
+Signals it will not fit:
 
-认证、导航壳、错误处理、数据库连接——这些东西后面每片都要用，但它们自己不是切片（没有用户能因此做成什么）。
+- The acceptance criteria do not fit in three bullets.
+- The title contains a conjunction — "and", "和", "与" — two slices, split them.
+- It touches two unrelated subsystems at once (authentication and billing, say).
+- Describing it requires a paragraph of background first.
 
-**做法是摊进第一个需要它的片，不单独成片。**
+## Spreading the shared foundation
 
-第 1 片「用户能登录」里包含会话表、CSRF 处理、错误展示的第一版。第 2 片「用户能建记录」沿用它们，只加自己需要的部分。到第 3 片时地基基本齐了，后面的片越来越薄——**这是正常曲线，不是前面切大了**。
+Authentication, the navigation shell, error handling, the database connection — every later slice needs these, but none of them is a slice on its own, because no user can do anything as a result.
 
-两个例外，都要在切片清单里说清楚：
+**Spread each one into the first slice that needs it, rather than making it a slice.**
 
-- **地基本身要换**（换认证方案、换数据库）→ 那是宽重构，走 `wide-refactor.md`
-- **地基的某一部分复杂到能独立验证**（比如「管理员能给别人建账号并指定角色」）→ 它本来就是一片，因为它有用户能做成的事
+Slice 1, "a user can sign in", contains the session table, CSRF handling and the first version of error display. Slice 2, "a user can create a record", reuses them and adds only what it needs. By slice 3 the foundation is mostly there and the later slices get thinner — **that curve is normal, not evidence the early ones were too big**.
 
-**不要为了「先把地基打好」造一个第 0 片。** 那是横切伪装成竖切：做完之后没有任何东西可验证，而且它定下的结构没经过任何真实用例检验。
+Two exceptions, both stated explicitly in the slice list:
 
-## 第一片怎么选
+- **The foundation itself is being replaced** (a new auth scheme, a different database) → that is a wide refactor; see [`wide-refactor.md`](wide-refactor.md).
+- **One part of the foundation is complex enough to verify on its own** ("an admin can create an account for someone else and assign a role") → it was a slice all along, because there is something a user can do.
 
-判据不是「哪个最重要」，是**哪个最便宜地证伪你的假设**。
+**Do not invent a slice zero to "get the foundation right first".** That is horizontal cutting in vertical clothing: nothing is verifiable when it finishes, and the structure it fixes has been tested against no real use case.
 
-第一片会定下一批后面所有片都要沿用的东西：列表长什么样、异常怎么表达、数据怎么组织、认证怎么走。它值得多想一轮。
+## Picking the first slice
 
-按这个顺序问：
+The test is not "which matters most". It is **which one falsifies your assumptions most cheaply**.
 
-1. 这份 PRD 里，**哪个假设错了代价最大**？（"外部接口给得出这个数据"、"这个量级扛得住"、"用户愿意按这个流程走"）
-2. 哪一片能最快碰到那个假设？
-3. 那一片能不能独立跑通？
+The first slice fixes a set of things every later slice inherits: what a list looks like, how errors are expressed, how data is organized, how authentication works. It is worth one extra round of thought.
 
-三个都指向同一片时选它。指向不同片时选第 2 问的答案——早点撞墙比晚点撞墙便宜。
+Ask in this order:
 
-## 不是切片的几种常见东西
+1. In this PRD, **which assumption is most expensive to have wrong**? ("the external API can supply this data", "this volume holds up", "users will follow this flow")
+2. Which slice reaches that assumption fastest?
+3. Can that slice run end to end on its own?
 
-| 它长什么样 | 为什么不是 | 怎么办 |
+Where all three point at one slice, take it. Where they point at different ones, take the answer to question 2 — hitting the wall early is cheaper than hitting it late.
+
+## Things that look like slices and are not
+
+| What it looks like | Why it is not one | Instead |
 |---|---|---|
-| 「搭好项目骨架」 | 做完验证不了任何事 | 摊进第一片 |
-| 「建完所有数据表」 | 横切 | 每片建自己要的表 |
-| 「把 X 模块做完」 | 答的是工作量不是能力 | 按「用户能做成什么」重新切 |
-| 「优化性能」 | 没有边界，也说不出做完是什么样 | 先定可观测目标，那时它才可能是一片 |
-| 「统一改一下字段类型」 | 影响面铺满全仓 | 走 `wide-refactor.md` |
-| 「建立视觉语言」 | 用户本来就能做那些事，只是变好看了 | 一次性分叉，不进切片清单 |
+| "Set up the project skeleton" | Nothing is verifiable when it is done | Spread it into the first slice |
+| "Build all the tables" | Horizontal | Each slice builds the tables it needs |
+| "Finish module X" | Answers effort, not capability | Re-cut by "what can a user do" |
+| "Optimize performance" | No boundary, and no way to say what done looks like | Set an observable target first; then it can be a slice |
+| "Change that field's type everywhere" | The blast radius covers the repository | See [`wide-refactor.md`](wide-refactor.md) |
+| "Establish the visual language" | Users could already do those things; they just look better now | A one-off fork, not a row in the slice list |
 
-## 阻塞边与 frontier
+## Blocking edges and the frontier
 
-**阻塞边 = 不先做完它，这一片根本开不了工。** 不是「习惯上排在前面」，也不是「做完它会更顺手」。
+**A blocking edge means: without that slice finished, this one cannot start.** Not "conventionally comes first", and not "would be more convenient afterwards".
 
-写宽了的后果很具体：所有片看起来都串行，你会按表格从上往下做，而实际上有几片早就可以开工——尤其是当你想并行、或者想跳过一片先验证后面某个假设的时候。
+Writing them too wide has a concrete consequence: every slice looks serial, so you work down the table in order while several slices could already have started — which matters most exactly when you want to parallelize, or to skip ahead and test a later assumption.
 
-**frontier = 阻塞边已全部完成的片。** 它是「下一片做什么」的答案。
+**The frontier is every slice whose blocking edges are all complete.** It answers "what comes next".
 
-一条链 A → B → C 的 frontier 每次只有一个，那没问题。但如果 frontier 长期只有一个而你的片有十几个，回头看看阻塞边是不是写宽了——真正的依赖通常比直觉稀疏得多。
+A single chain A → B → C has a frontier of one, which is fine. But where the frontier stays at one across a dozen slices, go back and check whether the edges were written too wide — real dependencies are usually far sparser than intuition suggests.

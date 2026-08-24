@@ -48,7 +48,7 @@ When you are unsure whether a guide applies, check its triggers.
 - [ ] a prototype walkthrough or a choice between options needs to converge
 - [ ] you want to know when to escalate to the full review protocol
 
-**It does not contain the full review protocol** — ten disciplines, P0–P3, the eight-field evidence format, stopping rules. Those live in the `design-review` skill and load only when a review is triggered. This file holds the two you need every day.
+**It does not contain the full review protocol** — ten disciplines, P0–P3, the eight-field evidence format, stopping rules. Those live in the `design-review` skill, which the user invokes by hand. This file holds the two you need every day.
 
 ### Read [`task-artifacts.md`](task-artifacts.md) when
 

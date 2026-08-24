@@ -1,58 +1,58 @@
-# 宽重构：垂直切片的例外
+# Wide Refactor: the exception to vertical slicing
 
-## 什么算宽重构
+## What counts as one
 
-**一个机械的改动，影响面铺满全仓。** 改一个共享符号的类型、重命名一个到处都在用的字段、换掉一个被几百处引用的工具函数。
+**A mechanical change whose blast radius covers the repository.** Changing a shared symbol's type, renaming a field used everywhere, replacing a utility function with hundreds of callers.
 
-它的特征是：改动本身很简单，但**一次编辑同时破坏几百个调用点**，中间没有任何一个状态是绿的。
+Its signature: the change itself is simple, but **one edit breaks hundreds of call sites at once**, with no green state in between.
 
-这类改动**切不成垂直片**。硬切的话每片都红，因为「一半调用点用新形式、一半用旧形式」这个中间态根本编译不过。而切片判据（做完这一片用户能做成什么）对它也失效——用户做成的事一件都没变，这正是重构的定义。
+This kind of change **cannot be cut into vertical slices**. Force it and every slice goes red, because the intermediate state — half the call sites on the new form, half on the old — does not compile. The slicing test fails on it too: nothing a user can do has changed, which is the definition of a refactor.
 
-**别硬套。** 遇到它就换成下面的序列。
+**Do not force it.** Switch to the sequence below.
 
 ## expand–contract
 
-分三段，每段之间保持绿：
+Three stages, green between each.
 
-### 1. expand —— 新形式和旧形式并存
+### 1. expand — the new form and the old coexist
 
-先把新的加上去，一个调用点都不改。旧形式还在，所以什么都没坏。
+Add the new thing first and change no call site. The old form is still there, so nothing is broken.
 
-新增一个字段而不是改类型；新增一个函数而不是改签名；新增一列而不是改列定义。
+Add a field rather than changing a type; add a function rather than changing a signature; add a column rather than redefining one.
 
-**这一段自己就是一票**，后面所有迁移票都被它阻塞。
+**This stage is a ticket of its own**, and every migration ticket is blocked by it.
 
-### 2. migrate —— 按影响面分批迁移
+### 2. migrate — move the call sites in batches
 
-把调用点分批切到新形式。**批次按影响面划**，通常是按包、按目录、按模块——不是按「一次改 20 个文件」这种任意数字。
+Switch the call sites to the new form batch by batch. **Draw the batches along the blast radius** — usually by package, by directory or by module, never by an arbitrary "twenty files at a time".
 
-每批一票，都被 expand 那票阻塞，批与批之间**互不阻塞**（它们可以并行，也可以任意顺序）。
+One ticket per batch, each blocked by expand, and **the batches do not block each other** — they can run in parallel or in any order.
 
-关键是：**每批做完都是绿的**，因为旧形式还在，没迁的调用点照常工作。
+The point is that **every batch ends green**, because the old form is still there and the unmigrated call sites keep working.
 
-### 3. contract —— 删掉旧形式
+### 3. contract — delete the old form
 
-所有调用点都迁完之后，删掉旧形式。**这一票被全部迁移票阻塞。**
+Once every call site has moved, delete the old form. **This ticket is blocked by all the migration tickets.**
 
-删之前确认真的没有调用点了——用编译器或者全仓搜索确认，别靠记忆。
+Confirm there really are no call sites left before deleting — use the compiler or a repository-wide search, not memory.
 
-## 分批也保持不了绿的时候
+## When even a batch cannot stay green
 
-有些改动连单批都没法独立跑绿（比如一个协议两端必须同时改）。
+Some changes cannot run green in a single batch — a protocol whose two ends must change together, for instance.
 
-这时候保留同样的序列，但让这些票**共享一个集成分支**，并且都阻塞一张最终的「集成验证」票。绿只在那张票上承诺。
+Keep the same sequence, but give those tickets a **shared integration branch**, and have them all block one final "integration verification" ticket. Green is promised only on that ticket.
 
-**这是退让，不是常规做法。** 它意味着中间有一段时间主干上的这块是不可验证的，所以：批次要尽量少、集成验证票要尽量早、而且这个安排要在切片清单里写明白，别让后来的人以为那几票可以单独交付。
+**This is a concession, not the normal path.** It means that for a stretch, that part of the trunk is unverifiable — so keep the batches few, put the integration ticket early, and state the arrangement plainly in the slice list, so nobody later assumes those tickets ship independently.
 
-## 写进 slices.md 长什么样
+## How it looks in slices.md
 
-宽重构的票同样占四列，但第三列（端到端能验证什么）写的是**技术可观测的结果**而不是用户能力：
+A wide refactor's tickets still fill four columns, but the third one states a **technically observable result** rather than a user capability:
 
-| 切片 | 阻塞边 | 端到端能验证什么 | 本片对应的高保真屏 |
+| Slice | Blocking edges | What it verifies end to end | Screens in the approved hi-fi |
 |---|---|---|---|
-| expand：新增 `status_v2` 列并双写 | 无 | 新旧列在写入后一致，旧读路径不变 | —（无界面变更） |
-| migrate：订单模块切到 `status_v2` | expand | 订单相关测试全绿，其余模块不受影响 | — |
-| migrate：报表模块切到 `status_v2` | expand | 报表测试全绿 | — |
-| contract：删除 `status` 旧列 | 两条 migrate | 全仓无 `status` 引用，全量测试绿 | — |
+| expand: add `status_v2` and dual-write | none | Old and new columns agree after a write; the old read path is unchanged | — (no interface change) |
+| migrate: orders module to `status_v2` | expand | Order tests green, other modules unaffected | — |
+| migrate: reporting module to `status_v2` | expand | Reporting tests green | — |
+| contract: drop the old `status` column | both migrations | No `status` references remain; the full suite is green | — |
 
-**第四列为空是这类票的正常形态**，因为它们通常不动界面。动了界面的就不是纯宽重构，把界面那部分单独切成正常的垂直片。
+**An empty fourth column is normal here**, because these tickets usually do not touch the interface. One that does is not a pure wide refactor — cut the interface part out as an ordinary vertical slice.

@@ -25,7 +25,7 @@
 | Trellis 自带 skill（brainstorm / check / meta…） | `trellis init --claude` | 项目内 `.claude/skills/` |
 | workflow 模板 | `--workflow` / `--workflow-source` / `trellis workflow` | 项目内 `.trellis/workflow.md` |
 
-四个都长得像「装个东西进来」，落点和机制完全不同。搞混的典型症状是「我明明 init 了，怎么 `vertical-slicing` 不触发」。
+四个都长得像「装个东西进来」，落点和机制完全不同。搞混的典型症状是「我明明 init 了，怎么 slash 列表里没有 `/vertical-slicing`」。
 
 <details>
 <summary>为什么 registry 不装 skill（源码依据，供将来复核）</summary>
@@ -249,7 +249,7 @@ Trellis 在没有活跃 task 时每轮都会问「要不要建 task」。默认�
 - 不存在 → 正常流程，不阻塞。
 - 存在但没写「当前阶段目标」→ 先补，再建 task。
 - 存在且有阶段目标 → 读它。本次 task 必须是阶段目标下的一个纵向切片；
-  说不出它属于哪个切片，就先用 vertical-slicing 排切片。
+  说不出它属于哪个切片，就先打 /vertical-slicing 排切片。
 一句话能答完、不改文件、不需要调研的，不建 task。
 [/workflow-state:no_task]
 ```
@@ -289,9 +289,11 @@ Trellis 规定复杂 task 在 `task.py start` 之前必须有 `design.md` + `imp
 
 ## 常见卡点
 
-### 「init 完了，但 vertical-slicing 不触发」
+### 「init 完了，但 slash 列表里没有 /vertical-slicing」
 
 九成是软链没做。registry **不装 skill**，见本页开头那张表。
+
+本仓两个 skill 都是**手工触发**（`disable-model-invocation`），所以判据是它在不在你的 slash 列表里，不是 AI 会不会自己想起来用。
 
 ```bash
 scripts/install-skills.sh --check

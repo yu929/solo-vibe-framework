@@ -1,10 +1,10 @@
 # Writing a Check Here
 
-What the four regressions have in common, the traps in adding a fifth, and the two checks that are known to be missing.
+What the five regressions have in common, the traps in adding a sixth, and the two checks that are known to be missing.
 
 ## What earns a check
 
-All four guard defects that have **no symptom**: installing two templates does not error, a modified `vendor/` file leaves the SHA unchanged, a link that breaks on install is green in the source tree, and a spec truncated to half its length arrives looking complete. Nothing will come and tell you, so a machine has to.
+All five guard defects that have **no symptom**: installing two templates does not error, a modified `vendor/` file leaves the SHA unchanged, a link that breaks on install is green in the source tree, a spec truncated to half its length arrives looking complete, and a skill whose cross-directory reference is dead reads as a skill that simply has fewer rules. Nothing will come and tell you, so a machine has to.
 
 That is the bar. A rule whose violation shows up on its own does not need one.
 
@@ -27,7 +27,7 @@ The previous version of this repository shipped two invariant scripts with 28 ch
 - **The keyword is not the criterion; the qualifier in front of it is.** Measured during one refactor: `grep '全量屏|全部屏'` returned 16 hits, and reading all of them showed every one was legitimate. "This slice's full set of screens" is correct; "the MVP's full set of screens" is drift — and the two share a keyword. What works is taking a window of context before the match and sorting by qualifier: slice-scoped qualifiers pass, product-scoped qualifiers fail, and no qualifier goes to a human.
 - **Sentences describing history always trip the check, so leave a human-review exit.** "The old version read this as 'covers the whole MVP'" and "that shortcut has been deleted" cannot be written without the forbidden phrase. Do not add an exemption pattern — it will exempt real drift too. Report them, flagged for review, outside the pass/fail count.
 
-## The current four
+## The current five
 
 | Script | Guards | How it was proven able to fail |
 |---|---|---|
@@ -35,14 +35,14 @@ The previous version of this repository shipped two invariant scripts with 28 ch
 | `test-sync-vendor.sh` | Vendored content equals the pinned upstream, offline by checksum | Comparing SHAs alone reports local drift as "already up to date" |
 | `test-spec-templates.sh` | Install-tree links, guides matching source, `§N` resolution, frontmatter carrying `paths` or nothing | Restore a `](../../` link, or point a `§N` at a section that does not exist |
 | `test-spec-injection.sh` | The expected core ranks first, arrives whole, and is the only spec matched | Three injections, one per assertion; the recipes are in the script's header |
+| `test-skill-links.sh` | No `](../../` inside a skill, and every relative link resolves | Two injections plus a negative case; the recipes are in the script's header |
 
 ## Still to build
 
-All three are known to be needed. None is built, because a rule that has never survived a real run is a rule that is still moving.
+Both are known to be needed. Neither is built, because a rule that has never survived a real run is a rule that is still moving.
 
 | Check | Why | Bug to inject |
 |---|---|---|
-| **No `](../../` inside a skill** | A skill symlinked into `~/.claude/skills/` cannot reach this repository's `specs/`, so a cross-directory reference arrives as a dead link. This was a high-severity defect once already, and a text convention did not prevent it. `test-spec-templates.sh` case 3 only scans `specs/` | Add the literal text `](../../specs/x.md)` to any `SKILL.md`; the check must fail |
 | **The four sources of truth hold no copies of each other** | Requirements, terminology, decisions and interface structure each have one home. A copy diverges, and the divergence shows nothing for months | Put a glossary into the PRD template — the check must fail. Write "terminology is in `CONTEXT.md`" — the check must **not** fire |
 | **The pasted planning prompt and `task-artifacts.md` still agree** | The `implement.jsonl` rule lives in two files by design: one ships with the registry, one a person pastes into their own `workflow.md`. Drift is silent — the pasted copy keeps working while the shipped one moves on | Delete the spec-index lines from the prompt block in [`../playbook/00-setup.md`](../playbook/00-setup.md) step 6; the check must fail |
 

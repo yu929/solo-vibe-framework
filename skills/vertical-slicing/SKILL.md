@@ -1,118 +1,105 @@
 ---
 name: vertical-slicing
-description: 把一份已收敛的完整 PRD（配合已定稿的全量高保真）切成一串能逐个交付的垂直切片，产出 docs/discovery/slices.md——每片端到端可验证、装得进一个全新 context window、自带阻塞边和它对应的高保真屏。凡是用户提到切片、垂直切片、拆片、排开发顺序、先做哪个、下一片做什么、怎么分批上线、MVP 怎么拆、slice、slicing、task breakdown，或者手上有一份写完的 PRD/需求文档却不知道从哪开工，都应该用这个 skill——即使他们没说"切片"两个字。需求收敛本身归 trellis-brainstorm，视觉与高保真归 ui-ux-pro-max，单片的技术设计与实现步骤归那个 Trellis task 自己的 design.md / implement.md。
+description: Cut a converged PRD into deliverable vertical slices and write docs/discovery/slices.md.
+disable-model-invocation: true
 ---
 
-# 垂直切片
+# Vertical Slicing
 
-把完整 PRD 切成一串能逐个交付的片，写进 `docs/discovery/slices.md`。
+Cut the full PRD into a series of slices that can be delivered one at a time, and write them into `docs/discovery/slices.md`.
 
-## 为什么需要这一步
+## Why this step exists
 
-Trellis 管得了单个 task 的生命周期，但它明确不管顺序——原文是 *"Parent/child structure is not a dependency system"*。父子任务树不表达依赖，所以「先做哪一片、哪一片在等谁」没有宿主。`slices.md` 就是那个宿主。
+Trellis owns a task's lifecycle but explicitly does not own order — its own words are *"Parent/child structure is not a dependency system"*. A parent/child tree expresses no dependency, so "which slice comes first, and which one is waiting on what" has no host. `slices.md` is that host.
 
-切片本身也不是分配工作量，而是**反复交付可验证的完整链路**。横着切（先建所有表，再写所有接口，再拼所有页面）在每一层做完时都验证不了任何东西，等到最后一层才发现前面理解错了。竖着切，每片做完都有一件用户能真正做成的事。
+Slicing is not about dividing up effort. It is about **delivering a complete, verifiable path over and over**. Cut horizontally — all the tables, then all the endpoints, then all the pages — and no layer verifies anything when it finishes; the misunderstanding surfaces at the last one. Cut vertically and every slice ends with something a user can actually do.
 
-## 什么时候用
+## When to use it
 
-在 task 之外跑，进 Trellis 之前的最后一步：
+It runs outside any task, as the last step before Trellis:
 
 ```
-完整 PRD → 验字段 → 全量高保真定稿
-  → 【这里】切片 + 排阻塞边 → docs/discovery/slices.md
-  ─────── 以下每片一轮 ───────
-  → task.py create → brainstorm 写 prd/design/implement
-  → 用户批准 planning summary（Trellis 自带门禁）→ task.py start
+Full PRD → verify fields → hi-fi approved
+  → [HERE] slice + blocking edges → docs/discovery/slices.md
+  ─────── one round per slice from here ───────
+  → task.py create → brainstorm writes prd/design/implement
+  → you approve the planning summary (Trellis's own gate) → task.py start
 ```
 
-开始前先确认输入，按顺序判，命中即停：
+Check the inputs first, in order, stopping at the first match:
 
-| 情况 | 怎么做 |
+| Situation | What to do |
 |---|---|
-| 没有完整 PRD | 停下。切片是对**已收敛需求**的重新组织；PRD 不在，切出来的是猜测 |
-| 有 UI 但高保真没定稿 | 停下。只给「按 PRD 能看出的粗草案」并说明它还不能进 `slices.md`——第四列填不出来的清单，实现时就是让子 agent 自由发挥 |
-| `slices.md` 已存在，只是要加一片 | 跳到「和用户敲定」，只做增量，别重排全表 |
-| 都不是 | 往下走 |
+| No full PRD | Stop. Slicing reorganizes **converged requirements**; without the PRD what comes out is guesswork |
+| There is UI, but the hi-fi is not approved | Stop. Produce only a rough draft from what the PRD shows, and say it cannot enter `slices.md` yet — a list whose fourth column is empty means an implementation sub-agent improvising |
+| `slices.md` exists and one slice is being added | Skip to "Settle it with the user"; do the increment only, and leave the rest of the table alone |
+| None of the above | Continue |
 
-## 读什么
+## What to read
 
-- **完整 PRD**：功能清单、明确不做、验收标准
-- **全量高保真定稿**：把所有屏 / 交互序列列出来，第四列从这里取
-- **`CONTEXT.md`**（术语表，如果有）：按它用词，别自造同义词
-- **`docs/adr/`**（如果有）：承重决策会限制切法。「先单体后拆服务」这类决定直接影响地基怎么摊
-- **已有的 `slices.md`**：本轮是增量不是重来
+- **The full PRD**: the feature list, what is explicitly excluded, the acceptance criteria.
+- **The approved hi-fi**: enumerate every screen and interaction sequence — the fourth column comes from here.
+- **`CONTEXT.md`** (the glossary, where there is one): use its words, and coin no synonyms.
+- **`docs/adr/`** (where there is one): load-bearing decisions constrain how you can cut. "Monolith first, split into services later" directly changes how the shared foundation is spread.
+- **An existing `slices.md`**: this round is an increment, not a restart.
 
-## 怎么切
+## How to cut
 
-每片写四列。填不满四列的，多半不是一片。
+Four columns per slice. A slice that cannot fill all four is usually not a slice.
 
-| 列 | 内容 |
+| Column | Content |
 |---|---|
-| 切片 | 短标题 |
-| 阻塞边 | 哪几片必须先完成 |
-| 端到端能验证什么 | 一句话，用户视角 |
-| 本片对应的高保真屏 | 定稿里的具体路径 |
+| Slice | A short title |
+| Blocking edges | Which slices must finish first |
+| What it verifies end to end | One sentence, from the user's point of view |
+| Screens in the approved hi-fi | The concrete paths |
 
-判据、尺度、共享地基怎么摊、第一片怎么选，全在 [`references/slicing-criteria.md`](references/slicing-criteria.md)。切之前读它。
+The criteria, the size anchor, how to spread the shared foundation, and how to pick the first slice are all in [`references/slicing-criteria.md`](references/slicing-criteria.md). Read it before cutting.
 
-三个当场就能用的信号：
+Three signals you can apply on the spot:
 
-- **说不出「做完这一片，有一件什么事是用户能真正做成的」** → 不是切片。「先把表建了」「先搭好框架」验证不了任何东西，它们该被拆进各自的片里
-- **标题里出现「和 / 与 / and」** → 是两片，拆开
-- **一片装不进一个全新 context window** → 太大。实现是子 agent 在全新 context 里干的，那个窗口就是天然的尺度上限
+- **You cannot say "when this slice is done, here is one thing a user can actually do"** → not a slice. "Build the tables first" and "set up the skeleton" verify nothing; break them into the slices that need them.
+- **The title contains a conjunction** — "and", "和", "与" → two slices. Split them. (Slice titles are written in the template's language, so test for the conjunction in that language.)
+- **It does not fit in one fresh context window** → too big. Implementation happens in a sub-agent's fresh context, and that window is the natural size ceiling.
 
-**阻塞边只写真的挡住它的。** 顺序不是依赖——把「碰巧排在前面」写成阻塞边，会让后面所有片看起来都是串行的，而实际上有些本可以随时开工。
+**Write only the blocking edges that genuinely block.** Order is not dependency — writing "happens to come earlier" into the blocking edges makes every later slice look serial when some could start at any time.
 
-**宽重构不走这张表。** 改一个共享符号的类型、重命名一个到处都在用的字段——这类改动的影响面铺满全仓，硬切成垂直片会每片都红。它走 expand–contract，见 [`references/wide-refactor.md`](references/wide-refactor.md)。
+**A wide refactor does not go in this table.** Changing a shared symbol's type, renaming a field used everywhere — the blast radius covers the repository, and forcing it into vertical slices makes every slice red. It goes through expand–contract; see [`references/wide-refactor.md`](references/wide-refactor.md).
 
-## 和用户敲定
+## Settle it with the user
 
-把草案编号列出来，问三个问题，迭代到用户批准：
+List the draft with numbers and ask three questions, iterating to approval:
 
-1. 粒度对不对？太粗还是太细？
-2. 阻塞边对不对——每片是不是只依赖真正挡住它的片？
-3. 有没有该合并或该再拆的？
+1. Is the granularity right — too coarse, or too fine?
+2. Are the blocking edges right — does each slice depend only on what genuinely blocks it?
+3. Is anything worth merging, or worth splitting further?
 
-**一次定。** 落选切法里想保留的要素当场合并进定稿，不留「再看看」。这是这一步唯一真会失控的地方——失控形态不是切得多，是在几种切法之间反复摇摆。
+**Decide once.** Fold whatever is worth keeping from a rejected cut into the approved one on the spot, and leave nothing as "let's see". This is the one step here that genuinely runs away, and the runaway shape is not cutting too much — it is oscillating between two or three ways to cut.
 
-最多两轮。第二轮之后仍有分歧的记成「待确认」，别进第三轮。
+Two rounds, maximum. Record whatever is still disputed after the second round as "to confirm", and do not open a third.
 
-一片对应的屏超过 6 个时提醒一句「这片是不是切大了」，把结论留痕，但**不要阻塞**——有些片就是大，判断权在用户。
+Where a slice maps to more than six screens, say once that it may be cut too large and leave the conclusion on the record — but **do not block**. Some slices are simply large, and the judgement is the user's.
 
-## 写 slices.md
+## Write slices.md
 
-按 `assets/slices-template.md` 写三节：阶段目标 / 切片清单 / frontier。
+Follow `assets/slices-template.md` (it is in Chinese, matching its output) for the three sections: the phase goal, the slice list, the frontier.
 
-**frontier 要算，不是照抄顺序。** frontier = 阻塞边已全部完成的片。「下一片做什么」由它回答；从上往下数会漏掉那些其实早就可以开工的片。
+**Compute the frontier; do not copy the order.** The frontier is every slice whose blocking edges are all complete. It answers "what comes next"; counting down the table from the top misses the slices that could have started long ago.
 
-**第四列必须填。** 填不出来说明这一片在高保真里没有对应结构——要么回去补高保真，要么这一片切错了。它不是装饰，是下一节那个步骤的取值范围。
+**Fill in the fourth column.** An empty cell means this slice has no matching structure in the hi-fi — either go back and complete the hi-fi, or this slice is cut wrong. It is not decoration: it is the value range for the jsonl step below.
 
-## 每片进 task 时：把这片的屏填进 implement.jsonl
+**As each slice becomes a task, its screens go into `implement.jsonl`.** That rule and its failure mode belong to `specs/universal/guides/task-artifacts.md`, which Trellis injects when task files are edited; the fourth column exists to give that step an accurate value range. **List only this slice's screens** — the full hi-fi overflows the sub-agent's context.
 
-这一步发生在切片之后、每片开工时，很容易丢，而**丢了没有任何症状**。
+## Boundaries
 
-实现期的子 agent 在一个全新 context window 里工作，它能看到的只有 `implement.jsonl` 列出的文件内容。`prd.md` 里写一行定稿路径不算——那只是个字符串，混在几份规范的注入内容中间很容易被略过。这个失效形态实跑验证过：定稿画了、`prd.md` 也引用了，实现出来照样不是定稿的结构，看起来像是执行不认真。
+- **Define no requirements, and change no hi-fi.** Where the PRD or the hi-fi turns out to be wrong, go back and change it there, saying why — writing a missing requirement into the slice list decides requirements under another name. Which artifact is authoritative at each stage, and how to write the change back as a delta, are in `specs/universal/guides/source-of-truth.md`, injected when `docs/discovery/**` is edited.
+- **Write no `prd.md` / `design.md` / `implement.md`.** Those three are `trellis-brainstorm`'s output inside a task and cover "how this slice gets built"; this step answers only "how big, who blocks whom, and which screens".
+- **Set no approval flags.** The output is material feeding the approval that brainstorm asks for; the one thing on this chain that can actually stop work is Trellis's planning-summary gate.
 
-```bash
-python3 ./.trellis/scripts/task.py add-context "$TASK_DIR" implement \
-  "<slices.md 第四列列出的路径>" \
-  "本片实现的结构依据：区域分组、字段顺序、状态表达沿用定稿"
-```
+## Files
 
-**只填这一片的那几屏。** 高保真是全量的，整个塞进去会把子 agent 的 context 撑爆——第四列存在的全部理由就是让这一步有个准确的取值范围。
-
-Trellis 的 jsonl 规则写着「不放 code files」，定稿 HTML 很容易被误判进那条排除。它不是 code，是结构依据。不列进去，切片的全部产出就停在了 planning。
-
-## 边界
-
-- **不定义需求，也不改高保真。** 发现 PRD 或高保真有问题，回去改并说明，别在切片清单里私自补一条需求——那等于用切片的名义拍需求
-- **不写 `prd.md` / `design.md` / `implement.md`。** 那三份是 task 内 `trellis-brainstorm` 的产物，讲的是「这一片怎么做」；这里只回答「切多大、谁挡谁、对应哪几屏」
-- **不置任何 approved 标记。** 产物是喂给 brainstorm 那次批准的材料，这条链上唯一能真正拦住开工的是 Trellis 的 planning summary
-
-## 文件
-
-| 文件 | 什么时候读 |
+| File | When to read it |
 |---|---|
-| [`references/slicing-criteria.md`](references/slicing-criteria.md) | 切之前。判据、尺度锚、共享地基、第一片怎么选 |
-| [`references/wide-refactor.md`](references/wide-refactor.md) | 遇到影响面铺满全仓的机械改动时 |
-| `assets/slices-template.md` | 写 `slices.md` 时 |
+| [`references/slicing-criteria.md`](references/slicing-criteria.md) | Before cutting. Criteria, the size anchor, the shared foundation, picking the first slice |
+| [`references/wide-refactor.md`](references/wide-refactor.md) | When a mechanical change covers the whole repository |
+| [`assets/slices-template.md`](assets/slices-template.md) | When writing `slices.md`. **In Chinese**, matching the document it produces |

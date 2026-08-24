@@ -83,4 +83,4 @@ Signals that the two sections above are not enough and `design-review` is needed
 - a new session produced another batch of opinions
 - findings from several reviewers need merging and de-duplicating
 
-Use the `design-review` skill then. It brings frozen inputs, an issue log, an evidence threshold and stopping rules. **Do not restate any of that here** — it is much heavier, and applying it to everyday work adds exactly the audit burden that discipline exists to cure.
+**Tell the user to run `design-review` then.** It is user-invoked, so an agent cannot reach it — say the signal you hit and let them pull it. It brings frozen inputs, an issue log, an evidence threshold and stopping rules. **Do not restate any of that here** — it is much heavier, and applying it to everyday work adds exactly the audit burden that discipline exists to cure.

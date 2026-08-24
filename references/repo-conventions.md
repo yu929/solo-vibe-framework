@@ -33,16 +33,39 @@ Every scenario file has the same six sections:
 
 ```text
 skills/<name>/
-  SKILL.md                  # frontmatter (name/description) + the main flow
+  SKILL.md                  # frontmatter + the main flow
   references/*.md           # full detail, loaded on demand
   assets/*                  # output templates
-  agents/<role>.md          # optional: a read-only reviewer prompt
 ```
+
+Three directories, matching the official `skill-creator` anatomy. A reviewer prompt is `references/`, not a fourth directory: it is read as a checklist as often as it is dispatched.
 
 - Keep `SKILL.md` short and push detail into `references/`.
 - **One rule, one definition.** Everywhere else points at it. Change the authoritative copy first.
-- Validate frontmatter and relative links with `skill-creator` after adding or substantially changing a skill.
-- **A skill must not reference `](../../`.** Skills are symlinked or copied into `~/.claude/skills/`, where this repository's `specs/` is unreachable — a cross-directory reference arrives there as a dead link, and the skill degrades into a shell whose core rules the model fills in for itself. No check enforces this yet; it is listed in [`check-design.md`](check-design.md).
+- **A skill must not reference `](../../`.** Skills are symlinked or copied into `~/.claude/skills/`, where this repository's `specs/` is unreachable — a cross-directory reference arrives there as a dead link, and the skill degrades into a shell whose core rules the model fills in for itself. [`../scripts/test-skill-links.sh`](../scripts/test-skill-links.sh) enforces this, and that every other relative link resolves.
+- Frontmatter limits are `name` ≤ 64 characters and `description` ≤ 1024, from `skill-creator`'s `scripts/quick_validate.py`. That script needs PyYAML, which the system `python3` here does not have — check the two lengths directly rather than installing a dependency for two numbers.
+
+### Both of this repository's skills are user-invoked
+
+`vertical-slicing` and `design-review` both carry `disable-model-invocation: true`, so their descriptions leave the model's context entirely and only a person can fire them. The reason is the same for each: **each runs about once per project, at a moment the person already knows they are at.** `design-review` is an escape hatch, and `vertical-slicing` sits at a fixed point in the 0-to-1 flow the manual walks you through.
+
+The cost is that no agent can reach either one. That shapes how they are referenced: `specs/universal/guides/review-adjudication.md` §3 tells the agent to **name the signal and let the user pull the skill**, rather than reaching for it. Nothing in `specs/` points at `vertical-slicing` at all, so it needed no such change.
+
+### A template's language follows its output
+
+An asset is a template, and a template belongs to the document it produces. **The test is who reads the output and which repository it lands in**, never which skill the asset sits in.
+
+| Asset | Output | Language |
+|---|---|---|
+| `vertical-slicing/assets/slices-template.md` | `docs/discovery/slices.md` in a project repository, read by the person deciding what to build next — product planning | **Chinese** |
+| `design-review/assets/review-ledger-template.md` | An issue log carried across sessions, whose fields are English enum values (`ACCEPTED_BLOCKING`, `reopen_condition`) | **English** |
+| `design-review/assets/review-report-template.md` | Conversational output: the admission verdict, read by the person deciding whether to build | **Chinese** |
+
+Each file stays uniform inside itself, so `AGENTS.md`'s one-language-per-file rule is untouched. Mark the exception in the skill's own file table, so a reader following the pointer is not surprised.
+
+**Conversational output counts as output.** The criterion asks who reads it, not whether it lands in a file — so a template producing text for a Chinese-speaking person is Chinese even though nothing is written to disk. That is also why such a template cannot be inlined into an English `SKILL.md`: a Chinese block inside an English file is the drift `AGENTS.md` forbids, so **the template earns a separate file on language grounds alone**, whatever its size.
+
+The same skill can hold both languages in different assets, because the test is per output, not per skill: `design-review`'s report is Chinese while its log is English, and the reviewer's output format — a subagent handing findings to the main agent — stays English inside `references/reviewer-checklist.md` because its reader is another agent.
 
 ## Writing
 

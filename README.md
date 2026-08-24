@@ -59,7 +59,7 @@ trellis init --claude --registry https://github.com/yu929/solo-vibe-framework \
    ├─ 抛原型验字段 ──── prototype（LOGIC）  → 丢弃品，验完就删
    ├─ 反写 PRD                             → 字段级收敛到此为止
    ├─ 全量高保真定稿 ── ui-ux-pro-max      → design-system/             ★ 选案，一次定
-   ├─ 垂直切片 ──────── vertical-slicing   → docs/discovery/slices.md   ★ 切法 + 第一片
+   ├─ 垂直切片 ──────── /vertical-slicing  → docs/discovery/slices.md   ★ 切法 + 第一片
    │
    └─ 逐片进 Trellis ──┬─ Plan     写 prd / design / implement
                        │           本片定稿屏进 implement.jsonl
@@ -95,9 +95,9 @@ trellis init --claude --registry https://github.com/yu929/solo-vibe-framework \
 
 ### 一个不在主流程里的出口
 
-[`design-review`](skills/design-review/SKILL.md) 是**逃生舱**，你主动喊才上场。
+[`design-review`](skills/design-review/SKILL.md) 是**逃生舱**，你主动喊才上场——它带 `disable-model-invocation`，AI 够不着，只有你能拉。
 
-它治的不是「审得不够细」，是「停不下来」：换了几个 session 反复审同一份设计，问题越修越多，你说不出什么时候算审完。它用冻结输入、问题台账、证据门槛、P0–P3 和停止规则强制收敛。完整触发条件在它自己的「什么时候用」一节。
+它治的不是「审得不够细」，是「停不下来」：换了几个 session 反复审同一份设计，问题越修越多，你说不出什么时候算审完。它用冻结输入、问题台账、证据门槛、P0–P3 和停止规则强制收敛。完整触发条件在它自己的 When to use it 一节。
 
 ## 仓库结构
 
@@ -109,7 +109,7 @@ specs/                      Trellis registry —— 装进项目的 .trellis/spe
 skills/                     自有 skill：vertical-slicing · design-review
 vendor/mattpocock-skills/   六个第三方 skill 的只读拷贝（含 LICENSE 与校验清单）
 playbook/                   给人读的操作手册（五个场景）
-scripts/                    install-skills · sync-vendor · sync-spec-guides + 三个 test-*
+scripts/                    install-skills · sync-vendor · sync-spec-guides + 五个 test-*
 references/third-party.md   第三方依赖：装什么、不装什么、为什么
 index.json                  registry manifest（只登记 type: spec）
 ```
